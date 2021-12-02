@@ -5,6 +5,10 @@ pub async fn sync() {
         .expect("failed to create build folder");
 
     let timestamp = fpm::get_timestamp_nanosecond();
+    println!(
+        "Repo for {} is github, directly syncing with .history.",
+        base_dir.as_str()
+    );
     for doc in fpm::process_dir(base_dir.clone(), 0, base_dir, &[]) {
         write(&doc, timestamp);
     }
@@ -69,8 +73,5 @@ fn write(doc: &fpm::Document, timestamp: u128) {
 
     f.write_all(doc.document.as_bytes())
         .expect("failed to write to .html file");
-    println!(
-        "Generated history [{}]",
-        format!("{}/{}", doc.base_path, doc.id)
-    );
+    println!("{}", doc.id);
 }
