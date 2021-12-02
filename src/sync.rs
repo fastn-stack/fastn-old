@@ -5,7 +5,7 @@ pub async fn sync() {
         .expect("failed to create build folder");
 
     let timestamp = fpm::get_timestamp_nanosecond();
-    for doc in fpm::process_dir(base_dir.clone(), 0, base_dir) {
+    for doc in fpm::process_dir(base_dir.clone(), 0, base_dir, &[]) {
         write(&doc, timestamp);
     }
 }
@@ -17,10 +17,46 @@ fn write(doc: &fpm::Document, timestamp: u128) {
         return;
     }
 
-    if doc.id.contains('/') {
-        let (dir, _) = doc.id.rsplit_once('/').unwrap();
+    let (path, doc_name) = if doc.id.contains('/') {
+        let (dir, doc_name) = doc.id.rsplit_once('/').unwrap();
         std::fs::create_dir_all(format!("{}/.history/{}", doc.base_path.as_str(), dir))
             .expect("failed to create directory folder for doc");
+        (
+            format!("{}/.history/{}", doc.base_path.as_str(), dir),
+            doc_name.to_string(),
+        )
+    } else {
+        (
+            format!("{}/.history", doc.base_path.as_str()),
+            doc.id.to_string(),
+        )
+    };
+
+    let files = std::fs::read_dir(&path).expect("Panic! Unable to process the directory");
+
+    let mut max_timestamp: Option<(String, String)> = None;
+    for n in files.flatten() {
+        let p = format!(r"{}/{}\.\d+\.ftd", path, doc_name.replace(".ftd", ""));
+        let regex = regex::Regex::new(&p).unwrap();
+        let file = n.path().to_str().unwrap().to_string();
+        if regex.is_match(&file) {
+            let timestamp = file
+                .replace(&format!("{}/{}.", path, doc_name.replace(".ftd", "")), "")
+                .replace(".ftd", "");
+            if let Some((t, _)) = &max_timestamp {
+                if *t > timestamp {
+                    continue;
+                }
+            }
+            max_timestamp = Some((timestamp, file.to_string()));
+        }
+    }
+
+    if let Some((_, path)) = max_timestamp {
+        let existing_doc = std::fs::read_to_string(&path).expect("cant read file");
+        if doc.document.eq(&existing_doc) {
+            return;
+        }
     }
 
     let new_file_path = format!(
