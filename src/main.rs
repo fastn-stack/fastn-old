@@ -23,7 +23,7 @@ fn main() {
         )
         .subcommand(
             clap::SubCommand::with_name("sync")
-                .about("Creates history of current directory")
+                .about("`sync` with `fpm-repo` or `.history` folder if not using `fpm-repo`")
                 .version(env!("CARGO_PKG_VERSION")),
         )
         .subcommand(
