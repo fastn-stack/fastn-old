@@ -59,6 +59,7 @@ fn write(doc: &fpm::Document, timestamp: u128) {
     if let Some((_, path)) = max_timestamp {
         let existing_doc = std::fs::read_to_string(&path).expect("cant read file");
         if doc.document.eq(&existing_doc) {
+            println!("{}", doc.id);
             return;
         }
     }
