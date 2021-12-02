@@ -33,7 +33,7 @@ pub fn process_dir(directory: String, depth: usize, base_path: String) -> Vec<Do
             } else if md.is_dir() {
                 // Iterate the children
                 let id = doc_path.split('/').last();
-                if id.is_some() && [".history", ".build"].contains(&id.unwrap()) {
+                if id.is_some() && [".history", ".build", ".packages"].contains(&id.unwrap()) {
                     // ignore .history and .build directory
                     continue;
                 }

@@ -21,3 +21,4 @@ Cargo.lock
 
 /tests/**/.build
 /tests/**/.history
+/tests/**/.packages

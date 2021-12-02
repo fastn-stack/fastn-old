@@ -1,0 +1,8 @@
+-- import: fpm
+
+-- fpm.package:
+name: amitu
+
+
+-- fpm.dependency: fifthtry/fpm-blog
+repo: github

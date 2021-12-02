@@ -6,20 +6,11 @@ pub struct Package {
 }
 
 impl Package {
-    pub fn parse(base_dir: String) -> Package {
-        let lib = fpm::Library {};
-        let id = "fpm".to_string();
-        let doc = std::fs::read_to_string(format!("{}/FPM.ftd", base_dir.as_str()))
-            .unwrap_or_else(|_| panic!("cant read file. {}/FPM.ftd", base_dir.as_str()));
-        let b = match ftd::p2::Document::from(id.as_str(), doc.as_str(), &lib) {
-            Ok(v) => v,
-            Err(e) => {
-                eprintln!("failed to parse {}: {:?}", id, &e);
-                todo!();
-            }
-        };
-
+    pub fn parse(b: &ftd::p2::Document) -> Package {
         // TODO(main): Error handling
-        b.only_instance::<Package>("fpm#package").unwrap().unwrap()
+        b.to_owned()
+            .only_instance::<Package>("fpm#package")
+            .unwrap()
+            .unwrap()
     }
 }
