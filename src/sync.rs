@@ -8,21 +8,17 @@ pub async fn sync() -> fpm::Result<()> {
 
     let timestamp = fpm::get_timestamp_nanosecond();
     let mut modified_files = vec![];
-
-    let mut snapshot_data = "".to_string();
+    let mut new_snapshots = vec![];
     for doc in fpm::process_dir(config.root.as_str()).await? {
         if let Some((snapshot, is_modified)) = write(&doc, timestamp, &snapshots).await? {
             if is_modified {
                 modified_files.push(snapshot.file.to_string());
             }
-            snapshot_data = format!(
-                "{}\n\n-- fpm.snapshots: {}\ntimestamp: {}",
-                snapshot_data, snapshot.file, snapshot.timestamp
-            );
+            new_snapshots.push(snapshot);
         }
     }
 
-    create_latest_snapshots(config.root.as_str(), &snapshot_data)?;
+    create_latest_snapshots(config.root.as_str(), &new_snapshots)?;
 
     if modified_files.is_empty() {
         println!("Everything is upto date.");
@@ -156,7 +152,7 @@ impl Snapshot {
 fn get_latest_snapshots(base_path: &str) -> fpm::Result<Vec<Snapshot>> {
     let new_file_path = format!("{}/.history/.latest.ftd", base_path);
     if std::fs::metadata(&new_file_path).is_err() {
-        create_latest_snapshots(base_path, "")?;
+        create_latest_snapshots(base_path, &[])?;
     }
 
     let lib = fpm::Library {};
@@ -171,11 +167,18 @@ fn get_latest_snapshots(base_path: &str) -> fpm::Result<Vec<Snapshot>> {
     Snapshot::parse(&b)
 }
 
-fn create_latest_snapshots(base_path: &str, data: &str) -> fpm::Result<()> {
+fn create_latest_snapshots(base_path: &str, snapshots: &[Snapshot]) -> fpm::Result<()> {
     use std::io::Write;
 
     let new_file_path = format!("{}/.history/.latest.ftd", base_path);
-    let snapshot_data = format!("-- import: fpm{}", data);
+    let mut snapshot_data = "-- import: fpm".to_string();
+
+    for snapshot in snapshots {
+        snapshot_data = format!(
+            "{}\n\n-- fpm.snapshots: {}\ntimestamp: {}",
+            snapshot_data, snapshot.file, snapshot.timestamp
+        );
+    }
 
     let mut f = std::fs::File::create(new_file_path.as_str())?;
 
