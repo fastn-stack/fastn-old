@@ -21,7 +21,6 @@ futures = "0.3.18"
 zip = "0.5"
 thiserror = "1.0"
 serde_derive = "1.0"
-regex = "1.5.4"
 
 
 [dev-dependencies]

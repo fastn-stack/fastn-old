@@ -51,10 +51,9 @@ fn write(doc: &fpm::Document, timestamp: u128) -> Option<String> {
 
     let mut max_timestamp: Option<(String, String)> = None;
     for n in files.flatten() {
-        let p = format!(r"{}/{}\.\d+\.ftd", path, doc_name.replace(".ftd", ""));
-        let regex = regex::Regex::new(&p).unwrap();
+        let p = format!("{}/{}.", path, doc_name.replace(".ftd", ""));
         let file = n.path().to_str().unwrap().to_string();
-        if regex.is_match(&file) {
+        if file.starts_with(&p) {
             let timestamp = file
                 .replace(&format!("{}/{}.", path, doc_name.replace(".ftd", "")), "")
                 .replace(".ftd", "");
