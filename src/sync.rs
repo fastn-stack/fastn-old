@@ -5,20 +5,31 @@ pub async fn sync() {
         .expect("failed to create build folder");
 
     let timestamp = fpm::get_timestamp_nanosecond();
-    println!(
-        "Repo for {} is github, directly syncing with .history.",
-        base_dir.as_str()
-    );
-    for doc in fpm::process_dir(base_dir.clone(), 0, base_dir, &[]) {
-        write(&doc, timestamp);
+
+    let mut modified_files = vec![];
+    for doc in fpm::process_dir(base_dir.clone(), 0, base_dir.clone(), &[]) {
+        if let Some(file) = write(&doc, timestamp) {
+            modified_files.push(file);
+        }
+    }
+    if modified_files.is_empty() {
+        println!("Everything is upto date.");
+    } else {
+        println!(
+            "Repo for {} is github, directly syncing with .history.",
+            base_dir.as_str()
+        );
+        for file in modified_files {
+            println!("{}", file);
+        }
     }
 }
 
-fn write(doc: &fpm::Document, timestamp: u128) {
+fn write(doc: &fpm::Document, timestamp: u128) -> Option<String> {
     use std::io::Write;
 
     if doc.id.starts_with(".history") {
-        return;
+        return None;
     }
 
     let (path, doc_name) = if doc.id.contains('/') {
@@ -59,7 +70,7 @@ fn write(doc: &fpm::Document, timestamp: u128) {
     if let Some((_, path)) = max_timestamp {
         let existing_doc = std::fs::read_to_string(&path).expect("cant read file");
         if doc.document.eq(&existing_doc) {
-            return;
+            return None;
         }
     }
 
@@ -73,5 +84,5 @@ fn write(doc: &fpm::Document, timestamp: u128) {
 
     f.write_all(doc.document.as_bytes())
         .expect("failed to write to .html file");
-    println!("{}", doc.id);
+    Some(doc.id.to_string())
 }
