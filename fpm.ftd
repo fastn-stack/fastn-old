@@ -14,3 +14,9 @@ optional body notes:
 caption name:
 optional string woff:
 optional string woff2:
+
+-- record snapshot:
+caption file:
+string timestamp:
+
+-- snapshot list snapshots:
