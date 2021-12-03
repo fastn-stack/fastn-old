@@ -4,7 +4,7 @@ pub async fn sync() -> fpm::Result<()> {
     std::fs::create_dir_all(format!("{}/.history", config.root.as_str()).as_str())
         .expect("failed to create build folder");
 
-    let snapshots = get_latest(config.root.as_str())?;
+    let snapshots = get_latest_snapshots(config.root.as_str())?;
 
     let timestamp = fpm::get_timestamp_nanosecond();
     let mut modified_files = vec![];
@@ -22,7 +22,7 @@ pub async fn sync() -> fpm::Result<()> {
         }
     }
 
-    create_latest(config.root.as_str(), &snapshot_data)?;
+    create_latest_snapshots(config.root.as_str(), &snapshot_data)?;
 
     if modified_files.is_empty() {
         println!("Everything is upto date.");
@@ -153,10 +153,10 @@ impl Snapshot {
     }
 }
 
-fn get_latest(base_path: &str) -> fpm::Result<Vec<Snapshot>> {
+fn get_latest_snapshots(base_path: &str) -> fpm::Result<Vec<Snapshot>> {
     let new_file_path = format!("{}/.history/.latest.ftd", base_path);
     if std::fs::metadata(&new_file_path).is_err() {
-        create_latest(base_path, "")?;
+        create_latest_snapshots(base_path, "")?;
     }
 
     let lib = fpm::Library {};
@@ -171,7 +171,7 @@ fn get_latest(base_path: &str) -> fpm::Result<Vec<Snapshot>> {
     Snapshot::parse(&b)
 }
 
-fn create_latest(base_path: &str, data: &str) -> fpm::Result<()> {
+fn create_latest_snapshots(base_path: &str, data: &str) -> fpm::Result<()> {
     use std::io::Write;
 
     let new_file_path = format!("{}/.history/.latest.ftd", base_path);
