@@ -16,7 +16,7 @@ homepage = "https://fpm.dev"
 [dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-ftd = "0.1.13"
+ftd = { version = "0.1.13", features = ["async"] }
 clap = "2.33.3"
 home = "0.5.3"
 reqwest = "0.11.6"
@@ -27,6 +27,7 @@ thiserror = "1.0"
 serde_derive = "1.0"
 url = "2.2.2"
 async-recursion = "0.3.2"
+async-trait = "0.1.51"
 
 [dev-dependencies]
 rusty-hook = "^0.11.2"

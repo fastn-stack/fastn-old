@@ -3,8 +3,9 @@ mod toc;
 //
 pub struct Library {}
 
+#[async_trait::async_trait]
 impl ftd::p2::Library for Library {
-    fn get(&self, name: &str) -> Option<String> {
+    async fn get(&self, name: &str) -> Option<String> {
         if name == "fpm" {
             return Some(fpm::fpm_ftd().to_string());
         }
@@ -17,7 +18,7 @@ impl ftd::p2::Library for Library {
         }
     }
 
-    fn process(
+    async fn process(
         &self,
         section: &ftd::p1::Section,
         doc: &ftd::p2::TDoc,
@@ -26,7 +27,7 @@ impl ftd::p2::Library for Library {
             .header
             .str(doc.name, section.line_number, "$processor$")?
         {
-            "toc" => fpm::library::toc::processor(section, doc),
+            "toc" => fpm::library::toc::processor(section, doc).await,
             "http" => fpm::library::http::processor(section, doc),
             t => unimplemented!("$processor$: {} is not implemented yet", t),
         }

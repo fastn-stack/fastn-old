@@ -1,4 +1,7 @@
-pub fn processor(section: &ftd::p1::Section, doc: &ftd::p2::TDoc) -> ftd::p1::Result<ftd::Value> {
+pub async fn processor(
+    section: &ftd::p1::Section,
+    doc: &ftd::p2::TDoc,
+) -> ftd::p1::Result<ftd::Value> {
     let toc_items = ToC::parse(section.body(section.line_number, doc.name)?.as_str())
         .map_err(|e| ftd::p1::Error::ParseError {
             message: format!("Cannot parse body: {:?}", e),
