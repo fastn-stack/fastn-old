@@ -6,14 +6,9 @@ pub struct Document {
     pub depth: usize,
 }
 
-pub fn process_dir(
-    directory: String,
-    depth: usize,
-    base_path: String,
-    ignore_files: &[&str],
-) -> Vec<Document> {
+pub fn process_dir(directory: String, depth: usize, base_path: String) -> Vec<Document> {
     let mut documents: Vec<Document> = vec![];
-    process_dir_(&mut documents, directory, depth, base_path, ignore_files);
+    process_dir_(&mut documents, directory, depth, base_path);
     return documents;
 
     fn process_dir_(
@@ -21,7 +16,6 @@ pub fn process_dir(
         directory: String,
         depth: usize,
         base_path: String,
-        ignore_files: &[&str],
     ) -> u32 {
         let mut count: u32 = 0;
         for entry in std::fs::read_dir(&directory).expect("Panic! Unable to process the directory")
@@ -34,12 +28,9 @@ pub fn process_dir(
                 .expect("Directory path is expected")
                 .to_string();
 
-            let id = doc_path.split('/').last();
-            if depth == 0 && id.is_some() && ignore_files.contains(&id.unwrap()) {
-                // pass the FPM.ftd file at the base level
-            } else if md.is_dir() {
+            if md.is_dir() {
                 // Iterate the children
-
+                let id = doc_path.split('/').last();
                 if id.is_some() && [".history", ".build", ".packages"].contains(&id.unwrap()) {
                     // ignore .history and .build directory
                     continue;
@@ -49,7 +40,6 @@ pub fn process_dir(
                     doc_path,
                     depth + 1,
                     base_path.as_str().to_string(),
-                    ignore_files,
                 );
             } else if doc_path.as_str().ends_with(".ftd") {
                 // process the document

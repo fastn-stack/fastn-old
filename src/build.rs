@@ -4,7 +4,7 @@ pub async fn build() {
     std::fs::create_dir_all(format!("{}/.build", base_dir.as_str()).as_str())
         .expect("failed to create build folder");
 
-    for doc in fpm::process_dir(base_dir.clone(), 0, base_dir, &["FPM.ftd"]) {
+    for doc in fpm::process_dir(base_dir.clone(), 0, base_dir) {
         write(&doc);
     }
 }

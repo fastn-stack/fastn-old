@@ -5,6 +5,6 @@ output: amitu/.history
 
 -- stdout:
 
-Repo for <cwd>/amitu is github, directly syncing with .history.
+Repo for amitu is github, directly syncing with .history.
 index.ftd
 FPM.ftd

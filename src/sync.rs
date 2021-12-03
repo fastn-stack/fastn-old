@@ -1,5 +1,5 @@
 pub async fn sync() {
-    let (_fpm_config, base_dir) = fpm::check().await;
+    let (fpm_config, base_dir) = fpm::check().await;
 
     std::fs::create_dir_all(format!("{}/.history", base_dir.as_str()).as_str())
         .expect("failed to create build folder");
@@ -7,7 +7,7 @@ pub async fn sync() {
     let timestamp = fpm::get_timestamp_nanosecond();
 
     let mut modified_files = vec![];
-    for doc in fpm::process_dir(base_dir.clone(), 0, base_dir.clone(), &[]) {
+    for doc in fpm::process_dir(base_dir.clone(), 0, base_dir) {
         if let Some(file) = write(&doc, timestamp) {
             modified_files.push(file);
         }
@@ -17,7 +17,7 @@ pub async fn sync() {
     } else {
         println!(
             "Repo for {} is github, directly syncing with .history.",
-            base_dir.as_str()
+            fpm_config.name
         );
         for file in modified_files {
             println!("{}", file);
