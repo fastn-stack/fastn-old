@@ -38,7 +38,7 @@ pub async fn sync() -> fpm::Result<()> {
 async fn write(
     doc: &fpm::Document,
     timestamp: u128,
-    snapshots: &[Snapshot],
+    snapshots: &std::collections::BTreeMap<String, String>,
 ) -> fpm::Result<(Snapshot, bool)> {
     use tokio::io::AsyncWriteExt;
 
@@ -47,26 +47,22 @@ async fn write(
         std::fs::create_dir_all(format!("{}/.history/{}", doc.base_path.as_str(), dir))?;
     }
 
-    for snapshot in snapshots {
-        if doc.id.eq(&snapshot.file) {
-            let path = format!(
-                "{}/.history/{}",
-                doc.base_path.as_str(),
-                doc.id
-                    .replace(".ftd", &format!(".{}.ftd", &snapshot.timestamp))
-            );
+    if let Some(timestamp) = snapshots.get(&doc.id) {
+        let path = format!(
+            "{}/.history/{}",
+            doc.base_path.as_str(),
+            doc.id.replace(".ftd", &format!(".{}.ftd", timestamp))
+        );
 
-            let existing_doc = tokio::fs::read_to_string(&path).await?;
-            if doc.document.eq(&existing_doc) {
-                return Ok((
-                    Snapshot {
-                        file: doc.id.to_string(),
-                        timestamp: snapshot.timestamp.to_string(),
-                    },
-                    false,
-                ));
-            }
-            break;
+        let existing_doc = tokio::fs::read_to_string(&path).await?;
+        if doc.document.eq(&existing_doc) {
+            return Ok((
+                Snapshot {
+                    file: doc.id.to_string(),
+                    timestamp: timestamp.to_string(),
+                },
+                false,
+            ));
         }
     }
 
@@ -100,10 +96,13 @@ impl Snapshot {
     }
 }
 
-fn get_latest_snapshots(base_path: &str) -> fpm::Result<Vec<Snapshot>> {
+fn get_latest_snapshots(
+    base_path: &str,
+) -> fpm::Result<std::collections::BTreeMap<String, String>> {
+    let mut snapshots = std::collections::BTreeMap::new();
     let new_file_path = format!("{}/.history/.latest.ftd", base_path);
     if std::fs::metadata(&new_file_path).is_err() {
-        return Ok(vec![]);
+        return Ok(snapshots);
     }
 
     let lib = fpm::Library {};
@@ -115,7 +114,11 @@ fn get_latest_snapshots(base_path: &str) -> fpm::Result<Vec<Snapshot>> {
             todo!();
         }
     };
-    Snapshot::parse(&b)
+    let snapshot_list = Snapshot::parse(&b)?;
+    for snapshot in snapshot_list {
+        snapshots.insert(snapshot.file, snapshot.timestamp);
+    }
+    Ok(snapshots)
 }
 
 async fn create_latest_snapshots(base_path: &str, snapshots: &[Snapshot]) -> fpm::Result<()> {
