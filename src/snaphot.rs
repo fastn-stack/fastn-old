@@ -6,7 +6,7 @@ pub struct Snapshot {
 
 impl Snapshot {
     pub fn parse(b: &ftd::p2::Document) -> fpm::Result<Vec<Snapshot>> {
-        Ok(b.to_owned().get::<Vec<Snapshot>>("fpm#snapshots")?)
+        Ok(b.to_owned().instances::<Snapshot>("fpm#snapshot")?)
     }
 }
 
@@ -46,7 +46,7 @@ pub(crate) async fn create_latest_snapshots(
 
     for snapshot in snapshots {
         snapshot_data = format!(
-            "{}\n\n-- fpm.snapshots: {}\ntimestamp: {}",
+            "{}\n\n-- fpm.snapshot: {}\ntimestamp: {}",
             snapshot_data, snapshot.file, snapshot.timestamp
         );
     }
