@@ -1,8 +1,7 @@
 pub async fn sync() -> fpm::Result<()> {
     let config = fpm::Config::read().await?;
 
-    std::fs::create_dir_all(format!("{}/.history", config.root.as_str()).as_str())
-        .expect("failed to create build folder");
+    tokio::fs::create_dir_all(format!("{}/.history", config.root.as_str()).as_str()).await?;
 
     let snapshots = get_latest_snapshots(config.root.as_str())?;
 
