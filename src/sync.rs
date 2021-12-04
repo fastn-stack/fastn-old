@@ -10,19 +10,20 @@ pub async fn sync() -> fpm::Result<()> {
     let mut modified_files = vec![];
     let mut new_snapshots = vec![];
     for doc in fpm::process_dir(config.root.as_str()).await? {
-        if let Some((snapshot, is_modified)) = write(&doc, timestamp, &snapshots).await? {
-            if is_modified {
-                modified_files.push(snapshot.file.to_string());
-            }
-            new_snapshots.push(snapshot);
+        if doc.id.starts_with(".history") {
+            continue;
         }
+        let (snapshot, is_modified) = write(&doc, timestamp, &snapshots).await?;
+        if is_modified {
+            modified_files.push(snapshot.file.to_string());
+        }
+        new_snapshots.push(snapshot);
     }
-
-    create_latest_snapshots(config.root.as_str(), &new_snapshots)?;
 
     if modified_files.is_empty() {
         println!("Everything is upto date.");
     } else {
+        create_latest_snapshots(config.root.as_str(), &new_snapshots).await?;
         println!(
             "Repo for {} is github, directly syncing with .history.",
             config.package.name
@@ -38,63 +39,13 @@ async fn write(
     doc: &fpm::Document,
     timestamp: u128,
     snapshots: &[Snapshot],
-) -> fpm::Result<Option<(Snapshot, bool)>> {
+) -> fpm::Result<(Snapshot, bool)> {
     use tokio::io::AsyncWriteExt;
-
-    if doc.id.starts_with(".history") {
-        return Ok(None);
-    }
 
     if doc.id.contains('/') {
         let (dir, _) = doc.id.rsplit_once('/').unwrap();
         std::fs::create_dir_all(format!("{}/.history/{}", doc.base_path.as_str(), dir))?;
     }
-
-    /*let (path, doc_name) = if doc.id.contains('/') {
-        let (dir, doc_name) = doc.id.rsplit_once('/').unwrap();
-        std::fs::create_dir_all(format!("{}/.history/{}", doc.base_path.as_str(), dir))?;
-        (
-            format!("{}/.history/{}", doc.base_path.as_str(), dir),
-            doc_name.to_string(),
-        )
-    } else {
-        (
-            format!("{}/.history", doc.base_path.as_str()),
-            doc.id.to_string(),
-        )
-    };
-
-    let mut files = tokio::fs::read_dir(&path).await?;
-
-    let mut max_timestamp: Option<(String, String)> = None;
-    while let Some(n) = files.next_entry().await? {
-        let p = format!("{}/{}.", path, doc_name.replace(".ftd", ""));
-        let file = n.path().to_str().unwrap().to_string();
-        if file.starts_with(&p) {
-            let timestamp = file
-                .replace(&format!("{}/{}.", path, doc_name.replace(".ftd", "")), "")
-                .replace(".ftd", "");
-            if let Some((t, _)) = &max_timestamp {
-                if *t > timestamp {
-                    continue;
-                }
-            }
-            max_timestamp = Some((timestamp, file.to_string()));
-        }
-    }
-
-    if let Some((timestamp, path)) = max_timestamp {
-        let existing_doc = tokio::fs::read_to_string(&path).await?;
-        if doc.document.eq(&existing_doc) {
-            return Ok(Some((
-                Snapshot {
-                    file: doc_name.to_string(),
-                    timestamp,
-                },
-                false,
-            )));
-        }
-    }*/
 
     for snapshot in snapshots {
         if doc.id.eq(&snapshot.file) {
@@ -107,13 +58,13 @@ async fn write(
 
             let existing_doc = tokio::fs::read_to_string(&path).await?;
             if doc.document.eq(&existing_doc) {
-                return Ok(Some((
+                return Ok((
                     Snapshot {
                         file: doc.id.to_string(),
                         timestamp: snapshot.timestamp.to_string(),
                     },
                     false,
-                )));
+                ));
             }
             break;
         }
@@ -128,13 +79,13 @@ async fn write(
     let mut f = tokio::fs::File::create(new_file_path.as_str()).await?;
     f.write_all(doc.document.as_bytes()).await?;
 
-    Ok(Some((
+    Ok((
         Snapshot {
             file: doc.id.to_string(),
             timestamp: timestamp.to_string(),
         },
         true,
-    )))
+    ))
 }
 
 #[derive(serde::Deserialize, Debug)]
@@ -152,7 +103,7 @@ impl Snapshot {
 fn get_latest_snapshots(base_path: &str) -> fpm::Result<Vec<Snapshot>> {
     let new_file_path = format!("{}/.history/.latest.ftd", base_path);
     if std::fs::metadata(&new_file_path).is_err() {
-        create_latest_snapshots(base_path, &[])?;
+        return Ok(vec![]);
     }
 
     let lib = fpm::Library {};
@@ -167,8 +118,8 @@ fn get_latest_snapshots(base_path: &str) -> fpm::Result<Vec<Snapshot>> {
     Snapshot::parse(&b)
 }
 
-fn create_latest_snapshots(base_path: &str, snapshots: &[Snapshot]) -> fpm::Result<()> {
-    use std::io::Write;
+async fn create_latest_snapshots(base_path: &str, snapshots: &[Snapshot]) -> fpm::Result<()> {
+    use tokio::io::AsyncWriteExt;
 
     let new_file_path = format!("{}/.history/.latest.ftd", base_path);
     let mut snapshot_data = "-- import: fpm".to_string();
@@ -180,9 +131,9 @@ fn create_latest_snapshots(base_path: &str, snapshots: &[Snapshot]) -> fpm::Resu
         );
     }
 
-    let mut f = std::fs::File::create(new_file_path.as_str())?;
+    let mut f = tokio::fs::File::create(new_file_path.as_str()).await?;
 
-    f.write_all(snapshot_data.as_bytes())?;
+    f.write_all(snapshot_data.as_bytes()).await?;
 
     Ok(())
 }
