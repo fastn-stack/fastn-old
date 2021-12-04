@@ -19,6 +19,14 @@ pub async fn status() -> fpm::Result<()> {
             println!("{:?} {}", FileStatus::Removed, id);
         }
     }
+
+    for (id, status) in filestatus
+        .iter()
+        .filter(|(_, f)| f.eq(&&FileStatus::Added))
+        .collect::<Vec<(&String, &FileStatus)>>()
+    {
+        println!("{:?} {}", status, id);
+    }
     Ok(())
 }
 
