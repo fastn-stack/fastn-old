@@ -9,17 +9,22 @@ pub struct Document {
 pub(crate) async fn process_dir(directory: &str) -> fpm::Result<Vec<Document>> {
     let mut documents: Vec<Document> = vec![];
 
-    let all_files = ignore::Walk::new(directory.to_string())
-        .into_iter()
-        .map(|x| {
-            tokio::spawn(process_file_(
-                &mut documents,
-                x.unwrap().into_path(),
-                directory,
-            ))
-        })
-        .collect::<Vec<tokio::task::JoinHandle<fpm::Result<()>>>>();
-    futures::future::join_all(all_files).await;
+    // let all_files = ignore::Walk::new(directory.to_string())
+    //     .into_iter()
+    //     .map(|x| {
+    //         tokio::spawn(process_file_(
+    //             &mut documents,
+    //             x.unwrap().into_path(),
+    //             directory,
+    //         ))
+    //     })
+    //     .collect::<Vec<tokio::task::JoinHandle<fpm::Result<()>>>>();
+    // futures::future::join_all(all_files).await;
+
+    for x in ignore::Walk::new(directory.to_string()) {
+        // TODO: Make this concurrent async
+        process_file_(&mut documents, x.unwrap().into_path(), directory).await?;
+    }
     documents.sort_by_key(|v| v.id.clone());
 
     return Ok(documents);
