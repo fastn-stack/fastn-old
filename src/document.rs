@@ -46,7 +46,7 @@ pub(crate) async fn process_dir(directory: &str) -> fpm::Result<Vec<Document>> {
                     id: id.to_string(),
                     document: doc.await?,
                     base_path: dir.to_string(),
-                    depth: doc_path_str.split("/").count() - 1,
+                    depth: doc_path_str.split('/').count() - 1,
                 });
             }
         }
