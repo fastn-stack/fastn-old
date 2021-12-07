@@ -29,6 +29,7 @@ url = "2.2.2"
 async-recursion = "0.3.2"
 diffy = "0.2.1"
 rusqlite = { version = "0.26.1", features = ["serde_json"] }
+ignore = "0.4.18"
 
 [dev-dependencies]
 rusty-hook = "^0.11.2"
