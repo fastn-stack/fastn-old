@@ -42,6 +42,15 @@ async fn main() {
                 .version(env!("CARGO_PKG_VERSION")),
         )
         .subcommand(
+            clap::SubCommand::with_name("mark").arg(
+                clap::Arg::with_name("mark")
+                    .number_of_values(2)
+                    .required(true)
+                )
+                .about("Marks the file up to date")
+                .version(env!("CARGO_PKG_VERSION")),
+        )
+        .subcommand(
             clap::SubCommand::with_name("tracks")
                 .arg(
                     clap::Arg::with_name("tracks")
@@ -68,6 +77,12 @@ async fn main() {
     if let Some(tracks) = matches.subcommand_matches("tracks") {
         let tracks: Vec<&str> = tracks.values_of("tracks").unwrap().collect();
         fpm::tracks(tracks.first().unwrap(), tracks.last().unwrap())
+            .await
+            .expect("tracks failed");
+    }
+    if let Some(mark) = matches.subcommand_matches("mark") {
+        let mark: Vec<&str> = mark.values_of("mark").unwrap().collect();
+        fpm::mark(mark.first().unwrap(), mark.last().unwrap())
             .await
             .expect("tracks failed");
     }
