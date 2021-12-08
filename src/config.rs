@@ -51,7 +51,6 @@ impl Config {
             todo!("package directory name mismatch")
         }
         let ignored = b.to_owned().instances::<Ignored>("fpm#ignore").unwrap();
-        dbg!(&ignored);
         let c = Config {
             package,
             root: base_dir,
