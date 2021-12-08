@@ -14,7 +14,6 @@ mod utils;
 
 pub use build::build;
 pub(crate) use config::Config;
-pub(crate) use config::Ignored;
 pub(crate) use config::Package;
 pub(crate) use dependency::Dependency;
 pub use diff::diff;

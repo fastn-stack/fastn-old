@@ -15,7 +15,7 @@ pub(crate) async fn process_dir(
     ignore_paths.standard_filters(true);
     let mut overrides = ignore::overrides::OverrideBuilder::new("./");
     for ig in &config.ignored {
-        overrides.add(format!("!{}", ig.path.as_str()).as_str())?;
+        overrides.add(format!("!{}", ig.as_str()).as_str())?;
     }
     ignore_paths.overrides(overrides.build()?);
 

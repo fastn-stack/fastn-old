@@ -19,5 +19,4 @@ optional string woff2:
 caption file:
 string timestamp:
 
--- record ignore:
-caption path:
+-- string list ignore:

@@ -3,7 +3,7 @@ pub struct Config {
     pub root: String,
     pub fonts: Vec<fpm::Font>,
     pub dependencies: Vec<fpm::Dependency>,
-    pub ignored: Vec<fpm::Ignored>,
+    pub ignored: Vec<String>,
 }
 
 impl Config {
@@ -50,7 +50,7 @@ impl Config {
         if package_folder_name != package.name {
             todo!("package directory name mismatch")
         }
-        let ignored = b.to_owned().instances::<Ignored>("fpm#ignore").unwrap();
+        let ignored = b.to_owned().get::<Vec<String>>("fpm#ignore")?;
         let c = Config {
             package,
             root: base_dir,
@@ -86,9 +86,4 @@ impl Package {
     pub fn parse(b: &ftd::p2::Document) -> fpm::Result<Option<Package>> {
         Ok(b.to_owned().only_instance::<Package>("fpm#package")?)
     }
-}
-
-#[derive(serde::Deserialize, Debug)]
-pub struct Ignored {
-    pub path: String,
 }
