@@ -45,9 +45,6 @@ pub enum Error {
 
     #[error("{line_number}: -> {message}")]
     ConfigurationParseError { message: String, line_number: usize },
-
-    #[error("ignore parse error")]
-    IgnoreParsingError(#[from] ignore::Error),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

@@ -3,7 +3,7 @@ pub struct Config {
     pub root: String,
     pub fonts: Vec<fpm::Font>,
     pub dependencies: Vec<fpm::Dependency>,
-    pub ignored: Vec<String>,
+    pub ignored: ignore::overrides::Override,
 }
 
 impl Config {
@@ -34,8 +34,10 @@ impl Config {
         let b = match ftd::p2::Document::from(id.as_str(), doc.as_str(), &lib) {
             Ok(v) => v,
             Err(e) => {
-                eprintln!("failed to parse {}: {:?}", id, &e);
-                todo!();
+                return Err(fpm::Error::ConfigurationParseError {
+                    message: format!("failed to parse {}: {:?}", id, &e),
+                    line_number: 0,
+                });
             }
         };
         let package =
@@ -50,7 +52,29 @@ impl Config {
         if package_folder_name != package.name {
             todo!("package directory name mismatch")
         }
-        let ignored = b.get::<Vec<String>>("fpm#ignore")?;
+
+        let ignored = {
+            let mut overrides = ignore::overrides::OverrideBuilder::new("./");
+            for ig in b.get::<Vec<String>>("fpm#ignore")? {
+                if let Err(e) = overrides.add(format!("!{}", ig.as_str()).as_str()) {
+                    return Err(fpm::Error::ConfigurationParseError {
+                        message: format!("failed parse fpm.ignore: {} => {:?}", ig, e),
+                        line_number: 0,
+                    });
+                }
+            }
+
+            match overrides.build() {
+                Ok(v) => v,
+                Err(e) => {
+                    return Err(fpm::Error::ConfigurationParseError {
+                        message: format!("failed parse fpm.ignore: {:?}", e),
+                        line_number: 0,
+                    });
+                }
+            }
+        };
+
         let c = Config {
             package,
             root: base_dir,
