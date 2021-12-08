@@ -10,6 +10,7 @@ mod snaphot;
 mod status;
 mod style;
 mod sync;
+mod tracks;
 mod utils;
 
 pub use build::build;
@@ -23,6 +24,7 @@ pub(crate) use snaphot::Snapshot;
 pub use status::status;
 pub(crate) use style::Font;
 pub use sync::sync;
+pub use tracks::tracks;
 pub(crate) use utils::get_timestamp_nanosecond;
 
 pub fn fpm_ftd() -> &'static str {

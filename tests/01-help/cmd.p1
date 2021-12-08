@@ -24,3 +24,4 @@ SUBCOMMANDS:
     help      Prints this message or the help of the given subcommand(s)
     status    Shows how many files have changed, comparing it with latest version of that file in `.history` folder
     sync      `sync` with `fpm-repo` or `.history` folder if not using `fpm-repo`
+    tracks    Tracks the document
