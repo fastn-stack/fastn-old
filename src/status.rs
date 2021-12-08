@@ -15,9 +15,9 @@ pub async fn status() -> fpm::Result<()> {
         }
     }
 
-    let mut status = print_file_status(&snapshots, &filestatus);
-    status = status && print_track_status(&trackstatus);
-    if status {
+    let clean_file_status = print_file_status(&snapshots, &filestatus);
+    let clean_track_status = print_track_status(&trackstatus);
+    if clean_file_status && clean_track_status {
         println!("Nothing to sync, clean working tree");
     }
     Ok(())
@@ -74,7 +74,7 @@ fn get_track_status(
                     .unwrap();
                 let diff = std::time::Duration::from_nanos((now - then) as u64);
                 TrackStatus::Outofdate {
-                    days: format!("{:?}", diff.as_secs()),
+                    days: format!("{:?}", diff.as_secs() / 86400),
                 }
             };
             track_list.insert(track.document_name.to_string(), trackstatus);
@@ -92,7 +92,7 @@ fn print_track_status(
     let mut status = true;
     for (k, v) in trackstatus {
         for (i, j) in v {
-            println!("{:?}: {} -> {}", j, k, i);
+            println!("{}: {} -> {}", j.to_string(), k, i);
             status = false;
         }
     }
@@ -142,4 +142,14 @@ enum TrackStatus {
     Uptodate,
     NeverMarked,
     Outofdate { days: String },
+}
+
+impl ToString for TrackStatus {
+    fn to_string(&self) -> String {
+        match self {
+            TrackStatus::Uptodate => "Up to date".to_string(),
+            TrackStatus::NeverMarked => "Never marked".to_string(),
+            TrackStatus::Outofdate { days } => format!("{} days out of date", days),
+        }
+    }
 }
