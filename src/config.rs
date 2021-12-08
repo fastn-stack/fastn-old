@@ -50,7 +50,7 @@ impl Config {
         if package_folder_name != package.name {
             todo!("package directory name mismatch")
         }
-        let ignored = b.to_owned().get::<Vec<String>>("fpm#ignore")?;
+        let ignored = b.get::<Vec<String>>("fpm#ignore")?;
         let c = Config {
             package,
             root: base_dir,
@@ -84,6 +84,6 @@ pub struct Package {
 
 impl Package {
     pub fn parse(b: &ftd::p2::Document) -> fpm::Result<Option<Package>> {
-        Ok(b.to_owned().only_instance::<Package>("fpm#package")?)
+        Ok(b.only_instance::<Package>("fpm#package")?)
     }
 }
