@@ -14,6 +14,7 @@ mod utils;
 
 pub use build::build;
 pub(crate) use config::Config;
+pub(crate) use config::Ignored;
 pub(crate) use config::Package;
 pub(crate) use dependency::Dependency;
 pub use diff::diff;
@@ -45,6 +46,9 @@ pub enum Error {
 
     #[error("{line_number}: -> {message}")]
     ConfigurationParseError { message: String, line_number: usize },
+
+    #[error("ignore parse error")]
+    IgnoreParsingError(#[from] ignore::Error),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

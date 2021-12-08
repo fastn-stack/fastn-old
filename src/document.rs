@@ -6,7 +6,10 @@ pub struct Document {
     pub depth: usize,
 }
 
-pub(crate) async fn process_dir(directory: &str) -> fpm::Result<Vec<Document>> {
+pub(crate) async fn process_dir(
+    directory: &str,
+    config: &fpm::Config,
+) -> fpm::Result<Vec<Document>> {
     let mut documents: Vec<Document> = vec![];
     // TODO: Get this concurrent async to work
     // let all_files = ignore::Walk::new(directory.to_string())
@@ -21,7 +24,15 @@ pub(crate) async fn process_dir(directory: &str) -> fpm::Result<Vec<Document>> {
     //     .collect::<Vec<tokio::task::JoinHandle<fpm::Result<()>>>>();
     // futures::future::join_all(all_files).await;
 
-    for x in ignore::Walk::new(directory.to_string()) {
+    // let ignored_paths = ignore::Walk::new(directory.to_string());
+    let mut ignore_paths = ignore::WalkBuilder::new("./");
+    ignore_paths.standard_filters(true);
+    let mut overrides = ignore::overrides::OverrideBuilder::new("./");
+    for ig in &config.ignored {
+        overrides.add(format!("!{}", ig.path.as_str()).as_str())?;
+    }
+    ignore_paths.overrides(overrides.build()?);
+    for x in ignore_paths.build() {
         process_file_(&mut documents, x.unwrap().into_path(), directory).await?;
     }
     documents.sort_by_key(|v| v.id.clone());
