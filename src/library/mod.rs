@@ -14,10 +14,18 @@ impl ftd::p2::Library for Library {
             let fpm_base = fpm::fpm_ftd().to_string();
             let fpm_base = if self.file_name.is_some() && self.markdown_content.is_some() {
                 format!(
-                    "{}\n-- string markdown-filename:\n{} \n-- string markdown-content:\n{}",
-                    fpm_base,
-                    self.file_name.as_ref().unwrap(),
-                    self.markdown_content.as_ref().unwrap()
+                    indoc::indoc! {"
+                    {main_doc}
+                    
+                    -- string markdown-filename:
+                    {md_filename}
+                    
+                    -- string markdown-content:
+                    {md_content}
+                    "},
+                    main_doc = fpm_base,
+                    md_filename = self.file_name.as_ref().unwrap(),
+                    md_content = self.markdown_content.as_ref().unwrap()
                 )
             } else {
                 fpm_base
