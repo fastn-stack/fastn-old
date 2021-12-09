@@ -2,7 +2,13 @@ pub async fn build() -> fpm::Result<()> {
     let config = fpm::Config::read().await?;
     tokio::fs::create_dir_all(format!("{}/.build", config.root.as_str()).as_str()).await?;
 
-    for doc in fpm::process_dir(config.root.as_str(), &config, None).await? {
+    for doc in fpm::process_dir(
+        config.root.as_str(),
+        &config,
+        fpm::ignore_paths(vec![".history", ".FTD"]),
+    )
+    .await?
+    {
         write(&doc, &config).await?;
     }
     Ok(())
@@ -53,7 +59,7 @@ pub async fn process_doc(
         },
     };
     let doc_str = if is_md {
-        if let Ok(c) = std::fs::read_to_string("./FTD/markdown.ftd") {
+        if let Ok(c) = std::fs::read_to_string("./FPM/markdown.ftd") {
             c
         } else {
             "-- import: fpm\n-- ftd.text:\n$fpm.markdown-content".to_string()

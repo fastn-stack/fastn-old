@@ -37,11 +37,12 @@ pub(crate) async fn process_dir(
 ) -> fpm::Result<Vec<FileFound>> {
     let mut documents: Vec<FileFound> = vec![];
     let mut ignore_paths = ignore::WalkBuilder::new("./");
-    ignore_paths.standard_filters(true);
-    ignore_paths.overrides(config.ignored.clone());
+
     if let Some(ins) = ignore_patterns {
         ignore_paths.overrides(ins);
     }
+    ignore_paths.standard_filters(true);
+    ignore_paths.overrides(config.ignored.clone());
     // TODO: Get this concurrent async to work
     // let all_files = ignore_paths.build()
     //     .into_iter()
