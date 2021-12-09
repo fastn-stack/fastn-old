@@ -7,7 +7,7 @@ pub async fn tracks(who: &str, whom: &str) -> fpm::Result<()> {
 
     for doc in fpm::process_dir(config.root.as_str(), &config, fpm::ignore_history()).await? {
         if let fpm::FileFound::FTDDocument(doc) = doc {
-            check(&doc, &snapshots, &who, &whom).await?;
+            check(&doc, &snapshots, who, whom).await?;
         }
     }
     Ok(())

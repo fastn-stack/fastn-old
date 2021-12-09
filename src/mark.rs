@@ -3,7 +3,7 @@ pub async fn mark(who: &str, whom: &str) -> fpm::Result<()> {
 
     let snapshots = fpm::snaphot::get_latest_snapshots(config.root.as_str())?;
 
-    check(&snapshots, &who, &whom, config.root.as_str()).await?;
+    check(&snapshots, who, whom, config.root.as_str()).await?;
 
     Ok(())
 }
