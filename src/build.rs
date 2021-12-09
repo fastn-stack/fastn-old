@@ -40,9 +40,24 @@ pub async fn process_doc(
     } else {
         doc.id.replace(format!(".{}", ext).as_str(), "/index.html")
     };
-    let lib = fpm::Library {};
+    let lib = fpm::Library {
+        file_name: if is_md {
+            Some(doc.id.as_str().to_string())
+        } else {
+            None
+        },
+        markdown_content: if is_md {
+            Some(doc.document.as_str().to_string())
+        } else {
+            None
+        },
+    };
     let doc_str = if is_md {
-        format!("-- ftd.text:\n {}", &doc.document)
+        if let Ok(c) = std::fs::read_to_string("./FTD/markdown.ftd") {
+            c
+        } else {
+            "-- import: fpm\n-- ftd.text:\n$fpm.markdown-content".to_string()
+        }
     } else {
         doc.document.as_str().to_string()
     };
