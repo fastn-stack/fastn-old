@@ -1,7 +1,5 @@
 pub async fn tracks(who: &str, whom: &str) -> fpm::Result<()> {
     let config = fpm::Config::read().await?;
-    let who = format!("{}.ftd", who);
-    let whom = format!("{}.ftd", whom);
 
     tokio::fs::create_dir_all(format!("{}/.tracks", config.root.as_str()).as_str()).await?;
 

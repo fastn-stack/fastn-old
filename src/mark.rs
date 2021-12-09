@@ -1,7 +1,5 @@
 pub async fn mark(who: &str, whom: &str) -> fpm::Result<()> {
     let config = fpm::Config::read().await?;
-    let who = format!("{}.ftd", who);
-    let whom = format!("{}.ftd", whom);
 
     let snapshots = fpm::snaphot::get_latest_snapshots(config.root.as_str())?;
 
