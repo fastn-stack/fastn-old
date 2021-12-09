@@ -65,11 +65,10 @@ pub async fn ensure_dependencies(deps: Vec<fpm::Dependency>) -> Result<()> {
     Ok(())
 }
 
-pub fn ignore_paths(paths: Vec<&str>) -> Option<ignore::overrides::Override> {
+pub fn ignore_history() -> Option<ignore::overrides::Override> {
     let mut overrides = ignore::overrides::OverrideBuilder::new("./");
-    for i in paths {
-        overrides.add(format!("!{}", i).as_str()).unwrap();
-    }
+    overrides.add("!.history").unwrap();
+    overrides.add("!FPM").unwrap();
     overrides.build().ok()
 }
 

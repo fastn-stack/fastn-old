@@ -4,13 +4,7 @@ pub async fn status() -> fpm::Result<()> {
     let mut filestatus = std::collections::BTreeMap::new();
 
     let mut trackstatus = std::collections::BTreeMap::new();
-    for doc in fpm::process_dir(
-        config.root.as_str(),
-        &config,
-        fpm::ignore_paths(vec![".history"]),
-    )
-    .await?
-    {
+    for doc in fpm::process_dir(config.root.as_str(), &config, fpm::ignore_history()).await? {
         if let fpm::FileFound::FTDDocument(doc) = doc {
             let status = get_file_status(&doc, &snapshots).await?;
             let track = get_track_status(&doc, &snapshots, config.root.as_str())?;
