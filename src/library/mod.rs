@@ -22,8 +22,7 @@ impl ftd::p2::Library for Library {
             } else {
                 fpm_base
             };
-
-            return Some(fpm_base);
+            Some(fpm_base)
         } else if let Ok(v) = std::fs::read_to_string(format!("./{}.ftd", name)) {
             Some(v)
         } else if let Ok(v) = std::fs::read_to_string(format!("./.packages/{}.ftd", name)) {
