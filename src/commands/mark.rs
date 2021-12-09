@@ -22,6 +22,7 @@ async fn check(
                 track.other_timestamp = Some(timestamp.to_string());
                 write(&file_path, &tracks).await?;
                 println!("{} is now marked upto date with {}", who, whom);
+                return Ok(());
             } else {
                 eprintln!("Error: {} is removed. Can't mark {} upto date", whom, who);
             }
