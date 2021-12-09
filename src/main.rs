@@ -21,7 +21,7 @@ async fn main() {
     }
     if let Some(mark) = matches.subcommand_matches("mark-upto-date") {
         let source = mark.value_of("source").unwrap();
-        let target = mark.value_of("target").unwrap();
+        let target = mark.value_of("target");
         fpm::mark(source, target).await.expect("mark failed");
     }
 }
@@ -75,8 +75,7 @@ fn app() -> clap::App<'static, 'static> {
                     clap::Arg::with_name("source").required(true),
                     clap::Arg::with_name("target")
                         .long("--target")
-                        .takes_value(true)
-                        .required(true),
+                        .takes_value(true),
                 ])
                 .about("Marks file as up to date.")
                 .version(env!("CARGO_PKG_VERSION")),
