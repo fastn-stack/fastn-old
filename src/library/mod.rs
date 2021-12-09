@@ -17,10 +17,10 @@ impl ftd::p2::Library for Library {
                     indoc::indoc! {"
                     {main_doc}
                     
-                    -- string markdown-filename:
-                    {md_filename}
+                    -- string markdown-filename: {md_filename}
                     
                     -- string markdown-content:
+
                     {md_content}
                     "},
                     main_doc = fpm_base,
