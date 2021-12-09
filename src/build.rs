@@ -53,13 +53,20 @@ pub async fn process_doc(
         },
     };
     let doc_str = if is_md {
-        if let Ok(c) = std::fs::read_to_string("./FPM/markdown.ftd") {
+        if let Ok(c) = tokio::fs::read_to_string("./FPM/markdown.ftd").await {
             c
         } else {
-            "-- import: fpm\n-- ftd.text:\n$fpm.markdown-content".to_string()
+            let d = indoc::indoc! {"
+            -- import: fpm
+
+            -- ftd.text:
+
+            $fpm.markdown-content
+            "};
+            d.to_string()
         }
     } else {
-        doc.document.as_str().to_string()
+        doc.document.clone()
     };
     let b = match ftd::p2::Document::from(&doc.id, doc_str.as_str(), &lib) {
         Ok(v) => v,
