@@ -28,42 +28,34 @@ impl Config {
         let (_, package_folder_name) = root_dir.as_str().rsplit_once("/").expect("");
         let (_is_okay, base_dir) = find_fpm_file(root_dir.clone());
 
-        let lib = fpm::Library {
-            file_name: None,
-            markdown_content: None,
-        };
+        let lib = fpm::Library::default();
         let id = "fpm".to_string();
         let doc = std::fs::read_to_string(format!("{}/FPM.ftd", base_dir.as_str()))
             .unwrap_or_else(|_| panic!("cant read file. {}/FPM.ftd", base_dir.as_str()));
         let b = match ftd::p2::Document::from(id.as_str(), doc.as_str(), &lib) {
             Ok(v) => v,
             Err(e) => {
-                return Err(fpm::Error::ConfigurationParseError {
+                return Err(fpm::Error::ConfigurationError {
                     message: format!("failed to parse {}: {:?}", id, &e),
-                    line_number: 0,
                 });
             }
         };
-        let package =
-            fpm::Package::parse(&b)?.ok_or_else(|| fpm::Error::ConfigurationParseError {
-                message: "".to_string(),
-                line_number: 1,
-            })?;
-        let dep = fpm::Dependency::parse(&b)?;
-
-        let fonts = fpm::Font::parse(&b);
+        let package: fpm::Package = b.get("fpm#package")?;
+        let dep: Vec<fpm::Dependency> = b.get("fpm#dependency")?;
+        let fonts: Vec<fpm::Font> = b.get("fpm#font")?;
 
         if package_folder_name != package.name {
-            todo!("package directory name mismatch")
+            return Err(fpm::Error::ConfigurationError {
+                message: "package name and folder name must match".to_string(),
+            });
         }
 
         let ignored = {
             let mut overrides = ignore::overrides::OverrideBuilder::new("./");
             for ig in b.get::<Vec<String>>("fpm#ignore")? {
                 if let Err(e) = overrides.add(format!("!{}", ig.as_str()).as_str()) {
-                    return Err(fpm::Error::ConfigurationParseError {
+                    return Err(fpm::Error::ConfigurationError {
                         message: format!("failed parse fpm.ignore: {} => {:?}", ig, e),
-                        line_number: 0,
                     });
                 }
             }
@@ -71,9 +63,8 @@ impl Config {
             match overrides.build() {
                 Ok(v) => v,
                 Err(e) => {
-                    return Err(fpm::Error::ConfigurationParseError {
+                    return Err(fpm::Error::ConfigurationError {
                         message: format!("failed parse fpm.ignore: {:?}", e),
-                        line_number: 0,
                     });
                 }
             }
@@ -108,10 +99,4 @@ pub struct Package {
     pub name: String,
     pub about: Option<String>,
     pub domain: Option<String>,
-}
-
-impl Package {
-    pub fn parse(b: &ftd::p2::Document) -> fpm::Result<Option<Package>> {
-        Ok(b.only_instance::<Package>("fpm#package")?)
-    }
 }

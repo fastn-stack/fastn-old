@@ -2,13 +2,7 @@ pub async fn build() -> fpm::Result<()> {
     let config = fpm::Config::read().await?;
     tokio::fs::create_dir_all(format!("{}/.build", config.root.as_str()).as_str()).await?;
 
-    for doc in fpm::process_dir(
-        config.root.as_str(),
-        &config,
-        fpm::ignore_paths(vec![".history", ".FTD"]),
-    )
-    .await?
-    {
+    for doc in fpm::process_dir(config.root.as_str(), &config, fpm::ignore_history()).await? {
         write(&doc, &config).await?;
     }
     Ok(())
@@ -47,32 +41,36 @@ pub async fn process_doc(
         doc.id.replace(format!(".{}", ext).as_str(), "/index.html")
     };
     let lib = fpm::Library {
-        file_name: if is_md {
-            Some(doc.id.as_str().to_string())
-        } else {
-            None
-        },
-        markdown_content: if is_md {
-            Some(doc.document.as_str().to_string())
+        markdown: if is_md {
+            Some((
+                doc.id.as_str().to_string(),
+                doc.document.as_str().to_string(),
+            ))
         } else {
             None
         },
     };
     let doc_str = if is_md {
-        if let Ok(c) = std::fs::read_to_string("./FPM/markdown.ftd") {
+        if let Ok(c) = tokio::fs::read_to_string("./FPM/markdown.ftd").await {
             c
         } else {
-            "-- import: fpm\n-- ftd.text:\n$fpm.markdown-content".to_string()
+            let d = indoc::indoc! {"
+            -- import: fpm
+
+            -- ftd.text:
+
+            $fpm.markdown-content
+            "};
+            d.to_string()
         }
     } else {
-        doc.document.as_str().to_string()
+        doc.document.clone()
     };
     let b = match ftd::p2::Document::from(&doc.id, doc_str.as_str(), &lib) {
         Ok(v) => v,
         Err(e) => {
-            return Err(fpm::Error::ConfigurationParseError {
+            return Err(fpm::Error::ConfigurationError {
                 message: format!("failed to parse {:?}", &e),
-                line_number: 0,
             });
         }
     };

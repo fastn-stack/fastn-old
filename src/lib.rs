@@ -1,34 +1,26 @@
 extern crate self as fpm;
 
-mod build;
+mod commands;
 mod config;
 mod dependency;
-mod diff;
 mod document;
+mod font;
 mod library;
-mod mark;
-mod snaphot;
-mod status;
-mod style;
-mod sync;
-mod track_data;
-mod tracks;
+mod snapshot;
+mod tracker;
 mod utils;
 
-pub use build::build;
+pub use commands::{
+    build::build, diff::diff, mark::mark, status::status, sync::sync, tracks::tracks,
+};
 pub(crate) use config::Config;
 pub(crate) use config::Package;
 pub(crate) use dependency::Dependency;
-pub use diff::diff;
-pub(crate) use document::{process_dir, Document, FileFound, StaticAsset};
+pub(crate) use document::{process_dir, process_file, Document, FileFound, StaticAsset};
+pub(crate) use font::Font;
 pub(crate) use library::Library;
-pub use mark::mark;
-pub(crate) use snaphot::Snapshot;
-pub use status::status;
-pub(crate) use style::Font;
-pub use sync::sync;
-pub(crate) use track_data::Tracks;
-pub use tracks::tracks;
+pub(crate) use snapshot::Snapshot;
+pub(crate) use tracker::Track;
 pub(crate) use utils::get_timestamp_nanosecond;
 
 pub fn fpm_ftd() -> &'static str {
@@ -49,8 +41,8 @@ pub enum Error {
     #[error("FTDError: {}", _0)]
     FTDError(#[from] ftd::p1::Error),
 
-    #[error("{line_number}: -> {message}")]
-    ConfigurationParseError { message: String, line_number: usize },
+    #[error("ConfigurationError: {message}")]
+    ConfigurationError { message: String },
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -67,9 +59,8 @@ pub async fn ensure_dependencies(deps: Vec<fpm::Dependency>) -> Result<()> {
 
 pub fn ignore_paths(paths: Vec<&str>) -> Option<ignore::overrides::Override> {
     let mut overrides = ignore::overrides::OverrideBuilder::new("./");
-    for i in paths {
-        overrides.add(format!("!{}", i).as_str()).unwrap();
-    }
+    overrides.add("!.history").unwrap();
+    overrides.add("!FPM").unwrap();
     overrides.build().ok()
 }
 

@@ -4,12 +4,6 @@ pub struct Snapshot {
     pub timestamp: String,
 }
 
-impl Snapshot {
-    pub fn parse(b: &ftd::p2::Document) -> fpm::Result<Vec<Snapshot>> {
-        Ok(b.to_owned().instances::<Snapshot>("fpm#snapshot")?)
-    }
-}
-
 pub(crate) fn get_latest_snapshots(
     base_path: &str,
 ) -> fpm::Result<std::collections::BTreeMap<String, String>> {
@@ -19,10 +13,7 @@ pub(crate) fn get_latest_snapshots(
         return Ok(snapshots);
     }
 
-    let lib = fpm::Library {
-        file_name: None,
-        markdown_content: None,
-    };
+    let lib = fpm::Library::default();
     let doc = std::fs::read_to_string(&new_file_path)?;
     let b = match ftd::p2::Document::from(base_path, doc.as_str(), &lib) {
         Ok(v) => v,
@@ -31,7 +22,7 @@ pub(crate) fn get_latest_snapshots(
             todo!();
         }
     };
-    let snapshot_list = Snapshot::parse(&b)?;
+    let snapshot_list: Vec<fpm::Snapshot> = b.get("fpm#spanshot")?;
     for snapshot in snapshot_list {
         snapshots.insert(snapshot.file, snapshot.timestamp);
     }
