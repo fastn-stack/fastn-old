@@ -46,30 +46,25 @@ pub struct Static {
 }
 
 pub(crate) async fn get_documents(config: &fpm::Config) -> fpm::Result<Vec<File>> {
-    let mut documents: Vec<File> = vec![];
     let mut ignore_paths = ignore::WalkBuilder::new("./");
 
     ignore_paths.overrides(package_ignores()?); // unwrap ok because this we know can never fail
     ignore_paths.standard_filters(true);
     ignore_paths.overrides(config.ignored.clone());
-    // TODO: Get this concurrent async to work
-    // let all_files = ignore_paths.build()
-    //     .into_iter()
-    //     .map(|x| {
-    //         tokio::spawn(process_file_(
-    //             &mut documents,
-    //             x.unwrap().into_path(),
-    //             directory,
-    //         ))
-    //     })
-    //     .collect::<Vec<tokio::task::JoinHandle<fpm::Result<()>>>>();
-    // futures::future::join_all(all_files).await;
-
-    for x in ignore_paths.build() {
-        if let Ok(file_found) = process_file(x?.into_path(), config.root.as_str()).await {
-            documents.push(file_found);
-        }
-    }
+    let all_files = ignore_paths
+        .build()
+        .into_iter()
+        .map(|x| {
+            let base = config.root.clone();
+            tokio::spawn(async move { process_file(x?.into_path(), base.as_str()).await })
+        })
+        .collect::<Vec<tokio::task::JoinHandle<fpm::Result<fpm::File>>>>();
+    let mut documents = futures::future::join_all(all_files)
+        .await
+        .into_iter()
+        .flatten()
+        .flatten()
+        .collect::<Vec<File>>();
     documents.sort_by_key(|v| v.get_id());
 
     Ok(documents)
