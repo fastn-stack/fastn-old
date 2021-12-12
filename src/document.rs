@@ -54,17 +54,10 @@ pub(crate) async fn get_documents(config: &fpm::Config) -> fpm::Result<Vec<File>
     let all_files = ignore_paths
         .build()
         .into_iter()
-        .map(|x| {
-            let base = config.root.clone();
-            tokio::spawn(async move { process_file(x?.into_path(), base.as_str()).await })
-        })
-        .collect::<Vec<tokio::task::JoinHandle<fpm::Result<fpm::File>>>>();
-    let mut documents = futures::future::join_all(all_files)
-        .await
-        .into_iter()
         .flatten()
-        .flatten()
-        .collect::<Vec<File>>();
+        .map(|x| x.into_path())
+        .collect::<Vec<std::path::PathBuf>>();
+    let mut documents = fpm::paths_to_files(all_files, config.root.as_str()).await?;
     documents.sort_by_key(|v| v.get_id());
 
     Ok(documents)
