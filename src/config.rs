@@ -1,7 +1,7 @@
 #[derive(Debug)]
 pub struct Config {
     pub package: fpm::Package,
-    pub root: String,
+    pub root: camino::Utf8PathBuf,
     pub original_directory: camino::Utf8PathBuf,
     pub fonts: Vec<fpm::Font>,
     pub dependencies: Vec<fpm::Dependency>,
@@ -9,6 +9,14 @@ pub struct Config {
 }
 
 impl Config {
+    pub fn build_dir(&self) -> camino::Utf8PathBuf {
+        self.root.join(".build")
+    }
+
+    pub fn latest_ftd(&self) -> camino::Utf8PathBuf {
+        self.root.join(".history/.latest.ftd")
+    }
+
     pub fn get_font_style(&self) -> String {
         let generated_style = self
             .fonts
@@ -23,7 +31,7 @@ impl Config {
     pub async fn read() -> fpm::Result<Config> {
         let original_directory: camino::Utf8PathBuf =
             std::env::current_dir()?.canonicalize()?.try_into()?;
-        let base_dir = match find_package_root(&original_directory) {
+        let root = match find_package_root(&original_directory) {
             Some(b) => b,
             None => {
                 return Err(fpm::Error::ConfigurationError {
@@ -32,21 +40,23 @@ impl Config {
             }
         };
 
-        let lib = fpm::Library::default();
-        let doc = tokio::fs::read_to_string(format!("{}/FPM.ftd", base_dir.as_str())).await?;
-        let b = match ftd::p2::Document::from("FPM", doc.as_str(), &lib) {
-            Ok(v) => v,
-            Err(e) => {
-                return Err(fpm::Error::ConfigurationError {
-                    message: format!("failed to parse FPM.ftd: {:?}", &e),
-                });
+        let b = {
+            let doc = tokio::fs::read_to_string(root.join("FPM.ftd")).await?;
+            let lib = fpm::Library::default();
+            match ftd::p2::Document::from("FPM", doc.as_str(), &lib) {
+                Ok(v) => v,
+                Err(e) => {
+                    return Err(fpm::Error::ConfigurationError {
+                        message: format!("failed to parse FPM.ftd: {:?}", &e),
+                    });
+                }
             }
         };
         let package: fpm::Package = b.get("fpm#package")?;
-        let dep: Vec<fpm::Dependency> = b.get("fpm#dependency")?;
+        let deps: Vec<fpm::Dependency> = b.get("fpm#dependency")?;
         let fonts: Vec<fpm::Font> = b.get("fpm#font")?;
 
-        if base_dir.file_name() != Some(package.name.as_str()) {
+        if root.file_name() != Some(package.name.as_str()) {
             return Err(fpm::Error::ConfigurationError {
                 message: "package name and folder name must match".to_string(),
             });
@@ -72,17 +82,16 @@ impl Config {
             }
         };
 
-        let c = Config {
+        fpm::dependency::ensure(root.clone(), deps.clone()).await?;
+
+        Ok(Config {
             package,
-            root: base_dir.to_string(),
+            root,
             original_directory,
             fonts,
-            dependencies: dep.to_vec(),
+            dependencies: deps,
             ignored,
-        };
-        fpm::dependency::ensure(dep).await?;
-
-        Ok(c)
+        })
     }
 }
 

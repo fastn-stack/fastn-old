@@ -1,6 +1,4 @@
-pub async fn stop_tracking(who: &str, whom: Option<&str>) -> fpm::Result<()> {
-    let config = fpm::Config::read().await?;
-
+pub async fn stop_tracking(config: &fpm::Config, who: &str, whom: Option<&str>) -> fpm::Result<()> {
     check(who, whom, config.root.as_str()).await?;
 
     Ok(())
