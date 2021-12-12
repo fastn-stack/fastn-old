@@ -93,7 +93,7 @@ async fn write(
     };
 
     if let Some(timestamp) = snapshots.get(&doc.get_id()) {
-        let path = format!("{}/.history/{}", doc.get_base_path().as_str(), {
+        let path = format!("{}/.history/{}", doc.get_base_path(), {
             if let Some(ref ext) = file_extension {
                 doc.get_id()
                     .replace(&format!(".{}", ext), &format!(".{}.{}", timestamp, ext))
