@@ -10,7 +10,7 @@ async fn check(who: &str, whom: Option<&str>, base_path: &str) -> fpm::Result<()
     let file_path = format!("{}/.tracks/{}", base_path, format!("{}.track", who));
     let mut tracks = fpm::tracker::get_tracks(base_path, &file_path)?;
     if let Some(whom) = whom {
-        if let Some(_) = tracks.remove(whom) {
+        if tracks.remove(whom).is_some() {
             write(&file_path, &tracks).await?;
             println!("{} is now stop tracking {}", who, whom);
             return Ok(());
