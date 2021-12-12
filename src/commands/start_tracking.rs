@@ -33,7 +33,7 @@ async fn check(
 
     let timestamp = snapshots.get(who).unwrap();
 
-    let new_file_path = format!("{}/.tracks/{}", base_path, who.replace(".ftd", ".track"));
+    let new_file_path = format!("{}/.tracks/{}", base_path, format!("{}.track", who));
 
     write(whom, timestamp, &new_file_path).await?;
     println!("{} is now tracking {}", who, whom);

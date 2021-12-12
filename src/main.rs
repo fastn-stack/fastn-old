@@ -25,14 +25,21 @@ async fn main() {
         let target = tracks.value_of("target").unwrap();
         fpm::start_tracking(source, target)
             .await
-            .expect("tracks failed");
+            .expect("start-tracking failed");
     }
     if let Some(mark) = matches.subcommand_matches("mark-upto-date") {
         let source = mark.value_of("source").unwrap();
         let target = mark.value_of("target");
         fpm::mark_upto_date(source, target)
             .await
-            .expect("mark failed");
+            .expect("mark-upto-date failed");
+    }
+    if let Some(mark) = matches.subcommand_matches("stop-tracking") {
+        let source = mark.value_of("source").unwrap();
+        let target = mark.value_of("target");
+        fpm::stop_tracking(source, target)
+            .await
+            .expect("stop-tracking failed");
     }
 }
 
@@ -101,6 +108,17 @@ fn app(authors: &'static str) -> clap::App<'static, 'static> {
                         .required(true),
                 ])
                 .about("Add a tracking relation between two files")
+                .version(env!("CARGO_PKG_VERSION")),
+        )
+        .subcommand(
+            clap::SubCommand::with_name("stop-tracking")
+                .args(&[
+                    clap::Arg::with_name("source").required(true),
+                    clap::Arg::with_name("target")
+                        .long("--target")
+                        .takes_value(true),
+                ])
+                .about("Remove a tracking relation between two files")
                 .version(env!("CARGO_PKG_VERSION")),
         )
 }

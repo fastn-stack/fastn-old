@@ -18,21 +18,15 @@ async fn file_status(
         if snapshots.contains_key(source) {
             println!("{:?}: {}", FileStatus::Removed, source);
         } else {
-            eprintln!("{} does not exists", source);
+            eprintln!("Error: {} does not exists", source);
         }
         return Ok(());
     }
 
-    let existing_doc = tokio::fs::read_to_string(&path).await?;
-    let document = fpm::Document {
-        id: source.to_string(),
-        content: existing_doc,
-        parent_path: base_path.to_string(),
-        depth: 0,
-    };
+    let file = fpm::process_file(std::path::PathBuf::from(path), base_path).await?;
 
-    let file_status = get_file_status(&document, snapshots).await?;
-    let track_status = get_track_status(&document, snapshots, base_path)?;
+    let file_status = get_file_status(&file, snapshots).await?;
+    let track_status = get_track_status(&file, snapshots, base_path)?;
 
     let mut clean = true;
     if !file_status.eq(&FileStatus::None) {
@@ -56,14 +50,12 @@ async fn all_status(
     let mut file_status = std::collections::BTreeMap::new();
     let mut track_status = std::collections::BTreeMap::new();
     for doc in fpm::get_documents(config).await? {
-        if let fpm::File::FTD(doc) = doc {
-            let status = get_file_status(&doc, snapshots).await?;
-            let track = get_track_status(&doc, snapshots, config.root.as_str())?;
-            if !track.is_empty() {
-                track_status.insert(doc.id.to_string(), track);
-            }
-            file_status.insert(doc.id, status);
+        let status = get_file_status(&doc, snapshots).await?;
+        let track = get_track_status(&doc, snapshots, config.root.as_str())?;
+        if !track.is_empty() {
+            track_status.insert(doc.get_id(), track);
         }
+        file_status.insert(doc.get_id(), status);
     }
 
     let clean_file_status = print_file_status(snapshots, &file_status);
@@ -75,18 +67,29 @@ async fn all_status(
 }
 
 async fn get_file_status(
-    doc: &fpm::Document,
+    doc: &fpm::File,
     snapshots: &std::collections::BTreeMap<String, String>,
 ) -> fpm::Result<FileStatus> {
-    if let Some(timestamp) = snapshots.get(&doc.id) {
-        let path = format!(
-            "{}/.history/{}",
-            doc.parent_path.as_str(),
-            doc.id.replace(".ftd", &format!(".{}.ftd", timestamp))
-        );
+    if let Some(timestamp) = snapshots.get(&doc.get_id()) {
+        let file_extension = if let Some((_, b)) = doc.get_id().rsplit_once('.') {
+            Some(b.to_string())
+        } else {
+            None
+        };
+
+        let path = format!("{}/.history/{}", doc.get_base_path().as_str(), {
+            if let Some(ref ext) = file_extension {
+                doc.get_id()
+                    .replace(&format!(".{}", ext), &format!(".{}.{}", timestamp, ext))
+            } else {
+                format!(".{}", timestamp)
+            }
+        });
+
+        let content = tokio::fs::read_to_string(&doc.get_full_path()).await?;
 
         let existing_doc = tokio::fs::read_to_string(&path).await?;
-        if doc.content.eq(&existing_doc) {
+        if content.eq(&existing_doc) {
             return Ok(FileStatus::None);
         }
         return Ok(FileStatus::Modified);
@@ -95,14 +98,14 @@ async fn get_file_status(
 }
 
 fn get_track_status(
-    doc: &fpm::Document,
+    doc: &fpm::File,
     snapshots: &std::collections::BTreeMap<String, String>,
     base_path: &str,
 ) -> fpm::Result<std::collections::BTreeMap<String, TrackStatus>> {
     let path = format!(
         "{}/.tracks/{}",
-        doc.parent_path.as_str(),
-        doc.id.replace(".ftd", ".track")
+        doc.get_base_path().as_str(),
+        format!("{}.track", doc.get_id())
     );
     let mut track_list = std::collections::BTreeMap::new();
     if std::fs::metadata(&path).is_err() {
@@ -113,7 +116,9 @@ fn get_track_status(
         if !snapshots.contains_key(&track.document_name) {
             eprintln!(
                 "Error: {} is tracked by {}, but {} is either removed or never synced",
-                track.document_name, doc.id, track.document_name
+                track.document_name,
+                doc.get_id(),
+                track.document_name
             );
             continue;
         }

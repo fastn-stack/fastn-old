@@ -12,7 +12,7 @@ mod utils;
 
 pub use commands::{
     build::build, diff::diff, mark_upto_date::mark_upto_date, start_tracking::start_tracking,
-    status::status, sync::sync,
+    status::status, stop_tracking::stop_tracking, sync::sync,
 };
 pub(crate) use config::Config;
 pub(crate) use config::Package;

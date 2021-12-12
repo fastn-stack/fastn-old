@@ -22,7 +22,7 @@ pub(crate) fn get_latest_snapshots(
             todo!();
         }
     };
-    let snapshot_list: Vec<fpm::Snapshot> = b.get("fpm#spanshot")?;
+    let snapshot_list: Vec<fpm::Snapshot> = b.get("fpm#snapshot")?;
     for snapshot in snapshot_list {
         snapshots.insert(snapshot.file, snapshot.timestamp);
     }

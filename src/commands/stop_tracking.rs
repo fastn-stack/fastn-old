@@ -1,41 +1,33 @@
-pub async fn mark_upto_date(who: &str, whom: Option<&str>) -> fpm::Result<()> {
+pub async fn stop_tracking(who: &str, whom: Option<&str>) -> fpm::Result<()> {
     let config = fpm::Config::read().await?;
 
-    let snapshots = fpm::snapshot::get_latest_snapshots(config.root.as_str())?;
-
-    check(&snapshots, who, whom, config.root.as_str()).await?;
+    check(who, whom, config.root.as_str()).await?;
 
     Ok(())
 }
 
-async fn check(
-    snapshots: &std::collections::BTreeMap<String, String>,
-    who: &str,
-    whom: Option<&str>,
-    base_path: &str,
-) -> fpm::Result<()> {
+async fn check(who: &str, whom: Option<&str>, base_path: &str) -> fpm::Result<()> {
     let file_path = format!("{}/.tracks/{}", base_path, format!("{}.track", who));
     let mut tracks = fpm::tracker::get_tracks(base_path, &file_path)?;
     if let Some(whom) = whom {
-        if let Some(track) = tracks.get_mut(whom) {
-            if let Some(timestamp) = snapshots.get(whom) {
-                track.other_timestamp = Some(timestamp.to_string());
-                write(&file_path, &tracks).await?;
-                println!("{} is now marked upto date with {}", who, whom);
-                return Ok(());
-            } else {
-                eprintln!("Error: {} is removed. Can't mark {} upto date", whom, who);
-            }
+        if let Some(_) = tracks.remove(whom) {
+            write(&file_path, &tracks).await?;
+            println!("{} is now stop tracking {}", who, whom);
+            return Ok(());
         } else {
             eprintln!("Error: {} is not tracking {}", who, whom);
         }
     }
-    println!("Which file to mark? {} tracks following files", who);
+    println!(
+        "Which file to stop tracking? {} tracks following files",
+        who
+    );
     for track in tracks.keys() {
         println!("{}", track);
     }
     Ok(())
 }
+
 async fn write(
     file_path: &str,
     tracks: &std::collections::BTreeMap<String, fpm::Track>,
