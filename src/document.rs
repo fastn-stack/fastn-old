@@ -70,6 +70,26 @@ pub(crate) async fn get_documents(config: &fpm::Config) -> fpm::Result<Vec<File>
     Ok(documents)
 }
 
+pub(crate) async fn paths_to_files(
+    files: Vec<std::path::PathBuf>,
+    base_path: &str,
+) -> fpm::Result<Vec<File>> {
+    Ok(futures::future::join_all(
+        files
+            .into_iter()
+            .map(|x| {
+                let base = base_path.to_string();
+                tokio::spawn(async move { fpm::process_file(x, base.as_str()).await })
+            })
+            .collect::<Vec<tokio::task::JoinHandle<fpm::Result<fpm::File>>>>(),
+    )
+    .await
+    .into_iter()
+    .flatten()
+    .flatten()
+    .collect::<Vec<fpm::File>>())
+}
+
 pub fn package_ignores() -> Result<ignore::overrides::Override, ignore::Error> {
     let mut overrides = ignore::overrides::OverrideBuilder::new("./");
     overrides.add("!.history")?;

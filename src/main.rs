@@ -21,8 +21,16 @@ async fn main() {
         let source = status.value_of("source");
         fpm::status(&config, source).await.expect("status failed");
     }
-    if matches.subcommand_matches("diff").is_some() {
-        fpm::diff(&config).await.expect("diff failed");
+    if let Some(diff) = matches.subcommand_matches("diff") {
+        let all = diff.is_present("all");
+        if let Some(source) = diff.values_of("source") {
+            let sources = source.map(|v| v.to_string()).collect();
+            fpm::diff(&config, Some(sources), all)
+                .await
+                .expect("diff failed");
+        } else {
+            fpm::diff(&config, None, all).await.expect("diff failed");
+        }
     }
     if let Some(tracks) = matches.subcommand_matches("start-tracking") {
         let source = tracks.value_of("source").unwrap();
@@ -83,6 +91,10 @@ fn app(authors: &'static str) -> clap::App<'static, 'static> {
         )
         .subcommand(
             clap::SubCommand::with_name("diff")
+                .args(&[
+                    clap::Arg::with_name("source").multiple(true),
+                    clap::Arg::with_name("all").long("--all").short("a"),
+                ])
                 .about("Show un-synced changes to files in this fpm package")
                 .version(env!("CARGO_PKG_VERSION")),
         )

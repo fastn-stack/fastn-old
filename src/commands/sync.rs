@@ -1,27 +1,11 @@
 pub async fn sync(config: &fpm::Config, files: Option<Vec<String>>) -> fpm::Result<()> {
     let documents = if let Some(ref files) = files {
-        let files = files.clone();
-        let d = futures::future::join_all(
-            files
-                .into_iter()
-                .map(|x| {
-                    let base = config.root.clone();
-                    tokio::spawn(async move {
-                        fpm::process_file(
-                            std::path::PathBuf::from(format!("{}/{}", base, x)),
-                            base.as_str(),
-                        )
-                        .await
-                    })
-                })
-                .collect::<Vec<tokio::task::JoinHandle<fpm::Result<fpm::File>>>>(),
-        )
-        .await;
-        let mut document = vec![];
-        for doc in d.into_iter().flatten().flatten() {
-            document.push(doc);
-        }
-        document
+        let files = files
+            .to_vec()
+            .into_iter()
+            .map(|x| std::path::PathBuf::from(config.root.join(x)))
+            .collect::<Vec<std::path::PathBuf>>();
+        fpm::paths_to_files(files, config.root.as_str()).await?
     } else {
         fpm::get_documents(config).await?
     };

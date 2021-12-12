@@ -30,7 +30,12 @@ async fn check(
             eprintln!("Error: {} is not tracking {}", who, whom);
         }
     }
-    println!("Which file to mark? {} tracks following files", who);
+
+    if !tracks.is_empty() {
+        println!("Which file to mark? {} tracks following files", who);
+    } else {
+        println!("{} tracks no file", who);
+    }
     for track in tracks.keys() {
         println!("{}", track);
     }

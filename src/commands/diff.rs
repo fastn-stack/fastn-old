@@ -1,11 +1,24 @@
-pub async fn diff(config: &fpm::Config) -> fpm::Result<()> {
+pub async fn diff(config: &fpm::Config, files: Option<Vec<String>>, all: bool) -> fpm::Result<()> {
     let snapshots = fpm::snapshot::get_latest_snapshots(config).await?;
-    for doc in fpm::get_documents(config).await? {
+    let all = all || files.is_some();
+    let documents = if let Some(ref files) = files {
+        let files = files
+            .to_vec()
+            .into_iter()
+            .map(|x| config.root.join(x).into_std_path_buf())
+            .collect::<Vec<std::path::PathBuf>>();
+        fpm::paths_to_files(files, config.root.as_str()).await?
+    } else {
+        fpm::get_documents(config).await?
+    };
+    for doc in documents {
         if let Some(diff) = get_diffy(&doc, &snapshots).await? {
             println!("diff: {}", doc.get_id());
             println!("{}", diff);
         }
-        get_track_diff(&doc, &snapshots, config.root.as_str()).await?;
+        if all {
+            get_track_diff(&doc, &snapshots, config.root.as_str()).await?;
+        }
     }
     Ok(())
 }

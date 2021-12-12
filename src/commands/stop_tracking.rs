@@ -16,10 +16,15 @@ async fn check(who: &str, whom: Option<&str>, base_path: &str) -> fpm::Result<()
             eprintln!("Error: {} is not tracking {}", who, whom);
         }
     }
-    println!(
-        "Which file to stop tracking? {} tracks following files",
-        who
-    );
+
+    if !tracks.is_empty() {
+        println!(
+            "Which file to stop tracking? {} tracks following files",
+            who
+        );
+    } else {
+        println!("{} tracks no file", who);
+    }
     for track in tracks.keys() {
         println!("{}", track);
     }
