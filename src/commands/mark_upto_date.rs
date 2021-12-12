@@ -14,7 +14,7 @@ async fn check(
     whom: Option<&str>,
     base_path: &str,
 ) -> fpm::Result<()> {
-    let file_path = format!("{}/.tracks/{}", base_path, format!("{}.track", who));
+    let file_path = fpm::utils::track_path(who, base_path);
     let mut tracks = fpm::tracker::get_tracks(base_path, &file_path)?;
     if let Some(whom) = whom {
         if let Some(track) = tracks.get_mut(whom) {
@@ -37,7 +37,7 @@ async fn check(
     Ok(())
 }
 async fn write(
-    file_path: &str,
+    file_path: &camino::Utf8PathBuf,
     tracks: &std::collections::BTreeMap<String, fpm::Track>,
 ) -> fpm::Result<()> {
     use tokio::io::AsyncWriteExt;

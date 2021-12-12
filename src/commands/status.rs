@@ -70,24 +70,11 @@ async fn get_file_status(
     snapshots: &std::collections::BTreeMap<String, String>,
 ) -> fpm::Result<FileStatus> {
     if let Some(timestamp) = snapshots.get(&doc.get_id()) {
-        let file_extension = if let Some((_, b)) = doc.get_id().rsplit_once('.') {
-            Some(b.to_string())
-        } else {
-            None
-        };
-
-        let path = format!("{}/.history/{}", doc.get_base_path().as_str(), {
-            if let Some(ref ext) = file_extension {
-                doc.get_id()
-                    .replace(&format!(".{}", ext), &format!(".{}.{}", timestamp, ext))
-            } else {
-                format!(".{}", timestamp)
-            }
-        });
+        let path = fpm::utils::history_path(&doc.get_id(), &doc.get_base_path(), timestamp);
 
         let content = tokio::fs::read_to_string(&doc.get_full_path()).await?;
-
         let existing_doc = tokio::fs::read_to_string(&path).await?;
+
         if content.eq(&existing_doc) {
             return Ok(FileStatus::None);
         }
@@ -101,11 +88,7 @@ fn get_track_status(
     snapshots: &std::collections::BTreeMap<String, String>,
     base_path: &str,
 ) -> fpm::Result<std::collections::BTreeMap<String, TrackStatus>> {
-    let path = format!(
-        "{}/.tracks/{}",
-        doc.get_base_path().as_str(),
-        format!("{}.track", doc.get_id())
-    );
+    let path = fpm::utils::track_path(&doc.get_id(), &doc.get_base_path());
     let mut track_list = std::collections::BTreeMap::new();
     if std::fs::metadata(&path).is_err() {
         return Ok(track_list);

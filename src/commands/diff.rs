@@ -15,20 +15,7 @@ async fn get_diffy(
     snapshots: &std::collections::BTreeMap<String, String>,
 ) -> fpm::Result<Option<String>> {
     if let Some(timestamp) = snapshots.get(&doc.get_id()) {
-        let file_extension = if let Some((_, b)) = doc.get_id().rsplit_once('.') {
-            Some(b.to_string())
-        } else {
-            None
-        };
-        let path = format!("{}/.history/{}", doc.get_base_path(), {
-            if let Some(ref ext) = file_extension {
-                doc.get_id()
-                    .replace(&format!(".{}", ext), &format!(".{}.{}", timestamp, ext))
-            } else {
-                format!(".{}", timestamp)
-            }
-        });
-
+        let path = fpm::utils::history_path(&doc.get_id(), &doc.get_base_path(), timestamp);
         let content = tokio::fs::read_to_string(&doc.get_full_path()).await?;
 
         let existing_doc = tokio::fs::read_to_string(&path).await?;
@@ -50,11 +37,7 @@ async fn get_track_diff(
     snapshots: &std::collections::BTreeMap<String, String>,
     base_path: &str,
 ) -> fpm::Result<()> {
-    let path = format!(
-        "{}/.tracks/{}",
-        doc.get_base_path().as_str(),
-        format!("{}.track", doc.get_id())
-    );
+    let path = fpm::utils::track_path(&doc.get_id(), &doc.get_base_path());
     if std::fs::metadata(&path).is_err() {
         return Ok(());
     }
@@ -64,30 +47,15 @@ async fn get_track_diff(
             if track.other_timestamp.is_none() {
                 continue;
             }
-            let file_extension = if let Some((_, b)) = track.document_name.rsplit_once('.') {
-                Some(b.to_string())
-            } else {
-                None
-            };
-            let now_path = format!("{}/.history/{}", doc.get_base_path(), {
-                if let Some(ref ext) = file_extension {
-                    track
-                        .document_name
-                        .replace(&format!(".{}", ext), &format!(".{}.{}", timestamp, ext))
-                } else {
-                    format!(".{}", timestamp)
-                }
-            });
-            let then_path = format!("{}/.history/{}", doc.get_base_path(), {
-                if let Some(ref ext) = file_extension {
-                    track.document_name.replace(
-                        &format!(".{}", ext),
-                        &format!(".{}.{}", track.other_timestamp.as_ref().unwrap(), ext),
-                    )
-                } else {
-                    format!(".{}", timestamp)
-                }
-            });
+            let now_path =
+                fpm::utils::history_path(&track.document_name, &doc.get_base_path(), timestamp);
+
+            let then_path = fpm::utils::history_path(
+                &track.document_name,
+                &doc.get_base_path(),
+                track.other_timestamp.as_ref().unwrap(),
+            );
+
             let now_doc = tokio::fs::read_to_string(&now_path).await?;
             let then_doc = tokio::fs::read_to_string(&then_path).await?;
             if now_doc.eq(&then_doc) {
@@ -101,25 +69,12 @@ async fn get_track_diff(
             println!(
                 "diff {} -> {}: {}",
                 doc.get_id(),
-                {
-                    if let Some(ref ext) = file_extension {
-                        track.document_name.replace(
-                            &format!(".{}", ext),
-                            &format!(".{}.{}", track.other_timestamp.as_ref().unwrap(), ext),
-                        )
-                    } else {
-                        format!(".{}", timestamp)
-                    }
-                },
-                {
-                    if let Some(ref ext) = file_extension {
-                        track
-                            .document_name
-                            .replace(&format!(".{}", ext), &format!(".{}.{}", timestamp, ext))
-                    } else {
-                        format!(".{}", timestamp)
-                    }
-                }
+                then_path
+                    .to_string()
+                    .replace(&format!("{}/.history/", doc.get_base_path()), ""),
+                now_path
+                    .to_string()
+                    .replace(&format!("{}/.history/", doc.get_base_path()), ""),
             );
             println!("{}", diff);
         }
