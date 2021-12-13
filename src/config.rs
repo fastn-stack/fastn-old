@@ -22,7 +22,7 @@ impl Config {
             .fonts
             .iter()
             .fold("".to_string(), |c, f| format!("{}\n{}", c, f.to_html()));
-        return match generated_style.is_empty() {
+        return match generated_style.trim().is_empty() {
             false => format!("<style>{}</style>", generated_style),
             _ => format!(""),
         };
@@ -31,40 +31,32 @@ impl Config {
     pub async fn read() -> fpm::Result<Config> {
         let original_directory: camino::Utf8PathBuf =
             std::env::current_dir()?.canonicalize()?.try_into()?;
-        let root = match find_package_root(&original_directory) {
-            Some(b) => b,
-            None => {
-                return Err(fpm::Error::ConfigurationError {
-                    message: "FPM.ftd not found in any parent directory".to_string(),
-                });
-            }
-        };
+        let root = find_package_root(&original_directory)?;
 
-        let b = {
+        std::env::set_current_dir(&root);
+
+        let ftd_doc = {
             let doc = tokio::fs::read_to_string(root.join("FPM.ftd")).await?;
             let lib = fpm::Library::default();
-            match ftd::p2::Document::from("FPM", doc.as_str(), &lib) {
-                Ok(v) => v,
-                Err(e) => {
-                    return Err(fpm::Error::ConfigurationError {
-                        message: format!("failed to parse FPM.ftd: {:?}", &e),
-                    });
-                }
-            }
+            ftd::p2::Document::from("FPM", doc.as_str(), &lib)?
         };
-        let package: fpm::Package = b.get("fpm#package")?;
-        let deps: Vec<fpm::Dependency> = b.get("fpm#dependency")?;
-        let fonts: Vec<fpm::Font> = b.get("fpm#font")?;
 
-        if root.file_name() != Some(package.name.as_str()) {
-            return Err(fpm::Error::ConfigurationError {
-                message: "package name and folder name must match".to_string(),
-            });
-        }
+        let package = {
+            let package: fpm::Package = ftd_doc.get("fpm#package")?;
+            if root.file_name() != Some(package.name.as_str()) {
+                return Err(fpm::Error::ConfigurationError {
+                    message: "package name and folder name must match".to_string(),
+                });
+            }
+            package
+        };
+
+        let deps: Vec<fpm::Dependency> = ftd_doc.get("fpm#dependency")?;
+        let fonts: Vec<fpm::Font> = ftd_doc.get("fpm#font")?;
 
         let ignored = {
             let mut overrides = ignore::overrides::OverrideBuilder::new("./");
-            for ig in b.get::<Vec<String>>("fpm#ignore")? {
+            for ig in ftd_doc.get::<Vec<String>>("fpm#ignore")? {
                 if let Err(e) = overrides.add(format!("!{}", ig.as_str()).as_str()) {
                     return Err(fpm::Error::ConfigurationError {
                         message: format!("failed parse fpm.ignore: {} => {:?}", ig, e),
@@ -95,14 +87,15 @@ impl Config {
     }
 }
 
-fn find_package_root(dir: &camino::Utf8Path) -> Option<camino::Utf8PathBuf> {
+fn find_package_root(dir: &camino::Utf8Path) -> fpm::Result<camino::Utf8PathBuf> {
     if dir.join("FPM.ftd").exists() {
-        Some(dir.into())
+        Ok(dir.into())
+    } else if let Some(p) = dir.parent() {
+        find_package_root(p)
     } else {
-        if let Some(p) = dir.parent() {
-            return find_package_root(p);
-        };
-        None
+        Err(fpm::Error::ConfigurationError {
+            message: "FPM.ftd not found in any parent directory".to_string(),
+        })
     }
 }
 

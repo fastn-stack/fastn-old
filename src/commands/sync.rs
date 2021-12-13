@@ -5,14 +5,9 @@ pub async fn sync(config: &fpm::Config, files: Option<Vec<String>>) -> fpm::Resu
             files
                 .into_iter()
                 .map(|x| {
-                    let base = config.root.clone();
-                    tokio::spawn(async move {
-                        fpm::process_file(
-                            std::path::PathBuf::from(format!("{}/{}", base, x)),
-                            base.as_str(),
-                        )
-                        .await
-                    })
+                    let base = config.original_directory.clone();
+                    let config = config.to_owned();
+                    tokio::spawn(async move { fpm::process_file(&config, &base.join(x)).await })
                 })
                 .collect::<Vec<tokio::task::JoinHandle<fpm::Result<fpm::File>>>>(),
         )

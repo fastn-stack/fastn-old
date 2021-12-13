@@ -45,6 +45,9 @@ pub enum Error {
     #[error("ConfigurationError: {message}")]
     ConfigurationError { message: String },
 
+    #[error("UsageError: {message}")]
+    UsageError { message: String },
+
     #[error("IgnoreError: {}", _0)]
     IgnoreError(#[from] ignore::Error),
 
