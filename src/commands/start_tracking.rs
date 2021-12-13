@@ -12,11 +12,14 @@ async fn check(
     who: &str,
     whom: &str,
 ) -> fpm::Result<()> {
-    if !snapshots.contains_key(who) {
-        eprintln!("Error: {} is not synced yet", who);
-        println!("Suggestion: Run `fpm sync` to sync the files");
-        return Ok(());
-    }
+    let timestamp = match snapshots.contains_key(who) {
+        Some(v) => v,
+        None => {
+            eprintln!("Error: {} is not synced yet", who);
+            println!("Suggestion: Run `fpm sync` to sync the files");
+            return Ok(());
+        }
+    };
 
     if !snapshots.contains_key(whom) {
         eprintln!("Error: {} is not synced yet", whom);
@@ -29,8 +32,6 @@ async fn check(
         std::fs::create_dir_all(format!("{}/.tracks/{}", base_path, dir))?;
     }
 
-    let timestamp = snapshots.get(who).unwrap();
-
     let new_file_path = format!("{}/.tracks/{}", base_path, who.replace(".ftd", ".track"));
 
     write(whom, *timestamp, &new_file_path).await?;
@@ -41,7 +42,7 @@ async fn check(
 
 async fn write(whom: &str, timestamp: u128, path: &str) -> fpm::Result<()> {
     use tokio::io::AsyncWriteExt;
-    let string = if tokio::fs::metadata(path).await.is_ok() {
+    let string = if exitst(whome) {
         let existing_doc = tokio::fs::read_to_string(&path).await?;
         format!(
             "{}\n\n-- fpm.track: {}\nself-timestamp: {}",

@@ -1,7 +1,7 @@
 #[derive(serde::Deserialize, Debug)]
 pub struct Snapshot {
     pub filename: String, // relative file name with respect to package root
-    pub timestamp: u128,
+    pub timestamp: u128,  // unix-time in nanoseconds
 }
 
 pub(crate) async fn get_latest_snapshots(
