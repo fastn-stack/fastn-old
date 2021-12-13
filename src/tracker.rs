@@ -1,13 +1,12 @@
 #[derive(serde::Deserialize, Debug, Clone)]
 pub struct Track {
-    #[serde(rename = "document-name")]
-    pub document_name: String,
+    pub filename: String,
     pub package: Option<String>,
     pub version: Option<String>,
     #[serde(rename = "other-timestamp")]
-    pub other_timestamp: Option<String>,
+    pub other_timestamp: Option<u128>,
     #[serde(rename = "self-timestamp")]
-    pub self_timestamp: String,
+    pub self_timestamp: u128,
 }
 
 pub(crate) fn get_tracks(
@@ -30,7 +29,7 @@ pub(crate) fn get_tracks(
     };
     let track_list: Vec<Track> = b.get("fpm#track")?;
     for track in track_list {
-        tracks.insert(track.document_name.to_string(), track);
+        tracks.insert(track.filename.to_string(), track);
     }
     Ok(tracks)
 }

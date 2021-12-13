@@ -5,7 +5,7 @@ pub fn get_timestamp_nanosecond() -> u128 {
     }
 }
 
-pub fn history_path(id: &str, base_path: &str, timestamp: &str) -> camino::Utf8PathBuf {
+pub fn history_path(id: &str, base_path: &str, timestamp: &u128) -> camino::Utf8PathBuf {
     let id_with_timestamp_extension = if let Some((id, ext)) = id.rsplit_once('.') {
         format!("{}.{}.{}", id, timestamp, ext)
     } else {

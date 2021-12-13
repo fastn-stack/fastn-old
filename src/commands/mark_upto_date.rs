@@ -9,7 +9,7 @@ pub async fn mark_upto_date(
 }
 
 async fn check(
-    snapshots: &std::collections::BTreeMap<String, String>,
+    snapshots: &std::collections::BTreeMap<String, u128>,
     who: &str,
     whom: Option<&str>,
     base_path: &str,
@@ -19,7 +19,7 @@ async fn check(
     if let Some(whom) = whom {
         if let Some(track) = tracks.get_mut(whom) {
             if let Some(timestamp) = snapshots.get(whom) {
-                track.other_timestamp = Some(timestamp.to_string());
+                track.other_timestamp = Some(*timestamp);
                 write(&file_path, &tracks).await?;
                 println!("{} is now marked upto date with {}", who, whom);
                 return Ok(());
@@ -53,7 +53,7 @@ async fn write(
     for track in tracks.values() {
         string = format!(
             "{}\n\n-- fpm.track: {}\nself-timestamp: {}",
-            string, track.document_name, track.self_timestamp
+            string, track.filename, track.self_timestamp
         );
         if let Some(ref other_timestamp) = track.other_timestamp {
             string = format!("{}\nother-timestamp: {}", string, other_timestamp);

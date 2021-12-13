@@ -20,7 +20,7 @@ pub async fn sync(config: &fpm::Config, files: Option<Vec<String>>) -> fpm::Resu
     for doc in documents {
         let (snapshot, is_modified) = write(&doc, timestamp, &snapshots).await?;
         if is_modified {
-            modified_files.push(snapshot.file.to_string());
+            modified_files.push(snapshot.filename.to_string());
         }
         new_snapshots.push(snapshot);
     }
@@ -28,16 +28,16 @@ pub async fn sync(config: &fpm::Config, files: Option<Vec<String>>) -> fpm::Resu
     if let Some(file) = files {
         let snapshot_id = new_snapshots
             .iter()
-            .map(|v| v.file.to_string())
+            .map(|v| v.filename.to_string())
             .collect::<Vec<String>>();
-        for (k, v) in snapshots {
+        for (k, timestamp) in snapshots {
             if !snapshot_id.contains(&k) && file.contains(&k) {
                 continue;
             }
             if !snapshot_id.contains(&k) {
                 new_snapshots.push(fpm::Snapshot {
-                    file: k.to_string(),
-                    timestamp: v.to_string(),
+                    filename: k.to_string(),
+                    timestamp,
                 })
             }
         }
@@ -61,7 +61,7 @@ pub async fn sync(config: &fpm::Config, files: Option<Vec<String>>) -> fpm::Resu
 async fn write(
     doc: &fpm::File,
     timestamp: u128,
-    snapshots: &std::collections::BTreeMap<String, String>,
+    snapshots: &std::collections::BTreeMap<String, u128>,
 ) -> fpm::Result<(fpm::Snapshot, bool)> {
     if doc.get_id().contains('/') {
         let dir = doc.get_id().rsplit_once('/').unwrap().0.to_string();
@@ -79,8 +79,8 @@ async fn write(
             if current_doc.eq(&existing_doc) {
                 return Ok((
                     fpm::Snapshot {
-                        file: doc.get_id(),
-                        timestamp: timestamp.to_string(),
+                        filename: doc.get_id(),
+                        timestamp: *timestamp,
                     },
                     false,
                 ));
@@ -88,15 +88,14 @@ async fn write(
         }
     }
 
-    let new_file_path =
-        fpm::utils::history_path(&doc.get_id(), &doc.get_base_path(), &timestamp.to_string());
+    let new_file_path = fpm::utils::history_path(&doc.get_id(), &doc.get_base_path(), &timestamp);
 
     tokio::fs::copy(doc.get_full_path(), new_file_path).await?;
 
     Ok((
         fpm::Snapshot {
-            file: doc.get_id(),
-            timestamp: timestamp.to_string(),
+            filename: doc.get_id(),
+            timestamp,
         },
         true,
     ))

@@ -25,7 +25,7 @@ pub async fn diff(config: &fpm::Config, files: Option<Vec<String>>, all: bool) -
 
 async fn get_diffy(
     doc: &fpm::File,
-    snapshots: &std::collections::BTreeMap<String, String>,
+    snapshots: &std::collections::BTreeMap<String, u128>,
 ) -> fpm::Result<Option<String>> {
     if let Some(timestamp) = snapshots.get(&doc.get_id()) {
         let path = fpm::utils::history_path(&doc.get_id(), &doc.get_base_path(), timestamp);
@@ -47,7 +47,7 @@ async fn get_diffy(
 
 async fn get_track_diff(
     doc: &fpm::File,
-    snapshots: &std::collections::BTreeMap<String, String>,
+    snapshots: &std::collections::BTreeMap<String, u128>,
     base_path: &str,
 ) -> fpm::Result<()> {
     let path = fpm::utils::track_path(&doc.get_id(), &doc.get_base_path());
@@ -56,15 +56,15 @@ async fn get_track_diff(
     }
     let tracks = fpm::tracker::get_tracks(base_path, &path)?;
     for track in tracks.values() {
-        if let Some(timestamp) = snapshots.get(&track.document_name) {
+        if let Some(timestamp) = snapshots.get(&track.filename) {
             if track.other_timestamp.is_none() {
                 continue;
             }
             let now_path =
-                fpm::utils::history_path(&track.document_name, &doc.get_base_path(), timestamp);
+                fpm::utils::history_path(&track.filename, &doc.get_base_path(), timestamp);
 
             let then_path = fpm::utils::history_path(
-                &track.document_name,
+                &track.filename,
                 &doc.get_base_path(),
                 track.other_timestamp.as_ref().unwrap(),
             );

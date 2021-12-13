@@ -21,17 +21,17 @@ optional string woff2:
 -- font-data list font:
 
 -- record snapshot-data:
-caption file:
-string timestamp:
+caption filename:
+integer timestamp:
 
 -- snapshot-data list snapshot:
 
 -- record track-data:
-caption document-name:
+caption filename:
 optional string package:
 optional string version:
-optional string other-timestamp:
-string self-timestamp:
+optional integer other-timestamp:
+integer self-timestamp:
 
 -- track-data list track:
 

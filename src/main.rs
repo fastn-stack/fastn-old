@@ -1,58 +1,49 @@
 #[tokio::main]
-async fn main() {
+async fn main() -> fpm::Result<()> {
     let matches = app(authors()).get_matches();
 
-    let config = fpm::Config::read().await.expect("failed to read config");
+    let config = fpm::Config::read().await?;
 
     if matches.subcommand_matches("build").is_some() {
-        fpm::build(&config).await.expect("build failed");
+        fpm::build(&config).await?;
     }
     if let Some(sync) = matches.subcommand_matches("sync") {
         if let Some(source) = sync.values_of("source") {
             let sources = source.map(|v| v.to_string()).collect();
-            fpm::sync(&config, Some(sources))
-                .await
-                .expect("sync failed");
+            fpm::sync(&config, Some(sources)).await?;
         } else {
-            fpm::sync(&config, None).await.expect("sync failed");
+            fpm::sync(&config, None).await?;
         }
     }
     if let Some(status) = matches.subcommand_matches("status") {
         let source = status.value_of("source");
-        fpm::status(&config, source).await.expect("status failed");
+        fpm::status(&config, source).await?;
     }
     if let Some(diff) = matches.subcommand_matches("diff") {
         let all = diff.is_present("all");
         if let Some(source) = diff.values_of("source") {
             let sources = source.map(|v| v.to_string()).collect();
-            fpm::diff(&config, Some(sources), all)
-                .await
-                .expect("diff failed");
+            fpm::diff(&config, Some(sources), all).await?;
         } else {
-            fpm::diff(&config, None, all).await.expect("diff failed");
+            fpm::diff(&config, None, all).await?;
         }
     }
     if let Some(tracks) = matches.subcommand_matches("start-tracking") {
         let source = tracks.value_of("source").unwrap();
         let target = tracks.value_of("target").unwrap();
-        fpm::start_tracking(&config, source, target)
-            .await
-            .expect("start-tracking failed");
+        fpm::start_tracking(&config, source, target).await?;
     }
     if let Some(mark) = matches.subcommand_matches("mark-upto-date") {
         let source = mark.value_of("source").unwrap();
         let target = mark.value_of("target");
-        fpm::mark_upto_date(&config, source, target)
-            .await
-            .expect("mark-upto-date failed");
+        fpm::mark_upto_date(&config, source, target).await?;
     }
     if let Some(mark) = matches.subcommand_matches("stop-tracking") {
         let source = mark.value_of("source").unwrap();
         let target = mark.value_of("target");
-        fpm::stop_tracking(&config, source, target)
-            .await
-            .expect("stop-tracking failed");
+        fpm::stop_tracking(&config, source, target).await?;
     }
+    Ok(())
 }
 
 fn app(authors: &'static str) -> clap::App<'static, 'static> {
