@@ -155,25 +155,26 @@ pub(crate) async fn get_file(
 
 pub async fn get_documents_with_config(
     config: &fpm::Config,
-) -> fpm::Result<(Vec<(String, File)>, fpm::Config)> {
+) -> fpm::Result<(Vec<(String, File, bool)>, fpm::Config)> {
     let (documents, config) = if config.is_translation_package() {
         let translation_config = config.read_translation().await?;
         let translation_snapshots =
             fpm::snapshot::get_latest_snapshots(&config.original_path()?).await?;
-        let mut documents: std::collections::BTreeMap<String, File> =
+        let mut documents: std::collections::BTreeMap<String, (File, bool)> =
             std::collections::BTreeMap::from_iter(
-                config
-                    .get_translation_documents()
-                    .await?
-                    .iter()
-                    .map(|v| (v.get_id().replace(".packages/.tmp/", ""), v.to_owned())),
+                config.get_translation_documents().await?.iter().map(|v| {
+                    (
+                        v.get_id().replace(".packages/.tmp/", ""),
+                        (v.to_owned(), true),
+                    )
+                }),
             );
         documents.extend(
             fpm::get_root_documents(config)
                 .await?
                 .iter()
                 .filter(|x| translation_snapshots.contains_key(x.get_id().as_str()))
-                .map(|v| (v.get_id(), v.to_owned())),
+                .map(|v| (v.get_id(), (v.to_owned(), false))),
         );
         (documents, translation_config)
     } else {
@@ -182,7 +183,7 @@ pub async fn get_documents_with_config(
                 fpm::get_root_documents(config)
                     .await?
                     .iter()
-                    .map(|v| (v.get_id(), v.to_owned())),
+                    .map(|v| (v.get_id(), (v.to_owned(), false))),
             ),
             config.to_owned(),
         )
@@ -192,18 +193,24 @@ pub async fn get_documents_with_config(
     let mut document_vec = documents
         .clone()
         .into_iter()
-        .filter(|(_, d)| matches!(d, fpm::File::Static(_)))
-        .collect::<Vec<(String, File)>>();
+        .filter(|(_, d)| matches!(d.0, fpm::File::Static(_)))
+        .collect::<Vec<(String, (File, bool))>>();
     document_vec.extend(
         documents
             .clone()
             .into_iter()
-            .filter(|(_, d)| matches!(d, fpm::File::Markdown(_))),
+            .filter(|(_, d)| matches!(d.0, fpm::File::Markdown(_))),
     );
     document_vec.extend(
         documents
             .into_iter()
-            .filter(|(_, d)| matches!(d, fpm::File::Ftd(_))),
+            .filter(|(_, d)| matches!(d.0, fpm::File::Ftd(_))),
     );
-    Ok((document_vec, config))
+    Ok((
+        document_vec
+            .into_iter()
+            .map(|(s, (f, b))| (s, f, b))
+            .collect::<Vec<(String, File, bool)>>(),
+        config,
+    ))
 }
