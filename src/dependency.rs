@@ -10,7 +10,7 @@ pub struct Dependency {
 
 pub fn ensure(
     base_dir: &camino::Utf8PathBuf,
-    deps: Vec<fpm::Dependency>,
+    deps: &mut Vec<fpm::Dependency>,
     package: &mut fpm::Package,
 ) -> fpm::Result<()> {
     /*futures::future::join_all(
@@ -27,7 +27,7 @@ pub fn ensure(
     //  function to unsafe and downloaded_package as global static variable to have longer lifetime
 
     let mut downloaded_package = vec![package.name.clone()];
-    for dep in deps.clone().iter_mut() {
+    for dep in deps.iter_mut() {
         dep.package.process(
             base_dir,
             dep.repo.as_str(),
@@ -104,7 +104,7 @@ impl fpm::Package {
         //       version will get downloaded.
 
         if downloaded_package.contains(&self.name) {
-            return Ok(Default::default());
+            return Ok(());
         }
 
         if !base_dir.join(".packages").join(self.name.as_str()).exists() {
@@ -189,7 +189,7 @@ impl fpm::Package {
         let root = match fpm::config::find_package_root(&root) {
             Some(b) => b,
             None => {
-                return Ok(Default::default());
+                return Ok(());
             }
         };
         let ftd_document = {
@@ -217,7 +217,7 @@ impl fpm::Package {
                 mutpackage.name, mutpackage.name, package.name, mutpackage.name
             ));
             std::fs::remove_dir_all(root)?;
-            return Ok(Default::default());
+            return Ok(());
         }
         downloaded_package.push(mutpackage.name.to_string());
 
