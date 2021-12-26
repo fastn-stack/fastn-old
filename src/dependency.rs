@@ -66,7 +66,9 @@ pub fn ensure(
         }
         let translation_packages =
             translation_of.process(base_dir, "github", &mut downloaded_package, true, true)?;
-        translation_of.translations = translation_packages;
+        if let Some(package) = translation_packages.first() {
+            *translation_of = package.to_owned();
+        }
     }
     Ok(())
 }
