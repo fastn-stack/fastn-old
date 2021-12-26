@@ -130,7 +130,7 @@ impl ftd::p2::Library for Library {
             if other_language_packages.has_elements() {
                 let mut languages = "".to_string();
                 for lang_package in other_language_packages {
-                    let language = if let Some(ref lang) = lang_package.lang {
+                    let language = if let Some(ref lang) = lang_package.language {
                         lang
                     } else {
                         continue;
