@@ -339,7 +339,6 @@ async fn process_ftd(
         };
         let message_rt_doc = message_ftd_doc.to_rt("message", &main.id);
 
-
         let mut f = tokio::fs::File::create(new_file_path).await?;
 
         f.write_all(
