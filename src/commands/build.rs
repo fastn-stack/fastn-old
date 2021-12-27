@@ -258,12 +258,17 @@ async fn process_ftd(
                     });
                 }
             };
+        let doc_title = match &main_ftd_doc.title() {
+            Some(x) => x.rendered.clone(),
+            _ => main.id.as_str().to_string(),
+        };
         let ftd_doc = main_ftd_doc.to_rt("main", &main.id);
 
         let mut f = tokio::fs::File::create(new_file_path).await?;
         f.write_all(
             fix_base(
                 fpm::ftd_html()
+                    .replace("__ftd_doc_title__", doc_title.as_str())
                     .replace(
                         "__ftd_data__",
                         serde_json::to_string_pretty(&ftd_doc.data)
