@@ -69,11 +69,10 @@ pub(crate) struct DependencyTemp {
 
 impl DependencyTemp {
     pub(crate) fn into_dependency(self) -> fpm::Dependency {
-        let re = regex::Regex::new(r"([A-Za-z0-9./_-]+)(?: as ([A-Za-z0-9/_-]+))?").unwrap();
-        let cap = re.captures(self.name.as_str()).unwrap();
-        // Get first match, 0th is the full match itself
-        let package_name = cap.get(1).unwrap().as_str();
-        let alias = cap.get(2).map(|m| m.as_str().to_string());
+        let (package_name, alias) = match self.name.as_str().split_once(" as ") {
+            Some((package, alias)) => (package, Some(alias.to_string())),
+            _ => (self.name.as_str(), None),
+        };
         fpm::Dependency {
             package: fpm::Package::new(package_name),
             version: self.version,

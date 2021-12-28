@@ -523,7 +523,6 @@ dependencies = [
  "ignore",
  "indoc",
  "pretty_assertions",
- "regex",
  "reqwest",
  "rusqlite",
  "rusty-hook",
