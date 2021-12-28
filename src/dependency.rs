@@ -69,7 +69,7 @@ pub(crate) struct DependencyTemp {
 
 impl DependencyTemp {
     pub(crate) fn into_dependency(self) -> fpm::Dependency {
-        let re = regex::Regex::new(r"([A-Za-z0-9/_-]+)(?: as ([A-Za-z0-9/_-]+))?").unwrap();
+        let re = regex::Regex::new(r"([A-Za-z0-9./_-]+)(?: as ([A-Za-z0-9/_-]+))?").unwrap();
         let cap = re.captures(self.name.as_str()).unwrap();
         // Get first match, 0th is the full match itself
         let package_name = cap.get(1).unwrap().as_str();
@@ -111,7 +111,11 @@ impl fpm::Package {
             return Ok(());
         }
 
-        if !base_dir.join(".packages").join(self.name.as_str()).exists() {
+        if !base_dir
+            .join(".packages")
+            .join(dbg!(self.name.as_str()))
+            .exists()
+        {
             // Download the FPM.ftd file first for the package to download.
             let response_fpm = if let Ok(response_fpm) =
                 futures::executor::block_on(reqwest::get(format!("https://{}/FPM.ftd", self.name)))
@@ -130,14 +134,15 @@ impl fpm::Package {
             // Read FPM.ftd and get download zip url from `zip` argument
             let download_url = {
                 let lib = fpm::FPMLibrary::default();
-                let ftd_document = match ftd::p2::Document::from("FPM", fpm_string.as_str(), &lib) {
-                    Ok(v) => v,
-                    Err(e) => {
-                        return Err(fpm::Error::PackageError {
-                            message: format!("failed to parse FPM.ftd: {:?}", &e),
-                        });
-                    }
-                };
+                let ftd_document =
+                    match ftd::p2::Document::from("FPM", dbg!(fpm_string.as_str()), &lib) {
+                        Ok(v) => v,
+                        Err(e) => {
+                            return Err(fpm::Error::PackageError {
+                                message: format!("failed to parse FPM.ftd: {:?}", &e),
+                            });
+                        }
+                    };
 
                 ftd_document
                     .get::<fpm::config::PackageTemp>("fpm#package")?
