@@ -191,6 +191,12 @@ async fn process_ftd(
     translated_data: fpm::TranslationData,
     base_url: Option<&str>,
 ) -> fpm::Result<()> {
+    if main.id.eq("FPM.ftd") {
+        std::fs::copy(
+            config.root.join(main.id.as_str()),
+            config.root.join(".build").join(main.id.as_str()),
+        )?;
+    }
     if !main.id.eq("index.ftd") {
         std::fs::create_dir_all(config.root.join(".build").join(main.id.replace(".ftd", "")))?;
     }
@@ -258,12 +264,17 @@ async fn process_ftd(
                     });
                 }
             };
+        let doc_title = match &main_ftd_doc.title() {
+            Some(x) => x.rendered.clone(),
+            _ => main.id.as_str().to_string(),
+        };
         let ftd_doc = main_ftd_doc.to_rt("main", &main.id);
 
         let mut f = tokio::fs::File::create(new_file_path).await?;
         f.write_all(
             fix_base(
                 fpm::ftd_html()
+                    .replace("__ftd_doc_title__", doc_title.as_str())
                     .replace(
                         "__ftd_data__",
                         serde_json::to_string_pretty(&ftd_doc.data)
@@ -317,6 +328,11 @@ async fn process_ftd(
                     });
                 }
             };
+
+        let doc_title = match &main_ftd_doc.title() {
+            Some(x) => x.rendered.clone(),
+            _ => main.id.as_str().to_string(),
+        };
         let main_rt_doc = main_ftd_doc.to_rt("main", &main.id);
 
         let message_ftd_doc = match ftd::p2::Document::from("message", message, &lib) {
@@ -334,6 +350,7 @@ async fn process_ftd(
         f.write_all(
             fix_base(
                 fpm::with_message()
+                    .replace("__ftd_doc_title__", doc_title.as_str())
                     .replace(
                         "__ftd_data_message__",
                         serde_json::to_string_pretty(&message_rt_doc.data)
@@ -414,6 +431,11 @@ async fn process_ftd(
                 });
             }
         };
+
+        let doc_title = match &main_ftd_doc.title() {
+            Some(x) => x.rendered.clone(),
+            _ => main.id.as_str().to_string(),
+        };
         let message_rt_doc = message_ftd_doc.to_rt("message", &main.id);
 
         let fallback_ftd_doc =
@@ -432,6 +454,7 @@ async fn process_ftd(
         f.write_all(
             fix_base(
                 fpm::with_fallback()
+                    .replace("__ftd_doc_title__", doc_title.as_str())
                     .replace(
                         "__ftd_data_message__",
                         serde_json::to_string_pretty(&message_rt_doc.data)

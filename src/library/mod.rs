@@ -162,14 +162,10 @@ impl ftd::p2::Library for Library {
                         continue;
                     };
 
-                    let domain = if let Some(ref domain) = lang_package.domain {
-                        if domain.ends_with('/') {
-                            format!("{}{}", domain, doc_id)
-                        } else {
-                            format!("{}/{}", domain, doc_id)
-                        }
+                    let domain = if lang_package.name.ends_with('/') {
+                        format!("https://{}{}", lang_package.name, doc_id)
                     } else {
-                        continue;
+                        format!("https://{}/{}", lang_package.name, doc_id)
                     };
 
                     languages = format!(
