@@ -27,9 +27,22 @@ pub fn ensure(
     //  function to unsafe and downloaded_package as global static variable to have longer lifetime
 
     let mut downloaded_package = vec![package.name.clone()];
+    if let Some(translation_of) = package.translation_of.as_mut() {
+        if package.language.is_none() {
+            return Err(fpm::Error::UsageError {
+                message: "Translation package needs to declare the language".to_string(),
+            });
+        }
+        dbg!("translation_of", &translation_of);
+        translation_of.process(base_dir, &mut downloaded_package, true, true)?;
+        dbg!("Done translation_of", &translation_of);
+    }
+
     for dep in deps.iter_mut() {
+        dbg!("dep", &dep);
         dep.package
             .process(base_dir, &mut downloaded_package, false, true)?;
+        dbg!("Done dep", &dep);
     }
 
     if package.translations.has_elements() && package.translation_of.is_some() {
@@ -46,16 +59,9 @@ pub fn ensure(
                 message: "Package needs to declare the language".to_string(),
             });
         }
+        dbg!("translation", &translation, &downloaded_package);
         translation.process(base_dir, &mut downloaded_package, false, false)?;
-    }
-
-    if let Some(translation_of) = package.translation_of.as_mut() {
-        if package.language.is_none() {
-            return Err(fpm::Error::UsageError {
-                message: "Translation package needs to declare the language".to_string(),
-            });
-        }
-        translation_of.process(base_dir, &mut downloaded_package, true, true)?;
+        dbg!("Done translation", &translation);
     }
     Ok(())
 }
@@ -100,6 +106,13 @@ impl fpm::Package {
         download_translations: bool,
         download_dependencies: bool,
     ) -> fpm::Result<()> {
+        dbg!(
+            "process",
+            &self,
+            &downloaded_package,
+            &download_translations,
+            &downloaded_package
+        );
         use std::io::Write;
         // TODO: in future we will check if we have a new version in the package's repo.
         //       for now assume if package exists we have the latest package and if you
@@ -109,25 +122,41 @@ impl fpm::Package {
         if downloaded_package.contains(&self.name) {
             return Ok(());
         }
-
         let root = base_dir.join(".packages").join(self.name.as_str());
-        let mut fpm_path = root.join("FPM.ftd");
-        if !root.exists() {
-            // Download the FPM.ftd file first for the package to download.
-            let response_fpm = if let Ok(response_fpm) =
-                futures::executor::block_on(reqwest::get(format!("https://{}/FPM.ftd", self.name)))
-            {
-                response_fpm
+        // Just download FPM.ftd of the dependent package and continue
+        if !download_translations && !download_dependencies {
+            dbg!("inside 1", &self.name, &downloaded_package);
+            let (path, name) = if let Some((path, name)) = self.name.rsplit_once('/') {
+                (base_dir.join(".packages").join(path), name)
             } else {
-                futures::executor::block_on(reqwest::get(format!("http://{}/FPM.ftd", self.name)))?
+                (base_dir.join(".packages"), self.name.as_str())
             };
-            let fpm_string = String::from_utf8(
-                futures::executor::block_on(response_fpm.bytes())?
-                    .into_iter()
-                    .collect(),
-            )
-            .expect("");
+            let file_extract_path = path.join(format!("{}.ftd", name));
+            if !file_extract_path.exists() {
+                std::fs::create_dir_all(&path)?;
+                let fpm_string = get_fpm(self.name.as_str())?;
+                let mut f = std::fs::File::create(&file_extract_path)?;
+                f.write_all(fpm_string.as_bytes())?;
+            }
+            dbg!("done inside 1", &self.name, &downloaded_package);
+            return fpm::Package::process_fpm(
+                &root,
+                base_dir,
+                downloaded_package,
+                self,
+                download_translations,
+                download_dependencies,
+                &file_extract_path,
+            );
+        }
 
+        // Download everything of dependent package
+
+        if !root.exists() {
+            dbg!(&root);
+            // Download the FPM.ftd file first for the package to download.
+            let fpm_string = get_fpm(self.name.as_str())?;
+            dbg!("fpm_string done");
             // Read FPM.ftd and get download zip url from `zip` argument
             let download_url = {
                 let lib = fpm::FPMLibrary::default();
@@ -152,85 +181,83 @@ impl fpm::Package {
                     })?
             };
 
-            if !download_translations && !download_dependencies {
-                let (path, name) = if let Some((path, name)) = self.name.rsplit_once('/') {
-                    (base_dir.join(".packages").join(path), name)
-                } else {
-                    (base_dir.join(".packages"), self.name.as_str())
-                };
-                std::fs::create_dir_all(&path)?;
-                let file_extract_path = path.join(format!("{}.ftd", name));
-                if !file_extract_path.exists() {
-                    let mut f = std::fs::File::create(&file_extract_path)?;
-                    f.write_all(fpm_string.as_bytes())?;
-                }
-                fpm_path = file_extract_path;
-            } else {
-                let path =
-                    camino::Utf8PathBuf::from(format!("/tmp/{}.zip", self.name.replace("/", "__")));
+            dbg!("download_url", &download_url);
 
-                // Download the zip folder
-                {
-                    let response =
-                        if download_url[1..].contains("://") || download_url.starts_with("//") {
-                            futures::executor::block_on(reqwest::get(download_url))?
-                        } else if let Ok(response) = futures::executor::block_on(reqwest::get(
-                            format!("https://{}", download_url),
-                        )) {
-                            response
-                        } else {
-                            futures::executor::block_on(reqwest::get(format!(
-                                "http://{}",
-                                download_url
-                            )))?
-                        };
+            let path =
+                camino::Utf8PathBuf::from(format!("/tmp/{}.zip", self.name.replace("/", "__")));
 
-                    let mut file = std::fs::File::create(&path)?;
-                    // TODO: instead of reading the whole thing in memory use tokio::io::copy() somehow?
-                    let content = futures::executor::block_on(response.bytes())?;
-                    file.write_all(&content)?;
-                }
-
-                let file = std::fs::File::open(&path)?;
-                // TODO: switch to async_zip crate
-                let mut archive = zip::ZipArchive::new(file)?;
-                for i in 0..archive.len() {
-                    let mut c_file = archive.by_index(i).unwrap();
-                    let out_path = match c_file.enclosed_name() {
-                        Some(path) => path.to_owned(),
-                        None => continue,
-                    };
-                    let out_path_without_folder =
-                        out_path.to_str().unwrap().split_once("/").unwrap().1;
-                    let file_extract_path = base_dir
-                        .join(".packages")
-                        .join(self.name.as_str())
-                        .join(out_path_without_folder);
-                    if (&*c_file.name()).ends_with('/') {
-                        std::fs::create_dir_all(&file_extract_path)?;
+            // Download the zip folder
+            {
+                let response =
+                    if download_url[1..].contains("://") || download_url.starts_with("//") {
+                        reqwest::blocking::get(download_url)?
+                    } else if let Ok(response) =
+                        reqwest::blocking::get(format!("https://{}", download_url))
+                    {
+                        response
                     } else {
-                        if let Some(p) = file_extract_path.parent() {
-                            if !p.exists() {
-                                std::fs::create_dir_all(p)?;
-                            }
+                        reqwest::blocking::get(format!("http://{}", download_url))?
+                    };
+
+                let mut file = std::fs::File::create(&path)?;
+                // TODO: instead of reading the whole thing in memory use tokio::io::copy() somehow?
+                let content = response.bytes()?;
+                file.write_all(&content)?;
+            }
+            dbg!("download_zip");
+
+            let file = std::fs::File::open(&path)?;
+            // TODO: switch to async_zip crate
+            let mut archive = zip::ZipArchive::new(file)?;
+            for i in 0..archive.len() {
+                let mut c_file = archive.by_index(i).unwrap();
+                let out_path = match c_file.enclosed_name() {
+                    Some(path) => path.to_owned(),
+                    None => continue,
+                };
+                let out_path_without_folder = out_path.to_str().unwrap().split_once("/").unwrap().1;
+                let file_extract_path = base_dir
+                    .join(".packages")
+                    .join(self.name.as_str())
+                    .join(out_path_without_folder);
+                if (&*c_file.name()).ends_with('/') {
+                    std::fs::create_dir_all(&file_extract_path)?;
+                } else {
+                    if let Some(p) = file_extract_path.parent() {
+                        if !p.exists() {
+                            std::fs::create_dir_all(p)?;
                         }
-                        // Note: we will be able to use tokio::io::copy() with async_zip
-                        let mut outfile = std::fs::File::create(file_extract_path)?;
-                        std::io::copy(&mut c_file, &mut outfile)?;
                     }
+                    // Note: we will be able to use tokio::io::copy() with async_zip
+                    let mut outfile = std::fs::File::create(file_extract_path)?;
+                    std::io::copy(&mut c_file, &mut outfile)?;
                 }
             }
+            dbg!("extracted zip");
         }
-
-        fpm::Package::process_fpm(
+        dbg!("done inside 2");
+        return fpm::Package::process_fpm(
             &root,
             base_dir,
             downloaded_package,
             self,
             download_translations,
             download_dependencies,
-            &fpm_path,
-        )
+            &root.join("FPM.ftd"),
+        );
+
+        fn get_fpm(name: &str) -> fpm::Result<String> {
+            let response_fpm = if let Ok(response_fpm) =
+                reqwest::blocking::get(dbg!(format!("https://{}/FPM.ftd", name)))
+            {
+                dbg!("1");
+                dbg!(response_fpm)
+            } else {
+                dbg!("2");
+                reqwest::blocking::get(dbg!(format!("http://{}/FPM.ftd", name)))?
+            };
+            Ok(String::from_utf8(response_fpm.bytes()?.into_iter().collect()).expect(""))
+        }
     }
 
     /// This function is called by `process()` or recursively called by itself.
@@ -252,6 +279,13 @@ impl fpm::Package {
         download_dependencies: bool,
         fpm_path: &camino::Utf8PathBuf,
     ) -> fpm::Result<()> {
+        dbg!(
+            "process_fpm inside 1",
+            &mutpackage.name,
+            &downloaded_package,
+            &download_translations,
+            &download_dependencies
+        );
         let ftd_document = {
             let doc = std::fs::read_to_string(fpm_path)?;
             let lib = fpm::FPMLibrary::default();
@@ -288,11 +322,13 @@ impl fpm::Package {
 
         if download_dependencies {
             for dep in deps.iter_mut() {
+                dbg!("download_dependencies", &dep);
                 let dep_path = root.join(".packages").join(dep.package.name.as_str());
                 if downloaded_package.contains(&dep.package.name) {
                     continue;
                 }
                 if dep_path.exists() {
+                    dbg!("download_dependencies exists", &dep.package.name);
                     let dst = base_path.join(".packages").join(dep.package.name.as_str());
                     if !dst.exists() {
                         futures::executor::block_on(fpm::copy_dir_all(dep_path, dst.clone()))?;
@@ -306,9 +342,12 @@ impl fpm::Package {
                         true,
                         &dst.join("FPM.ftd"),
                     )?;
+                } else {
+                    dbg!("download_dependencies not exist", &dep.package.name);
+                    dep.package
+                        .process(base_path, downloaded_package, false, true)?;
+                    dbg!("download_dependencies downloaded", &dep.package.name);
                 }
-                dep.package
-                    .process(base_path, downloaded_package, false, true)?;
             }
         }
 
@@ -324,11 +363,13 @@ impl fpm::Package {
                 });
             }
             for translation in package.translations.iter_mut() {
+                dbg!("download_translations", &translation);
                 let original_path = root.join(".packages").join(translation.name.as_str());
                 if downloaded_package.contains(&translation.name) {
                     continue;
                 }
                 if original_path.exists() {
+                    dbg!("download_translations exists", &translation.name);
                     let dst = base_path.join(".packages").join(translation.name.as_str());
                     if !dst.exists() {
                         futures::executor::block_on(fpm::copy_dir_all(original_path, dst.clone()))?;
@@ -343,7 +384,9 @@ impl fpm::Package {
                         &dst.join("FPM.ftd"),
                     )?;
                 } else {
+                    dbg!("download_translations not exist", &translation.name);
                     translation.process(base_path, downloaded_package, false, false)?;
+                    dbg!("download_translations downloaded", &translation.name);
                 }
             }
         }

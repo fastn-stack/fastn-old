@@ -70,7 +70,7 @@ position: center
 
 
 -- ftd.row available-language:
-position: center
+position: right
 boolean show-menu: false
 
 --- ftd.text: $fpm-ui.other-available-languages
