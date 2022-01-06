@@ -85,6 +85,9 @@ impl ftd::p2::Library for Library {
 
             format!(
                 indoc::indoc! {"
+                    -- boolean mobile: true
+                    -- boolean dark-mode: false
+                    -- boolean follow-system-dark-mode: true
                     -- string last-modified-on: {last_modified_on}
                     -- string never-synced: {never_synced}
                     -- string show-translation-status: {show_translation_status}
@@ -109,7 +112,7 @@ impl ftd::p2::Library for Library {
                     -- string welcome-fpm-page: {welcome_fpm_page}
                     -- string welcome-fpm-page-subtitle: {welcome_fpm_page_subtitle}
                     -- string language: {language}
-                    "},
+                "},
                 language = fpm::i18n::translation::search(
                     &lang,
                     &primary_lang,
