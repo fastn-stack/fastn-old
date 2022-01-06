@@ -1,6 +1,6 @@
 # usr/bin/sh
 
-mkdir -p /tmp/fpm/bin/
-curl -s https://api.github.com/repos/fifthtry/fpm/releases/latest | grep ".*\/releases\/download\/.*\ fpm_linux[A-z_]*" | cut -d : -f 2,3 | xargs -I % curl -L % -o /tmp/fpm/bin/fpm
-curl -s https://api.github.com/repos/fifthtry/fpm/releases/latest | grep ".*\/releases\/download\/.*\/fpm_linux.*.d" | cut -d : -f 2,3 | xargs -I % curl -L % -o /tmp/fpm/bin/fpm.d
-chmod +x /tmp/fpm/bin/fpm*
+curl -s https://api.github.com/repos/fifthtry/fpm/releases/latest | grep ".*\/releases\/download\/.*\/fpm_linux.*" | cut -d : -f 2,3 | xargs -I % curl -O -J -L %
+mv fpm_linux_musl_x86_64 /usr/local/bin/fpm
+mv fpm_linux_musl_x86_64.d /usr/local/bin/fpm.d
+chmod +x /usr/local/bin/fpm*
