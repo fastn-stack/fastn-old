@@ -1,10 +1,29 @@
 pub fn processor(
     section: &ftd::p1::Section,
     doc: &ftd::p2::TDoc,
-    config: &fpm::Config,
+    _config: &fpm::Config,
 ) -> ftd::p1::Result<ftd::Value> {
-    // doc.from_json(&toc_items, section)
-    todo!();
+    let toc_items = ToC::parse(section.body(section.line_number, doc.name)?.as_str())
+        .map_err(|e| ftd::p1::Error::ParseError {
+            message: format!("Cannot parse body: {:?}", e),
+            doc_id: doc.name.to_string(),
+            line_number: section.line_number,
+        })?
+        .items
+        .iter()
+        .map(|item| item.to_toc_item_compat())
+        .collect::<Vec<TocItemCompat>>();
+    dbg!(&toc_items);
+    doc.from_json(&toc_items, section)
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct TocItemCompat {
+    pub id: String,
+    pub url: Option<String>,
+    pub number: Vec<u8>,
+    pub title: String,
+    pub children: Vec<TocItemCompat>,
 }
 
 #[derive(PartialEq, Debug, Default, Clone)]
@@ -17,6 +36,22 @@ pub struct TocItem {
     pub img_src: Option<String>,
     pub font_icon: Option<String>,
     pub children: Vec<TocItem>,
+}
+
+impl TocItem {
+    pub(crate) fn to_toc_item_compat(&self) -> TocItemCompat {
+        TocItemCompat {
+            id: self.title.original.clone(),
+            url: None,
+            number: self.number.clone(),
+            title: self.title.original.to_string(),
+            children: self
+                .children
+                .iter()
+                .map(|item| item.to_toc_item_compat())
+                .collect(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -33,10 +68,7 @@ pub struct TocParser {
 }
 
 #[derive(thiserror::Error, Debug)]
-pub enum ParseError {
-    #[error("InputError: {0}")]
-    InputError(String),
-}
+pub enum ParseError {}
 
 #[derive(Debug)]
 struct LevelTree {
@@ -77,6 +109,7 @@ fn construct_tree(elements: Vec<(TocItem, usize)>, smallest_level: usize) -> Vec
             let top = stack_tree.pop().unwrap();
             let mut top_level = top.level;
             let mut children = vec![top];
+            let mut _number: Vec<u8> = vec![];
             while level < top_level {
                 loop {
                     if stack_tree.is_empty() {
@@ -131,7 +164,6 @@ impl TocParser {
         if line.trim().is_empty() {
             return Ok(());
         }
-        dbg!(&line, &self.sections);
         let mut iter = line.chars();
         let mut depth = 0;
         loop {
@@ -145,6 +177,7 @@ impl TocParser {
                 }
                 Some('#') => {
                     // Heading can not have any attributes. Append the item and look for the next input
+                    self.eval_temp_item()?;
                     self.sections.push((
                         TocItem {
                             title: ftd::markdown_line(iter.collect::<String>().trim()),
@@ -157,7 +190,7 @@ impl TocParser {
                 }
                 Some(k) => {
                     let l = format!("{}{}", k, iter.collect::<String>());
-                    self.read_attrs(l.as_str());
+                    self.read_attrs(l.as_str())?;
                     return Ok(());
                     // panic!()
                 }
@@ -167,7 +200,7 @@ impl TocParser {
             }
         }
         let rest: String = iter.collect();
-        self.eval_temp_item();
+        self.eval_temp_item()?;
         // Split the line by `:`. title = 0, url = Option<1>
         let (t, u) = match rest.rsplit_once(":") {
             Some((i, v)) => (i.trim().to_string(), Some(v.trim().to_string())),
@@ -186,17 +219,16 @@ impl TocParser {
     }
 
     fn eval_temp_item(&mut self) -> Result<(), ParseError> {
-        match self.temp_item.clone() {
-            Some((t, u)) => self.sections.push((t, u)),
-            _ => (),
-        };
+        if let Some((t, u)) = self.temp_item.clone() {
+            self.sections.push((t, u))
+        }
         self.temp_item = None;
         Ok(())
     }
     fn read_attrs(&mut self, line: &str) -> Result<(), ParseError> {
         if line.trim().is_empty() {
             // Empty line found. Process the temp_item
-            self.eval_temp_item();
+            self.eval_temp_item()?;
         } else {
             match self.temp_item.clone() {
                 Some((i, d)) => match line.rsplit_once(":") {
@@ -204,6 +236,24 @@ impl TocParser {
                         self.temp_item = Some((
                             TocItem {
                                 url: Some(v.trim().to_string()),
+                                ..i
+                            },
+                            d,
+                        ));
+                    }
+                    Some(("font-icon", v)) => {
+                        self.temp_item = Some((
+                            TocItem {
+                                font_icon: Some(v.trim().to_string()),
+                                ..i
+                            },
+                            d,
+                        ));
+                    }
+                    Some(("src", v)) => {
+                        self.temp_item = Some((
+                            TocItem {
+                                img_src: Some(v.trim().to_string()),
                                 ..i
                             },
                             d,
@@ -233,11 +283,10 @@ impl ToC {
             temp_item: None,
         };
         for line in s.split('\n') {
-            let state = parser.state.clone();
             parser.read_line(line)?;
         }
         if parser.temp_item.is_some() {
-            parser.eval_temp_item();
+            parser.eval_temp_item()?;
         }
         Ok(ToC {
             items: construct_tree_util(parser.finalize()?),
@@ -293,7 +342,7 @@ mod test {
                         title: ftd::markdown_line("Hello World!"),
                         id: None,
                         url: None,
-                        number: vec![1],
+                        number: vec![],
                         is_disabled: false,
                         img_src: None,
                         font_icon: None,
@@ -303,7 +352,17 @@ mod test {
                         title: ftd::markdown_line("Test Page"),
                         id: None,
                         url: Some("/test-page/".to_string()),
-                        number: vec![1],
+                        number: vec![],
+                        is_disabled: false,
+                        img_src: None,
+                        font_icon: None,
+                        children: vec![]
+                    },
+                    super::TocItem {
+                        title: ftd::markdown_line("Title One"),
+                        id: None,
+                        url: None,
+                        number: vec![],
                         is_disabled: false,
                         img_src: None,
                         font_icon: None,
@@ -313,11 +372,21 @@ mod test {
                         title: ftd::markdown_line("Home Page"),
                         id: None,
                         url: Some("/home/".to_string()),
-                        number: vec![1],
+                        number: vec![],
                         is_disabled: false,
                         img_src: None,
                         font_icon: None,
                         children: vec![
+                            super::TocItem {
+                                title: ftd::markdown_line("Nested Title"),
+                                id: None,
+                                url: None,
+                                number: vec![],
+                                is_disabled: false,
+                                img_src: None,
+                                font_icon: None,
+                                children: vec![]
+                            },
                             super::TocItem {
                                 id: None,
                                 title: ftd::markdown_line("Nested Link"),
@@ -383,7 +452,6 @@ mod test {
             &indoc!(
                 "
         - Home Page: /home-page/
-          numbering: 
         "
             ),
             super::ToC {
