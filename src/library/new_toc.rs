@@ -151,7 +151,6 @@ fn construct_tree(elements: Vec<(TocItem, usize)>, smallest_level: usize) -> Vec
         let new_toc_item = match &toc_item.is_heading {
             true => {
                 // Level reset. Remove all elements > level
-                dbg!(&num, &level);
                 if level < (num.len() - 1) {
                     num = num[0..level + 1].to_vec();
                 } else if let Some(i) = num.get_mut(level) {
