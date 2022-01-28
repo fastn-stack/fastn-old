@@ -13,16 +13,15 @@ pub fn processor(
         .iter()
         .map(|item| item.to_toc_item_compat())
         .collect::<Vec<TocItemCompat>>();
-    dbg!(&toc_items);
     doc.from_json(&toc_items, section)
 }
 
 #[derive(Debug, serde::Serialize)]
 pub struct TocItemCompat {
-    pub id: String,
-    pub url: Option<String>,
-    pub number: Vec<u8>,
+    pub url: String,
+    pub number: String,
     pub title: String,
+    pub is_heading: bool,
     pub children: Vec<TocItemCompat>,
 }
 
@@ -32,6 +31,7 @@ pub struct TocItem {
     pub title: ftd::Rendered,
     pub url: Option<String>,
     pub number: Vec<u8>,
+    pub is_heading: bool,
     pub is_disabled: bool,
     pub img_src: Option<String>,
     pub font_icon: Option<String>,
@@ -40,11 +40,16 @@ pub struct TocItem {
 
 impl TocItem {
     pub(crate) fn to_toc_item_compat(&self) -> TocItemCompat {
+        // TODO: num converting to ol and li in ftd.???
         TocItemCompat {
-            id: self.title.original.clone(),
-            url: None,
-            number: self.number.clone(),
+            url: self.url.clone().or(Some("".to_string())).unwrap(),
+            number: self
+                .number
+                .iter()
+                .map(|x| format!("{}_", x.to_string()))
+                .collect(),
             title: self.title.original.to_string(),
+            is_heading: self.is_heading,
             children: self
                 .children
                 .iter()
@@ -58,7 +63,6 @@ impl TocItem {
 enum ParsingState {
     WaitingForNextItem,
     WaitingForAttributes,
-    // WaitingForTitle((String, usize)),
 }
 
 pub struct TocParser {
@@ -100,16 +104,16 @@ fn get_top_level(stack: &[LevelTree]) -> usize {
 
 fn construct_tree(elements: Vec<(TocItem, usize)>, smallest_level: usize) -> Vec<LevelTree> {
     let mut stack_tree = vec![];
+    let mut num: Vec<u8> = vec![0];
     for (toc_item, level) in elements.into_iter() {
         if level < smallest_level {
             panic!("Level should not be lesser than smallest level");
         }
-        let node = LevelTree::new(level, toc_item);
+
         if !(stack_tree.is_empty() || get_top_level(&stack_tree) <= level) {
             let top = stack_tree.pop().unwrap();
             let mut top_level = top.level;
             let mut children = vec![top];
-            let mut _number: Vec<u8> = vec![];
             while level < top_level {
                 loop {
                     if stack_tree.is_empty() {
@@ -148,6 +152,37 @@ fn construct_tree(elements: Vec<(TocItem, usize)>, smallest_level: usize) -> Vec
             }
             assert!(level >= top_level);
         }
+        let new_toc_item = match &toc_item.is_heading {
+            true => {
+                // Level reset. Remove all elements > level
+                dbg!(&num, &level);
+                if level < (num.len() - 1) {
+                    num = num[0..level + 1].to_vec();
+                } else {
+                    if let Some(i) = num.get_mut(level) {
+                        *i = 0;
+                    }
+                }
+                toc_item
+            }
+            false => {
+                if level < (num.len() - 1) {
+                    // Level reset. Remove all elements > level
+                    num = num[0..level + 1].to_vec();
+                }
+                if let Some(i) = num.get_mut(level) {
+                    *i += 1;
+                } else {
+                    num.insert(level, 1);
+                };
+                TocItem {
+                    number: num.clone(),
+                    ..toc_item
+                }
+            }
+        };
+        let node = LevelTree::new(level, new_toc_item);
+
         stack_tree.push(node);
     }
     stack_tree
@@ -181,6 +216,7 @@ impl TocParser {
                     self.sections.push((
                         TocItem {
                             title: ftd::markdown_line(iter.collect::<String>().trim()),
+                            is_heading: true,
                             ..Default::default()
                         },
                         depth,
@@ -332,6 +368,7 @@ mod test {
           # Nested Title
           - Nested Link
             url: /home/nested-link/
+          # Nested Title 2
           - Nested Link Two: /home/nested-link-two/
             - Further Nesting: /home/nested-link-two/further-nested/
         "
@@ -345,6 +382,7 @@ mod test {
                         number: vec![],
                         is_disabled: false,
                         img_src: None,
+                        is_heading: true,
                         font_icon: None,
                         children: vec![]
                     },
@@ -352,7 +390,8 @@ mod test {
                         title: ftd::markdown_line("Test Page"),
                         id: None,
                         url: Some("/test-page/".to_string()),
-                        number: vec![],
+                        number: vec![1],
+                        is_heading: false,
                         is_disabled: false,
                         img_src: None,
                         font_icon: None,
@@ -364,6 +403,7 @@ mod test {
                         url: None,
                         number: vec![],
                         is_disabled: false,
+                        is_heading: true,
                         img_src: None,
                         font_icon: None,
                         children: vec![]
@@ -372,8 +412,9 @@ mod test {
                         title: ftd::markdown_line("Home Page"),
                         id: None,
                         url: Some("/home/".to_string()),
-                        number: vec![],
+                        number: vec![1],
                         is_disabled: false,
+                        is_heading: false,
                         img_src: None,
                         font_icon: None,
                         children: vec![
@@ -382,6 +423,7 @@ mod test {
                                 id: None,
                                 url: None,
                                 number: vec![],
+                                is_heading: true,
                                 is_disabled: false,
                                 img_src: None,
                                 font_icon: None,
@@ -391,17 +433,30 @@ mod test {
                                 id: None,
                                 title: ftd::markdown_line("Nested Link"),
                                 url: Some("/home/nested-link/".to_string(),),
-                                number: vec![],
+                                number: vec![1, 1],
+                                is_heading: false,
                                 is_disabled: false,
                                 img_src: None,
                                 font_icon: None,
                                 children: vec![],
                             },
                             super::TocItem {
+                                title: ftd::markdown_line("Nested Title 2"),
+                                id: None,
+                                url: None,
+                                number: vec![],
+                                is_heading: true,
+                                is_disabled: false,
+                                img_src: None,
+                                font_icon: None,
+                                children: vec![]
+                            },
+                            super::TocItem {
                                 id: None,
                                 title: ftd::markdown_line("Nested Link Two"),
                                 url: Some("/home/nested-link-two/".to_string()),
-                                number: vec![],
+                                number: vec![1, 1],
+                                is_heading: false,
                                 is_disabled: false,
                                 img_src: None,
                                 font_icon: None,
@@ -409,7 +464,8 @@ mod test {
                                     id: None,
                                     title: ftd::markdown_line("Further Nesting"),
                                     url: Some("/home/nested-link-two/further-nested/".to_string()),
-                                    number: vec![],
+                                    number: vec![1, 1, 1],
+                                    is_heading: false,
                                     is_disabled: false,
                                     img_src: None,
                                     font_icon: None,
@@ -438,6 +494,7 @@ mod test {
                     url: None,
                     number: vec![],
                     is_disabled: false,
+                    is_heading: true,
                     img_src: None,
                     font_icon: None,
                     children: vec![]
@@ -457,9 +514,10 @@ mod test {
             super::ToC {
                 items: vec![super::TocItem {
                     title: ftd::markdown_line("Home Page"),
+                    is_heading: false,
                     id: None,
                     url: Some("/home-page/".to_string()),
-                    number: vec![],
+                    number: vec![1],
                     is_disabled: false,
                     img_src: None,
                     font_icon: None,
