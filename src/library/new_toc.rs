@@ -42,12 +42,8 @@ impl TocItem {
     pub(crate) fn to_toc_item_compat(&self) -> TocItemCompat {
         // TODO: num converting to ol and li in ftd.???
         TocItemCompat {
-            url: self.url.clone().or(Some("".to_string())).unwrap(),
-            number: self
-                .number
-                .iter()
-                .map(|x| format!("{}_", x.to_string()))
-                .collect(),
+            url: self.url.clone().or_else(|| Some("".to_string())).unwrap(),
+            number: self.number.iter().map(|x| format!("{}_", x)).collect(),
             title: self.title.original.to_string(),
             is_heading: self.is_heading,
             children: self
@@ -158,10 +154,8 @@ fn construct_tree(elements: Vec<(TocItem, usize)>, smallest_level: usize) -> Vec
                 dbg!(&num, &level);
                 if level < (num.len() - 1) {
                     num = num[0..level + 1].to_vec();
-                } else {
-                    if let Some(i) = num.get_mut(level) {
-                        *i = 0;
-                    }
+                } else if let Some(i) = num.get_mut(level) {
+                    *i = 0;
                 }
                 toc_item
             }
