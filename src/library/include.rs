@@ -23,7 +23,7 @@ pub fn processor(
         "text".to_string(),
         ftd::PropertyValue::Value {
             value: ftd::Value::String {
-                text: code_item.body.to_string(),
+                text: code_item.body,
                 source: ftd::TextSource::Header,
             },
         },
@@ -160,9 +160,8 @@ pub fn take_anchored_lines(s: &str, anchor: &str) -> String {
 pub fn sanitize_anchored_lines(s: &str) -> String {
     let mut retained = Vec::<&str>::new();
     for l in s.lines() {
-        match (ANCHOR_END.captures(l), ANCHOR_START.captures(l)) {
-            (None, None) => retained.push(l),
-            _ => (),
+        if let (None, None) = (ANCHOR_END.captures(l), ANCHOR_START.captures(l)) {
+            retained.push(l)
         }
     }
     retained.join("\n")
@@ -204,13 +203,13 @@ impl IncludeCode {
 #[derive(thiserror::Error, Debug)]
 pub enum ParseError {
     #[error("Integer Parsing Error: {}", _0)]
-    ParseIntError(#[from] std::num::ParseIntError),
+    ParseInt(#[from] std::num::ParseIntError),
 
     #[error("File Not Found Error: {}", _0)]
-    FileNotFoundError(#[from] std::io::Error),
+    FileNotFound(#[from] std::io::Error),
 
     #[error("{}", _0)]
-    FTDParseError(#[from] ftd::p1::Error),
+    FTDError(#[from] ftd::p1::Error),
 }
 
 #[cfg(test)]
