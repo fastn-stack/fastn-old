@@ -16,9 +16,14 @@ pub fn processor(
             )
         }
     };
+    let mut v: std::collections::BTreeMap<String, ftd::PropertyValue> = Default::default();
+
+    let lang = match doc_path.rsplit_once(".") {
+        Some((_, extension)) => extension,
+        _ => "txt",
+    };
     let code_item = IncludeCode::parse(doc_path, config).unwrap();
 
-    let mut v: std::collections::BTreeMap<String, ftd::PropertyValue> = Default::default();
     v.insert(
         "text".to_string(),
         ftd::PropertyValue::Value {
@@ -32,7 +37,7 @@ pub fn processor(
         "lang".to_string(),
         ftd::PropertyValue::Value {
             value: ftd::Value::String {
-                text: "rs".to_string(),
+                text: lang.to_string(),
                 source: ftd::TextSource::Header,
             },
         },
