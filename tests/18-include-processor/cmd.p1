@@ -1,0 +1,9 @@
+-- fbt:
+cmd: $FBT_CWD/target/debug/fpm --test build
+output: .build
+skip: unable to append to the final dummy_code
+
+-- stdout:
+
+Processed FPM.ftd
+Processed index.ftd

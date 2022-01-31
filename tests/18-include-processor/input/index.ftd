@@ -1,0 +1,3 @@
+-- ftd.code:
+$processor$: include
+path: code/dummy_code.rs:all
