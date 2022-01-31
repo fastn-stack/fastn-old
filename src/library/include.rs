@@ -5,7 +5,7 @@ pub fn processor(
 ) -> ftd::p1::Result<ftd::Value> {
     let doc_path = match section
         .header
-        .str_optional(doc.name, section.line_number, "path")?
+        .str_optional(doc.name, section.line_number, "$path$")?
     {
         Some(v) => v,
         None => {
@@ -16,8 +16,28 @@ pub fn processor(
             )
         }
     };
-    dbg!(IncludeCode::parse(doc_path, config));
-    todo!()
+    let code_item = IncludeCode::parse(doc_path, config).unwrap();
+
+    let mut v: std::collections::BTreeMap<String, ftd::PropertyValue> = Default::default();
+    v.insert(
+        "text".to_string(),
+        ftd::PropertyValue::Value {
+            value: ftd::Value::String {
+                text: code_item.body.to_string(),
+                source: ftd::TextSource::Header,
+            },
+        },
+    );
+    v.insert(
+        "lang".to_string(),
+        ftd::PropertyValue::Value {
+            value: ftd::Value::String {
+                text: "rs".to_string(),
+                source: ftd::TextSource::Header,
+            },
+        },
+    );
+    Ok(ftd::Value::Object { values: v })
 }
 
 #[derive(PartialEq, Debug, Default, Clone, serde::Serialize)]
@@ -188,6 +208,9 @@ pub enum ParseError {
 
     #[error("File Not Found Error: {}", _0)]
     FileNotFoundError(#[from] std::io::Error),
+
+    #[error("{}", _0)]
+    FTDParseError(#[from] ftd::p1::Error),
 }
 
 #[cfg(test)]
