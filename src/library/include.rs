@@ -18,14 +18,10 @@ pub fn processor(
     };
     let mut v: std::collections::BTreeMap<String, ftd::PropertyValue> = Default::default();
 
-    let lang = match doc_path.rsplit_once(".") {
-        Some((_, extension)) => extension,
-        _ => "txt",
-    };
     let code_item = IncludeCode::parse(doc_path, config).unwrap();
 
     v.insert(
-        "text".to_string(),
+        "$body$".to_string(),
         ftd::PropertyValue::Value {
             value: ftd::Value::String {
                 text: code_item.body,
@@ -37,7 +33,7 @@ pub fn processor(
         "lang".to_string(),
         ftd::PropertyValue::Value {
             value: ftd::Value::String {
-                text: lang.to_string(),
+                text: code_item.extension,
                 source: ftd::TextSource::Header,
             },
         },
@@ -47,6 +43,7 @@ pub fn processor(
 
 #[derive(PartialEq, Debug, Default, Clone, serde::Serialize)]
 pub struct IncludeCode {
+    pub extension: String,
     pub body: String,
 }
 
@@ -175,6 +172,10 @@ pub fn sanitize_anchored_lines(s: &str) -> String {
 impl IncludeCode {
     pub fn parse(s: &str, config: &fpm::Config) -> Result<Self, ParseError> {
         let doc = IncludeDocument::parse(s)?;
+        let extension = match &doc.path.rsplit_once(".") {
+            Some((_, ex)) => ex,
+            None => "txt",
+        };
         let file_path = config.root.join(
             doc.path
                 .replace('/', std::path::MAIN_SEPARATOR.to_string().as_str()),
@@ -200,6 +201,7 @@ impl IncludeCode {
             }
         };
         Ok(IncludeCode {
+            extension: extension.to_string(),
             body: sanitize_anchored_lines(output.as_str()),
         })
     }
