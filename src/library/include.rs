@@ -5,15 +5,23 @@ pub fn processor(
 ) -> ftd::p1::Result<ftd::Value> {
     let doc_path = match section
         .header
-        .str_optional(doc.name, section.line_number, "$path$")?
+        .str_optional(doc.name, section.line_number, "path")?
     {
         Some(v) => v,
         None => {
-            return ftd::e2(
-                "`path` is not specified".to_string(),
-                doc.name,
-                section.line_number,
-            )
+            match section
+                .header
+                .str_optional(doc.name, section.line_number, "$path$")?
+            {
+                Some(v) => v,
+                None => {
+                    return ftd::e2(
+                        "`path` is not specified".to_string(),
+                        doc.name,
+                        section.line_number,
+                    )
+                }
+            }
         }
     };
     let mut v: std::collections::BTreeMap<String, ftd::PropertyValue> = Default::default();
