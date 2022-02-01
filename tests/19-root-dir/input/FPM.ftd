@@ -1,0 +1,7 @@
+-- import: fpm
+
+-- fpm.package: fifthtry.github.io/amitu
+zip: github.com/fifthtry/amitu/archive/refs/heads/main.zip
+root-directory: src/
+
+-- fpm.dependency: fpm.dev

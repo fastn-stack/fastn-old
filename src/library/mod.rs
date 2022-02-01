@@ -60,6 +60,10 @@ impl ftd::p2::Library for Library {
                     .join(".packages")
                     .join(package.name.as_str())
             };
+            let path = match package.root_directory.clone() {
+                Some(d) => path.join(d),
+                None => path,
+            };
 
             if let Ok(v) = std::fs::read_to_string(path.join(format!("{}.ftd", name))) {
                 return Some((v, current_packages));
@@ -92,7 +96,13 @@ impl ftd::p2::Library for Library {
                     if name.starts_with(&alias) || name.starts_with(package.name.as_str()) {
                         // Non index document
                         let package_path = lib.config.root.join(".packages");
-                        let non_alias_name = name.replacen(&alias, package.name.as_str(), 1);
+                        let p = name.replacen(&alias, package.name.as_str(), 1);
+                        let non_alias_name = std::path::Path::new(&p);
+                        let non_alias_name = match &package.root_directory {
+                            Some(d) => non_alias_name.join(d),
+                            None => non_alias_name.to_path_buf(),
+                        };
+                        let non_alias_name = non_alias_name.to_str()?.to_string();
                         if let Ok(v) = std::fs::read_to_string(
                             package_path.join(format!("{}.ftd", non_alias_name.as_str())),
                         ) {

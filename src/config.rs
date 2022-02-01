@@ -179,7 +179,7 @@ impl Config {
         fpm::utils::validate_zip_url(&package)?;
 
         let ignored = {
-            let mut overrides = ignore::overrides::OverrideBuilder::new("./");
+            let mut overrides = ignore::overrides::OverrideBuilder::new(root.clone());
             for ig in b.get::<Vec<String>>("fpm#ignore")? {
                 if let Err(e) = overrides.add(format!("!{}", ig.as_str()).as_str()) {
                     return Err(fpm::Error::PackageError {
@@ -239,6 +239,8 @@ pub(crate) struct PackageTemp {
     pub zip: Option<String>,
     #[serde(rename = "canonical-url")]
     pub canonical_url: Option<String>,
+    #[serde(rename = "root-directory")]
+    pub root_directory: Option<String>,
 }
 
 impl PackageTemp {
@@ -264,6 +266,7 @@ impl PackageTemp {
             translation_status: None,
             canonical_url: self.canonical_url,
             dependencies: vec![],
+            root_directory: self.root_directory,
         }
     }
 }
@@ -281,6 +284,7 @@ pub struct Package {
     /// `dependencies` keeps track of direct dependencies of a given package. This too should be
     /// moved to `fpm::Package` to support recursive dependencies etc.
     pub dependencies: Vec<fpm::Dependency>,
+    pub root_directory: Option<String>,
 }
 
 impl Package {
@@ -295,6 +299,7 @@ impl Package {
             translation_status: None,
             canonical_url: None,
             dependencies: vec![],
+            root_directory: None,
         }
     }
 

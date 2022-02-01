@@ -6,6 +6,7 @@ optional string language:
 optional string translation-of:
 string list translation:
 optional string canonical-url:
+optional string root-directory:
 
 -- package-data package: not set
 

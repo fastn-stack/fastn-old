@@ -51,7 +51,13 @@ pub struct Static {
 }
 
 pub(crate) async fn get_documents(config: &fpm::Config) -> fpm::Result<Vec<fpm::File>> {
-    let mut ignore_paths = ignore::WalkBuilder::new("./");
+    let p = match &config.package.root_directory {
+        Some(p) => p.replace("/", std::path::MAIN_SEPARATOR.to_string().as_str()),
+        None => "".to_string(),
+    };
+    let root_dir = config.root.clone().join(p);
+
+    let mut ignore_paths = ignore::WalkBuilder::new(&root_dir);
     ignore_paths.overrides(package_ignores()?); // unwrap ok because this we know can never fail
     ignore_paths.standard_filters(true);
     ignore_paths.overrides(config.ignored.clone());
@@ -61,7 +67,16 @@ pub(crate) async fn get_documents(config: &fpm::Config) -> fpm::Result<Vec<fpm::
         .flatten()
         .map(|x| camino::Utf8PathBuf::from_path_buf(x.into_path()).unwrap()) //todo: improve error message
         .collect::<Vec<camino::Utf8PathBuf>>();
-    let mut documents = fpm::paths_to_files(all_files, &config.root).await?;
+    let fpm_ftd_path = config.root.clone().join("FPM.ftd");
+    let mut documents = if all_files.contains(&fpm_ftd_path) {
+        fpm::paths_to_files(all_files, &root_dir).await?
+    } else {
+        let mut documents = fpm::paths_to_files(all_files, &root_dir).await?;
+        let global_docs = fpm::paths_to_files(vec![fpm_ftd_path], &config.root).await?;
+        documents.extend(global_docs);
+        documents
+    };
+
     documents.sort_by_key(|v| v.get_id());
 
     Ok(documents)
