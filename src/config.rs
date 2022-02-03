@@ -260,7 +260,7 @@ impl PackageTemp {
 
         let interface_aliases = match self.main_aliases {
             Some(i) => i
-                .split(",")
+                .split(',')
                 .into_iter()
                 .map(|x| x.trim().to_string())
                 .collect::<Vec<String>>(),

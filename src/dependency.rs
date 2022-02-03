@@ -138,10 +138,7 @@ impl DependencyTemp {
                 };
             }
         };
-        let implements = match self.implements {
-            Some(i) => Some(fpm::Package::new(&i)),
-            None => None,
-        };
+        let implements = self.implements.map(|i| fpm::Package::new(&i));
         Ok(fpm::Dependency {
             package: fpm::Package::new(package_name),
             version: self.version,
