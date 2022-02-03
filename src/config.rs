@@ -201,7 +201,7 @@ impl Config {
         };
 
         fpm::dependency::ensure(&root, &mut package)?;
-
+        dbg!(&package);
         Ok(Config {
             package,
             root,
@@ -241,6 +241,8 @@ pub(crate) struct PackageTemp {
     pub zip: Option<String>,
     #[serde(rename = "canonical-url")]
     pub canonical_url: Option<String>,
+    #[serde(rename = "main")]
+    pub main_aliases: Option<String>,
 }
 
 impl PackageTemp {
@@ -256,6 +258,15 @@ impl PackageTemp {
             .map(|v| fpm::Package::new(&v))
             .collect::<Vec<fpm::Package>>();
 
+        let interface_aliases = match self.main_aliases {
+            Some(i) => i
+                .split(",")
+                .into_iter()
+                .map(|x| x.trim().to_string())
+                .collect::<Vec<String>>(),
+            None => vec![],
+        };
+
         fpm::Package {
             name: self.name,
             translation_of: Box::new(translation_of),
@@ -266,6 +277,7 @@ impl PackageTemp {
             translation_status: None,
             canonical_url: self.canonical_url,
             dependencies: vec![],
+            interface_aliases,
         }
     }
 }
@@ -283,6 +295,7 @@ pub struct Package {
     /// `dependencies` keeps track of direct dependencies of a given package. This too should be
     /// moved to `fpm::Package` to support recursive dependencies etc.
     pub dependencies: Vec<fpm::Dependency>,
+    pub interface_aliases: Vec<String>,
 }
 
 impl Package {
@@ -297,6 +310,7 @@ impl Package {
             translation_status: None,
             canonical_url: None,
             dependencies: vec![],
+            interface_aliases: vec![],
         }
     }
 

@@ -6,7 +6,20 @@ pub struct Dependency {
     pub version: Option<String>,
     pub notes: Option<String>,
     pub alias: Option<String>,
+    // alias: Real path map
     pub aliases: std::collections::HashMap<String, String>,
+    pub implements: Option<fpm::Package>,
+}
+
+impl Dependency {
+    pub fn verify_aliases(&self, root_path: &camino::Utf8PathBuf) -> fpm::Result<()> {
+        // self.aliases.iter().for_each(|(alias, real)| {
+
+        // });
+        
+        dbg!(&self);
+        todo!()
+    }
 }
 
 pub fn ensure(base_dir: &camino::Utf8PathBuf, package: &mut fpm::Package) -> fpm::Result<()> {
@@ -37,6 +50,18 @@ pub fn ensure(base_dir: &camino::Utf8PathBuf, package: &mut fpm::Package) -> fpm
     for dep in package.dependencies.iter_mut() {
         dep.package
             .process(base_dir, &mut downloaded_package, false, true)?;
+        let dep_package_name = dep.package.name.clone();
+
+        if let Some(interface) = dep.implements.as_mut() {
+            interface.process(base_dir, &mut downloaded_package, false, false)?;
+            // Interface processed and the interface mutable reference is updated. Update the dependency here
+            let mut new_aliases = std::collections::HashMap::<String, String>::new();
+            interface.interface_aliases.iter().for_each(|x| {
+                new_aliases.insert(x.to_owned(), format!("{}/{}", dep_package_name.as_str(), x));
+            });
+            dep.aliases.extend(new_aliases);
+        }
+        dep.verify_aliases(base_dir)?;
     }
 
     if package.translations.has_elements() && package.translation_of.is_some() {
@@ -64,6 +89,7 @@ pub(crate) struct DependencyTemp {
     pub version: Option<String>,
     pub notes: Option<String>,
     pub aliases: Option<String>,
+    pub implements: Option<String>,
 }
 
 impl DependencyTemp {
@@ -90,12 +116,17 @@ impl DependencyTemp {
                 };
             }
         };
+        let implements = match self.implements {
+            Some(i) => Some(fpm::Package::new(&i)),
+            None => None,
+        };
         Ok(fpm::Dependency {
             package: fpm::Package::new(package_name),
             version: self.version,
             notes: self.notes,
             alias,
             aliases,
+            implements,
         })
     }
 }

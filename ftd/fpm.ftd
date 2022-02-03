@@ -6,6 +6,7 @@ optional string language:
 optional string translation-of:
 string list translation:
 optional string canonical-url:
+optional string main:
 
 -- package-data package: not set
 
@@ -14,6 +15,7 @@ caption name:
 optional string version:
 optional body notes:
 optional string aliases:
+optional string implements:
 
 -- dependency-data list dependency:
 
