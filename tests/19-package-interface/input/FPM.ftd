@@ -1,4 +1,0 @@
--- import: fpm
-
--- fpm.package: package-one
-main: blog, theme

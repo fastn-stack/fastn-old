@@ -1,0 +1,7 @@
+-- import: fpm
+
+-- fpm.package: package-one
+zip: three.zip
+
+-- fpm.dependency: two.ftd.local
+implements: one.ftd.local

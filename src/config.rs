@@ -201,7 +201,7 @@ impl Config {
         };
 
         fpm::dependency::ensure(&root, &mut package)?;
-        dbg!(&package);
+
         Ok(Config {
             package,
             root,

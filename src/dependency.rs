@@ -13,12 +13,34 @@ pub struct Dependency {
 
 impl Dependency {
     pub fn verify_aliases(&self, root_path: &camino::Utf8PathBuf) -> fpm::Result<()> {
-        // self.aliases.iter().for_each(|(alias, real)| {
+        let dep_root = root_path.join(".packages");
+        for (alias, real) in &self.aliases {
+            let temp_path = real
+                .replace(':', std::path::MAIN_SEPARATOR.to_string().as_str())
+                .replace('/', std::path::MAIN_SEPARATOR.to_string().as_str());
 
-        // });
-        
-        dbg!(&self);
-        todo!()
+            if let Some((dir, filename)) = temp_path.split_once('/') {
+                match dep_root
+                    .join(dir)
+                    .join(format!("{}.ftd", filename))
+                    .exists()
+                {
+                    true => (),
+                    false => match dep_root.join(dir).join(filename).join("index.ftd").exists() {
+                        true => (),
+                        false => {
+                            return Err(fpm::Error::UsageError {
+                                message: format!(
+                                    "Unable to find the alias `{}` in package {}. Please check the alias/interface definition",
+                                    alias, &self.package.name
+                                ),
+                            })
+                        }
+                    },
+                };
+            };
+        }
+        Ok(())
     }
 }
 
@@ -57,7 +79,7 @@ pub fn ensure(base_dir: &camino::Utf8PathBuf, package: &mut fpm::Package) -> fpm
             // Interface processed and the interface mutable reference is updated. Update the dependency here
             let mut new_aliases = std::collections::HashMap::<String, String>::new();
             interface.interface_aliases.iter().for_each(|x| {
-                new_aliases.insert(x.to_owned(), format!("{}/{}", dep_package_name.as_str(), x));
+                new_aliases.insert(x.to_owned(), format!("{}:{}", dep_package_name.as_str(), x));
             });
             dep.aliases.extend(new_aliases);
         }
