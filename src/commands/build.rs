@@ -224,6 +224,7 @@ pub(crate) async fn process_file(
     skip_failed: bool,
 ) -> fpm::Result<()> {
     if let Some(fallback) = fallback {
+        print!("Processing {} ... ", main.get_id());
         match (main, fallback) {
             (fpm::File::Ftd(main_doc), fpm::File::Ftd(fallback_doc)) => {
                 let resp = process_ftd(
@@ -238,7 +239,7 @@ pub(crate) async fn process_file(
                 match (resp, skip_failed) {
                     (Ok(r), _) => r,
                     (_, true) => {
-                        println!("Failed to process {}", main.get_id());
+                        println!("Failed");
                         return Ok(());
                     }
                     (e, _) => {
@@ -261,16 +262,17 @@ pub(crate) async fn process_file(
                 })
             }
         }
-        println!("Processed {}", main.get_id());
+        println!("Done");
         return Ok(());
     }
+    print!("Processing {} ... ", main.get_id());
     match main {
         fpm::File::Ftd(doc) => {
             let resp = process_ftd(config, doc, None, message, translated_data, base_url).await;
             match (resp, skip_failed) {
                 (Ok(r), _) => r,
                 (_, true) => {
-                    println!("Failed to process {}", main.get_id());
+                    println!("Failed");
                     return Ok(());
                 }
                 (e, _) => {
@@ -281,7 +283,7 @@ pub(crate) async fn process_file(
         fpm::File::Static(sa) => process_static(sa, &config.root).await?,
         fpm::File::Markdown(doc) => process_markdown(doc, config, base_url).await?,
     }
-    println!("Processed {}", main.get_id());
+    println!("Done");
     Ok(())
 }
 
