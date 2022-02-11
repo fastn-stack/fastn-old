@@ -223,6 +223,7 @@ pub(crate) async fn process_file(
     base_url: Option<&str>,
     skip_failed: bool,
 ) -> fpm::Result<()> {
+    let start = std::time::Instant::now();
     if let Some(fallback) = fallback {
         print!("Processing {} ... ", main.get_id());
         match (main, fallback) {
@@ -262,7 +263,11 @@ pub(crate) async fn process_file(
                 })
             }
         }
-        println!("Done");
+        if fpm::utils::is_test() {
+            println!("Done");
+        } else {
+            println!("Done {:?}", start.elapsed());
+        }
         return Ok(());
     }
     print!("Processing {} ... ", main.get_id());
@@ -283,7 +288,11 @@ pub(crate) async fn process_file(
         fpm::File::Static(sa) => process_static(sa, &config.root).await?,
         fpm::File::Markdown(doc) => process_markdown(doc, config, base_url).await?,
     }
-    println!("Done");
+    if fpm::utils::is_test() {
+        println!("Done");
+    } else {
+        println!("Done {:?}", start.elapsed());
+    }
     Ok(())
 }
 
