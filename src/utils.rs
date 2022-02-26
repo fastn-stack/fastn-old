@@ -1,18 +1,18 @@
-macro_rules! warning {
-    ($s:expr,) => {
-        warning!($s)
-    };
-    ($s:expr) => {
-        use std::io::Write;
-        use termcolor::WriteColor;
-
-        let mut stdout = termcolor::StandardStream::stdout(termcolor::ColorChoice::Always);
-        stdout.set_color(termcolor::ColorSpec::new().set_fg(Some(termcolor::Color::Yellow)))?;
-
-        writeln!(&mut stdout, "{}", $s)?;
-        stdout.reset()?;
-    };
-}
+// macro_rules! warning {
+//     ($s:expr,) => {
+//         warning!($s)
+//     };
+//     ($s:expr) => {
+//         use std::io::Write;
+//         use termcolor::WriteColor;
+//
+//         let mut stdout = termcolor::StandardStream::stdout(termcolor::ColorChoice::Always);
+//         stdout.set_color(termcolor::ColorSpec::new().set_fg(Some(termcolor::Color::Yellow)))?;
+//
+//         writeln!(&mut stdout, "{}", $s)?;
+//         stdout.reset()?;
+//     };
+// }
 
 pub trait HasElements {
     fn has_elements(&self) -> bool;
@@ -178,14 +178,6 @@ pub(crate) fn seconds_to_human(s: u64) -> String {
     } else {
         format!("{} years ago", months / 12)
     }
-}
-
-pub(crate) fn validate_zip_url(package: &fpm::Package) -> fpm::Result<()> {
-    if package.zip.is_none() {
-        warning!("expected zip in fpm.package");
-    }
-
-    Ok(())
 }
 
 pub fn is_test() -> bool {

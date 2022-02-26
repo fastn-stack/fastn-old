@@ -210,6 +210,7 @@ pub(crate) fn get(lib: &fpm::Library) -> String {
             -- string package-title: {title}
             -- string package-name: {package_name}
             -- string home-url: {home_url}
+            -- package-zip: {zip}
         "},
         fpm_base = fpm::fpm_ftd(),
         capital_fpm = capital_fpm(lib),
@@ -218,6 +219,7 @@ pub(crate) fn get(lib: &fpm::Library) -> String {
         title = lib.config.package.name,
         package_name = lib.config.package.name,
         home_url = format!("//{}", lib.config.package.name),
+        zip = lib.config.package.zip,
     );
 
     if lib.config.package.translation_of.is_some() {
@@ -239,18 +241,6 @@ pub(crate) fn get(lib: &fpm::Library) -> String {
                 -- has-translations: true
             "},
             fpm_base = fpm_base,
-        );
-    }
-
-    if let Some(ref zip) = lib.config.package.zip {
-        fpm_base = format!(
-            indoc::indoc! {"
-                {fpm_base}
-                
-                -- package-zip: {package_zip}
-            "},
-            fpm_base = fpm_base,
-            package_zip = zip,
         );
     }
 
@@ -669,16 +659,14 @@ pub(crate) fn get(lib: &fpm::Library) -> String {
 }
 
 fn capital_fpm(lib: &fpm::Library) -> String {
-    let mut s = format!(
+    let s = format!(
         indoc::indoc! {"
             -- package-data package: {package_name}
+            zip: {zip}
         "},
         package_name = lib.config.package.name,
+        zip = lib.config.package.zip,
     );
-
-    if let Some(ref zip) = lib.config.package.zip {
-        s.push_str(format!("zip: {}", zip).as_str());
-    }
 
     s
 }

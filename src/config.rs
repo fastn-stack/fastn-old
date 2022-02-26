@@ -221,7 +221,9 @@ impl Config {
         };
 
         let mut package = {
+            println!("processing 3");
             let temp_package: Option<PackageTemp> = b.get("fpm#package")?;
+            println!("done");
             let mut package = match temp_package {
                 Some(v) => v.into_package(),
                 None => {
@@ -244,8 +246,6 @@ impl Config {
         };
 
         let fonts: Vec<fpm::Font> = b.get("fpm#font")?;
-
-        fpm::utils::validate_zip_url(&package)?;
 
         let ignored = {
             let mut overrides = ignore::overrides::OverrideBuilder::new("./");
@@ -303,14 +303,14 @@ pub(crate) fn find_root_for_file(
 #[derive(serde::Deserialize, Debug, Clone)]
 pub(crate) struct PackageTemp {
     pub name: String,
+    pub zip: String,
+    pub about: Option<String>,
     #[serde(rename = "translation-of")]
     pub translation_of: Option<String>,
     #[serde(rename = "translation")]
     pub translations: Vec<String>,
     #[serde(rename = "language")]
     pub language: Option<String>,
-    pub about: Option<String>,
-    pub zip: Option<String>,
     #[serde(rename = "canonical-url")]
     pub canonical_url: Option<String>,
 }
@@ -351,7 +351,7 @@ pub struct Package {
     pub translations: Vec<Package>,
     pub language: Option<String>,
     pub about: Option<String>,
-    pub zip: Option<String>,
+    pub zip: String,
     pub translation_status_summary: Option<fpm::translation::TranslationStatusSummary>,
     pub canonical_url: Option<String>,
     /// `dependencies` keeps track of direct dependencies of a given package. This too should be
@@ -370,7 +370,7 @@ impl Package {
             translations: vec![],
             language: None,
             about: None,
-            zip: None,
+            zip: "".to_string(),
             translation_status_summary: None,
             canonical_url: None,
             dependencies: vec![],

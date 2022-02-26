@@ -175,16 +175,14 @@ impl fpm::Package {
                     }
                 };
 
-                ftd_document
+                println!("processing 1");
+                dbg!(&ftd_document);
+                let r = ftd_document
                     .get::<fpm::config::PackageTemp>("fpm#package")?
                     .into_package()
-                    .zip
-                    .ok_or(fpm::Error::UsageError {
-                        message: format!(
-                            "Unable to download dependency. zip is not provided for {}",
-                            self.name
-                        ),
-                    })?
+                    .zip;
+                println!("done");
+                r
             };
 
             let path =
@@ -341,8 +339,17 @@ impl fpm::Package {
             }
         };
         let mut package = {
-            let temp_package: fpm::config::PackageTemp = ftd_document.get("fpm#package")?;
-            temp_package.into_package()
+            println!("processing 2");
+            dbg!(&ftd_document.data);
+            let temp_package: Option<fpm::config::PackageTemp> = ftd_document.get("fpm#package")?;
+            match temp_package {
+                Some(v) => v.into_package(),
+                None => {
+                    return Err(fpm::Error::PackageError {
+                        message: "package is not defined in FPM.ftd".to_string(),
+                    });
+                }
+            }
         };
 
         package.translation_status_summary = ftd_document.get("fpm#translation-status-summary")?;
