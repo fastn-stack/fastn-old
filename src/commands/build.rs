@@ -7,6 +7,7 @@ pub async fn build(
     ignore_failed: bool,
 ) -> fpm::Result<()> {
     use fpm::utils::HasElements;
+    use itertools::Itertools;
 
     tokio::fs::create_dir_all(config.build_dir()).await?;
     // let skip_failed = ignore_failed.unwrap_or(false);
@@ -24,7 +25,35 @@ pub async fn build(
         }
         (None, false) => build_simple(config, file, base_url, ignore_failed).await,
         (None, true) => build_with_translations(config, file, base_url, ignore_failed).await,
+    }?;
+    // Process static assets for the dependencies
+    for dep in config
+        .package
+        .get_flattened_dependencies()
+        .into_iter()
+        .unique_by(|dep| dep.package.name.clone())
+        .collect_vec()
+    {
+        let static_files = std::collections::BTreeMap::from_iter(
+            fpm::get_documents(config, &dep.package)
+                .await?
+                .into_iter()
+                .filter(|file_instance| matches!(file_instance, fpm::File::Static(_)))
+                .collect::<Vec<fpm::File>>()
+                .into_iter()
+                .map(|v| (v.get_id(), v)),
+        );
+        process_files(
+            config,
+            &dep.package,
+            &static_files,
+            file,
+            base_url,
+            ignore_failed,
+        )
+        .await?;
     }
+    Ok(())
 }
 
 async fn build_simple(
@@ -34,12 +63,20 @@ async fn build_simple(
     skip_failed: bool,
 ) -> fpm::Result<()> {
     let documents = std::collections::BTreeMap::from_iter(
-        fpm::get_documents(config)
+        fpm::get_documents(config, &config.package)
             .await?
             .into_iter()
             .map(|v| (v.get_id(), v)),
     );
-    process_files(config, &documents, file, base_url, skip_failed).await
+    process_files(
+        config,
+        &config.package,
+        &documents,
+        file,
+        base_url,
+        skip_failed,
+    )
+    .await
 }
 
 async fn build_with_translations(
@@ -49,7 +86,7 @@ async fn build_with_translations(
     skip_failed: bool,
 ) -> fpm::Result<()> {
     let documents = std::collections::BTreeMap::from_iter(
-        fpm::get_documents(config)
+        fpm::get_documents(config, &config.package)
             .await?
             .into_iter()
             .map(|v| (v.get_id(), v)),
@@ -63,6 +100,7 @@ async fn build_with_translations(
         }
         fpm::process_file(
             config,
+            &config.package,
             file,
             None,
             Some(message.as_str()),
@@ -127,7 +165,7 @@ async fn build_with_original(
     // Overwrite the files having same name/id
 
     let translated_documents = std::collections::BTreeMap::from_iter(
-        fpm::get_documents(config)
+        fpm::get_documents(config, &config.package)
             .await?
             .into_iter()
             .filter(|x| original_snapshots.contains_key(x.get_id().as_str()))
@@ -188,6 +226,7 @@ async fn build_with_original(
 
 async fn process_files(
     config: &fpm::Config,
+    package: &fpm::Package,
     documents: &std::collections::BTreeMap<String, fpm::File>,
     file: Option<&str>,
     base_url: Option<&str>,
@@ -199,6 +238,7 @@ async fn process_files(
         }
         process_file(
             config,
+            package,
             f,
             None,
             None,
@@ -211,8 +251,10 @@ async fn process_files(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) async fn process_file(
     config: &fpm::Config,
+    package: &fpm::Package,
     main: &fpm::File,
     fallback: Option<&fpm::File>,
     message: Option<&str>,
@@ -222,7 +264,11 @@ pub(crate) async fn process_file(
 ) -> fpm::Result<()> {
     let start = std::time::Instant::now();
     if let Some(fallback) = fallback {
-        print!("Processing {} ... ", main.get_id());
+        print!(
+            "Processing {}/{} ... ",
+            package.name.as_str(),
+            main.get_id()
+        );
         match (main, fallback) {
             (fpm::File::Ftd(main_doc), fpm::File::Ftd(fallback_doc)) => {
                 let resp = process_ftd(
@@ -246,7 +292,7 @@ pub(crate) async fn process_file(
                 }
             }
             (fpm::File::Static(main_sa), fpm::File::Static(_)) => {
-                process_static(main_sa, &config.root).await?
+                process_static(main_sa, &config.root, package).await?
             }
             (fpm::File::Markdown(main_sa), fpm::File::Markdown(_)) => {
                 process_markdown(main_sa, config, base_url).await?
@@ -267,7 +313,11 @@ pub(crate) async fn process_file(
         }
         return Ok(());
     }
-    print!("Processing {} ... ", main.get_id());
+    print!(
+        "Processing {}/{} ... ",
+        package.name.as_str(),
+        main.get_id()
+    );
     match main {
         fpm::File::Ftd(doc) => {
             let resp = process_ftd(config, doc, None, message, translated_data, base_url).await;
@@ -282,7 +332,7 @@ pub(crate) async fn process_file(
                 }
             }
         }
-        fpm::File::Static(sa) => process_static(sa, &config.root).await?,
+        fpm::File::Static(sa) => process_static(sa, &config.root, package).await?,
         fpm::File::Markdown(doc) => process_markdown(doc, config, base_url).await?,
     }
     if fpm::utils::is_test() {
@@ -716,13 +766,22 @@ async fn process_ftd(
     }
 }
 
-async fn process_static(sa: &fpm::Static, base_path: &camino::Utf8Path) -> fpm::Result<()> {
+async fn process_static(
+    sa: &fpm::Static,
+    base_path: &camino::Utf8Path,
+    package: &fpm::Package,
+) -> fpm::Result<()> {
+    let base_path = base_path
+        .join(".build")
+        .join("-")
+        .join(package.name.as_str());
+    std::fs::create_dir_all(&base_path)?;
     if let Some((dir, _)) = sa.id.rsplit_once(std::path::MAIN_SEPARATOR) {
-        std::fs::create_dir_all(base_path.join(".build").join(dir))?;
+        std::fs::create_dir_all(&base_path.join(dir))?;
     }
     std::fs::copy(
         sa.base_path.join(sa.id.as_str()),
-        base_path.join(".build").join(sa.id.as_str()),
+        base_path.join(sa.id.as_str()),
     )?;
     Ok(())
 }
