@@ -9,15 +9,12 @@ optional string canonical-url:
 
 
 
--- optional package-data package:
-
-
 
 -- record dependency-data:
 caption name:
 optional string version:
 optional body notes:
-
+string list implements:
 
 
 -- dependency-data list dependency:
@@ -148,7 +145,7 @@ $always-include$: true
 \-- string translation-status-url:
 \-- string title:
 \-- string package-name:
-\-- optional string package-zip:
+-- optional string package-zip:
 \-- string home-url:
 
 
@@ -165,3 +162,32 @@ toc-item list children:
 
 
 -- toc-item list language-toc:
+
+
+-- record build-info:
+string cli-version:
+string cli-git-commit-hash:
+string cli-created-on:
+string build-created-on:
+string ftd-version:
+
+
+-- string list missing-files:
+-- string list never-marked-files:
+-- string list outdated-files:
+-- string list upto-date-files:
+
+
+\ Translation status for the original language package
+
+-- record all-language-status-data:
+string language:
+string url:
+integer never-marked:
+integer missing:
+integer out-dated:
+integer upto-date:
+optional string last-modified-on:
+
+-- all-language-status-data list all-language-translation-status:
+

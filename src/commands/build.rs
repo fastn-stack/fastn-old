@@ -72,10 +72,10 @@ async fn build_with_translations(
         )
         .await?;
     }
-    // Add /FPM/translation-status page
+    // Add /-/translation-status page
     {
         let translation_status = fpm::Document {
-            id: "FPM/translation-status.ftd".to_string(),
+            id: "-/translation-status.ftd".to_string(),
             content: fpm::original_package_status(config)?,
             parent_path: config.root.as_str().to_string(),
             package_name: config.package.name.clone(),
@@ -164,10 +164,10 @@ async fn build_with_original(
             .await?;
     }
 
-    // Add /FPM/translation-status page
+    // Add /-/translation-status page
     {
         let translation_status = fpm::Document {
-            id: "FPM/translation-status.ftd".to_string(),
+            id: "-/translation-status.ftd".to_string(),
             content: fpm::translation_package_status(config)?,
             parent_path: config.root.as_str().to_string(),
             package_name: config.package.name.clone(),
@@ -384,6 +384,35 @@ async fn process_ftd(
             )?;
         }
     }
+    let main = {
+        let mut main = main.to_owned();
+        if main.id.eq("FPM.ftd") {
+            main.id = "-.ftd".to_string();
+            let path = config.root.join("FPM").join("info.ftd");
+            main.content = if path.is_file() {
+                std::fs::read_to_string(path)?
+            } else {
+                let package_info_package = match config
+                    .package
+                    .get_dependency_for_interface(fpm::PACKAGE_INFO_INTERFACE)
+                {
+                    Some(dep) => dep.package.name.as_str(),
+                    None => fpm::PACKAGE_INFO_INTERFACE,
+                };
+                config.package.get_prefixed_body(
+                    format!(
+                        "-- import: {}/package-info as pi\n\n-- pi.package-info-page:",
+                        package_info_package
+                    )
+                    .as_str(),
+                    &main.id,
+                    true,
+                )
+            }
+        }
+        main
+    };
+
     if !main.id.eq("index.ftd") {
         std::fs::create_dir_all(config.root.join(".build").join(main.id_to_path()))?;
     }
@@ -398,12 +427,9 @@ async fn process_ftd(
 
     let new_file_path = config.root.join(".build").join(file_rel_path);
 
-    let (fallback, message, final_main) = if main.id.eq("FPM.ftd") {
-        let mut main = main.to_owned();
-        main.content = include_str!("../../ftd/info.ftd").to_string();
+    let (fallback, message, final_main) = if main.id.eq("-.ftd") {
         (None, None, main)
     } else {
-        let main = main.to_owned();
         let new_main = fpm::Document {
             content: config
                 .package

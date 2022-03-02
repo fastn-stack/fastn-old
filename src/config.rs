@@ -210,7 +210,7 @@ impl Config {
             }
         };
 
-        let deps = {
+        let mut deps = {
             let temp_deps: Vec<fpm::dependency::DependencyTemp> = b.get("fpm#dependency")?;
             temp_deps
                 .into_iter()
@@ -229,6 +229,21 @@ impl Config {
                         message: "FPM.ftd does not contain package definition".to_string(),
                     })
                 }
+            };
+
+            if package.name != fpm::PACKAGE_INFO_INTERFACE
+                && !deps.iter().any(|dep| {
+                    dep.implements
+                        .contains(&fpm::PACKAGE_INFO_INTERFACE.to_string())
+                })
+            {
+                deps.push(fpm::Dependency {
+                    package: fpm::Package::new(fpm::PACKAGE_INFO_INTERFACE),
+                    version: None,
+                    notes: None,
+                    alias: None,
+                    implements: Vec::new(),
+                });
             };
 
             package.dependencies = deps;
@@ -379,6 +394,12 @@ impl Package {
         }
     }
 
+    pub fn get_dependency_for_interface(&self, interface: &str) -> Option<&fpm::Dependency> {
+        self.dependencies
+            .iter()
+            .find(|dep| dep.implements.contains(&interface.to_string()))
+    }
+
     pub fn get_flattened_dependencies(&self) -> Vec<fpm::Dependency> {
         self.dependencies
             .clone()
@@ -449,7 +470,7 @@ impl Package {
         match &self.canonical_url {
             Some(url) => {
                 // Ignore the FPM document as that path won't exist in the reference website
-                if path != "FPM/" {
+                if !path.starts_with("-/") {
                     format!(
                         "\n<link rel=\"canonical\" href=\"{canonical_base}{path}\" />",
                         canonical_base = url,
