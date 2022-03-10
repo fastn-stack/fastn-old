@@ -85,6 +85,55 @@ optional string last-modified-on:
 -- optional translation-status-summary-data translation-status-summary:
 
 
+-- record font-data:
+ftd.font body-large:
+/ftd.font body-medium:
+/ftd.font body-small:
+/ftd.font display-large:
+/ftd.font display-medium:
+/ftd.font display-small:
+
+-- record color-data:
+ftd.color background:
+ftd.color error:
+ftd.color error-container:
+ftd.color inverse-on-surface:
+ftd.color inverse-surface:
+ftd.color on-background:
+ftd.color on-error:
+ftd.color on-error-container:
+ftd.color on-primary:
+ftd.color on-primary-container:
+ftd.color on-secondary:
+ftd.color on-secondary-container:
+ftd.color on-surface:
+ftd.color on-surface-variant:
+ftd.color on-tertiary:
+ftd.color on-tertiary-container:
+ftd.color outline:
+ftd.color primary:
+ftd.color primary-container:
+ftd.color secondary:
+ftd.color secondary-container:
+ftd.color surface:
+ftd.color surface-variant:
+ftd.color tertiary:
+ftd.color tertiary-container:
+
+-- record design-data:
+font-data font:
+/color-data color:
+
+-- ftd.font body-large: sans-serif
+line-height: 24
+size: 16
+weight: 400
+
+-- font-data fd:
+body-large: $body-large
+
+-- design-data design:
+font: $fd
 
 -- record i18n-data:
 string last-modified-on:
