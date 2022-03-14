@@ -86,7 +86,7 @@ optional string last-modified-on:
 
 
 -- record font-data:
-ftd.font body-large:
+ftd.type body-large:
 /ftd.font body-medium:
 /ftd.font body-small:
 /ftd.font display-large:
@@ -121,7 +121,7 @@ ftd.color tertiary:
 ftd.color tertiary-container:
 
 -- record design-data:
-font-data font:
+font-data type:
 /color-data color:
 
 -- ftd.font body-large: sans-serif
@@ -133,7 +133,7 @@ weight: 400
 body-large: $body-large
 
 -- design-data design:
-font: $fd
+type: $fd
 
 -- record i18n-data:
 string last-modified-on:
