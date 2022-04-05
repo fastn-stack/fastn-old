@@ -256,8 +256,8 @@ light: #007f9b
 dark: #007f9b
 
 -- ftd.color scrim-:
-light: linear-gradient(180deg, #00000000 42.71%, #000000c2 100%)
-dark: linear-gradient(180deg, #00000000 42.71%, #000000c2 100%)
+light: #007f9b
+dark: #007f9b
 
 
 -- ftd.color cta-primary-base-:
