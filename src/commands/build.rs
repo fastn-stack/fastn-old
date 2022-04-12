@@ -108,7 +108,9 @@ async fn build_simple(
     base_url: &str,
     skip_failed: bool,
     asset_documents: &std::collections::HashMap<String, String>,
-) -> fpm::Result<()> {
+) -> fpm::Result<
+    std::collections::HashMap<camino::Utf8PathBuf, (Option<String>, Option<camino::Utf8PathBuf>)>,
+> {
     let documents = std::collections::BTreeMap::from_iter(
         fpm::get_documents(config, &config.package)
             .await?
@@ -133,7 +135,13 @@ async fn build_with_translations(
     base_url: &str,
     skip_failed: bool,
     asset_documents: &std::collections::HashMap<String, String>,
-) -> fpm::Result<()> {
+) -> fpm::Result<
+    std::collections::HashMap<camino::Utf8PathBuf, (Option<String>, Option<camino::Utf8PathBuf>)>,
+> {
+    let mut file_data: std::collections::HashMap<
+        camino::Utf8PathBuf,
+        (Option<String>, Option<camino::Utf8PathBuf>),
+    > = Default::default();
     use std::io::Write;
 
     let documents = std::collections::BTreeMap::from_iter(
@@ -149,18 +157,20 @@ async fn build_with_translations(
         if process_file.is_some() && process_file != Some(file.get_id().as_str()) {
             continue;
         }
-        fpm::process_file(
-            config,
-            &config.package,
-            file,
-            None,
-            Some(message.as_str()),
-            Default::default(),
-            base_url,
-            skip_failed,
-            asset_documents,
-        )
-        .await?;
+        file_data.extend(
+            fpm::process_file(
+                config,
+                &config.package,
+                file,
+                None,
+                Some(message.as_str()),
+                Default::default(),
+                base_url,
+                skip_failed,
+                asset_documents,
+            )
+            .await?,
+        );
     }
     // Add /-/translation-status page
     {
@@ -175,19 +185,21 @@ async fn build_with_translations(
         let start = std::time::Instant::now();
         std::io::stdout().flush()?;
 
-        process_ftd(
-            config,
-            &translation_status,
-            None,
-            None,
-            Default::default(),
-            base_url,
-            asset_documents,
-        )
-        .await?;
+        file.extend(
+            process_ftd(
+                config,
+                &translation_status,
+                None,
+                None,
+                Default::default(),
+                base_url,
+                asset_documents,
+            )
+            .await?,
+        );
         fpm::utils::print_end("Processed translation-status.ftd", start);
     }
-    Ok(())
+    Ok(file_data)
 }
 
 /// This is the translation package
@@ -201,7 +213,9 @@ async fn build_with_original(
     base_url: &str,
     skip_failed: bool,
     asset_documents: &std::collections::HashMap<String, String>,
-) -> fpm::Result<()> {
+) -> fpm::Result<
+    std::collections::HashMap<camino::Utf8PathBuf, (Option<String>, Option<camino::Utf8PathBuf>)>,
+> {
     use std::io::Write;
 
     // This is the translation package
@@ -297,25 +311,33 @@ async fn process_files(
     base_url: &str,
     skip_failed: bool,
     asset_documents: &std::collections::HashMap<String, String>,
-) -> fpm::Result<()> {
+) -> fpm::Result<
+    std::collections::HashMap<camino::Utf8PathBuf, (Option<String>, Option<camino::Utf8PathBuf>)>,
+> {
+    let mut file_data: std::collections::HashMap<
+        camino::Utf8PathBuf,
+        (Option<String>, Option<camino::Utf8PathBuf>),
+    > = Default::default();
     for f in documents.values() {
         if file.is_some() && file != Some(f.get_id().as_str()) {
             continue;
         }
-        process_file(
-            config,
-            package,
-            f,
-            None,
-            None,
-            Default::default(),
-            base_url,
-            skip_failed,
-            asset_documents,
-        )
-        .await?
+        file_data.extend(
+            process_file(
+                config,
+                package,
+                f,
+                None,
+                None,
+                Default::default(),
+                base_url,
+                skip_failed,
+                asset_documents,
+            )
+            .await?,
+        );
     }
-    Ok(())
+    Ok(file_data)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -329,7 +351,9 @@ pub(crate) async fn process_file(
     base_url: &str,
     skip_failed: bool,
     asset_documents: &std::collections::HashMap<String, String>,
-) -> fpm::Result<()> {
+) -> fpm::Result<
+    std::collections::HashMap<camino::Utf8PathBuf, (Option<String>, Option<camino::Utf8PathBuf>)>,
+> {
     use std::io::Write;
 
     let start = std::time::Instant::now();
@@ -356,7 +380,7 @@ pub(crate) async fn process_file(
                     (Ok(r), _) => r,
                     (_, true) => {
                         println!("Failed");
-                        return Ok(());
+                        return Ok(Default::default());
                     }
                     (e, _) => {
                         return e;
@@ -390,7 +414,7 @@ pub(crate) async fn process_file(
                     (Ok(r), _) => r,
                     (_, true) => {
                         println!("Failed");
-                        return Ok(());
+                        return Ok(Default::default());
                     }
                     (e, _) => {
                         return e;
@@ -414,7 +438,7 @@ pub(crate) async fn process_file(
                     (Ok(r), _) => r,
                     (_, true) => {
                         println!("Failed");
-                        return Ok(());
+                        return Ok(Default::default());
                     }
                     (e, _) => {
                         return e;
@@ -436,7 +460,7 @@ pub(crate) async fn process_file(
                     (Ok(r), _) => r,
                     (_, true) => {
                         println!("Failed");
-                        return Ok(());
+                        return Ok(Default::default());
                     }
                     (e, _) => {
                         return e;
@@ -456,7 +480,7 @@ pub(crate) async fn process_file(
             format!("Processed {}/{}", package.name.as_str(), main.get_id()).as_str(),
             start,
         );
-        return Ok(());
+        return Ok(Default::default());
     }
     print!(
         "Processing {}/{} ... ",
@@ -480,7 +504,7 @@ pub(crate) async fn process_file(
                 (Ok(r), _) => r,
                 (_, true) => {
                     println!("Failed");
-                    return Ok(());
+                    return Ok(Default::default());
                 }
                 (e, _) => {
                     return e;
@@ -503,7 +527,7 @@ pub(crate) async fn process_file(
                 (Ok(r), _) => r,
                 (_, true) => {
                     println!("Failed");
-                    return Ok(());
+                    return Ok(Default::default());
                 }
                 (e, _) => {
                     return e;
@@ -527,7 +551,7 @@ pub(crate) async fn process_file(
                 (Ok(r), _) => r,
                 (_, true) => {
                     println!("Failed");
-                    return Ok(());
+                    return Ok(Default::default());
                 }
                 (e, _) => {
                     return e;
@@ -558,7 +582,7 @@ pub(crate) async fn process_file(
                 (Ok(r), _) => r,
                 (_, true) => {
                     println!("Failed");
-                    return Ok(());
+                    return Ok(Default::default());
                 }
                 (e, _) => {
                     return e;
@@ -570,7 +594,7 @@ pub(crate) async fn process_file(
         format!("Processed {}/{}", package.name.as_str(), main.get_id()).as_str(),
         start,
     );
-    Ok(())
+    Ok(Default::default())
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -583,7 +607,9 @@ async fn process_image(
     base_url: &str,
     package: &fpm::Package,
     asset_documents: &std::collections::HashMap<String, String>,
-) -> fpm::Result<()> {
+) -> ffpm::Result<
+    std::collections::HashMap<camino::Utf8PathBuf, (Option<String>, Option<camino::Utf8PathBuf>)>,
+> {
     let main = convert_to_ftd(config, main, package)?;
     if let Some(d) = fallback {
         return process_ftd(
@@ -635,11 +661,13 @@ async fn process_code(
     translated_data: fpm::TranslationData,
     base_url: &str,
     asset_documents: &std::collections::HashMap<String, String>,
-) -> fpm::Result<()> {
+) -> fpm::Result<
+    std::collections::HashMap<camino::Utf8PathBuf, (Option<String>, Option<camino::Utf8PathBuf>)>,
+> {
     let main = if let Some(main) = convert_to_ftd(config, main)? {
         main
     } else {
-        return Ok(());
+        return Ok(Default::default());
     };
     if let Some(d) = fallback {
         match convert_to_ftd(config, d)? {
@@ -656,7 +684,7 @@ async fn process_code(
                 .await;
             }
             None => {
-                return Ok(());
+                return Ok(Default::default());
             }
         }
     };
@@ -704,11 +732,13 @@ async fn process_markdown(
     translated_data: fpm::TranslationData,
     base_url: &str,
     asset_documents: &std::collections::HashMap<String, String>,
-) -> fpm::Result<()> {
+) -> fpm::Result<
+    std::collections::HashMap<camino::Utf8PathBuf, (Option<String>, Option<camino::Utf8PathBuf>)>,
+> {
     let main = if let Some(main) = convert_md_to_ftd(config, main)? {
         main
     } else {
-        return Ok(());
+        return Ok(Default::default());
     };
     if let Some(d) = fallback {
         match convert_md_to_ftd(config, d)? {
@@ -725,7 +755,7 @@ async fn process_markdown(
                 .await;
             }
             None => {
-                return Ok(());
+                return Ok(Default::default());
             }
         }
     };
@@ -800,7 +830,16 @@ async fn process_ftd(
     translated_data: fpm::TranslationData,
     base_url: &str,
     asset_documents: &std::collections::HashMap<String, String>,
-) -> fpm::Result<()> {
+) -> fpm::Result<
+    std::collections::HashMap<camino::Utf8PathBuf, (Option<String>, Option<camino::Utf8PathBuf>)>,
+> {
+    let html = render_to_string()?;
+
+    let mut file_data: std::collections::HashMap<
+        camino::Utf8PathBuf,
+        (Option<String>, Option<camino::Utf8PathBuf>),
+    > = Default::default();
+
     if main.id.eq("FPM.ftd") {
         if config.is_translation_package() {
             use std::io::Write;
@@ -846,10 +885,18 @@ async fn process_ftd(
                 )
             };
 
+            file_data.insert(
+                config.root.join(".build").join(main.id.as_str()),
+                (Some(fpm.to_string()), None),
+            );
             let mut file =
                 std::fs::File::create(config.root.join(".build").join(main.id.as_str()))?;
             file.write_all(fpm.as_bytes())?;
         } else {
+            file_data.insert(
+                config.root.join(".build").join(main.id.as_str()),
+                (None, Some(config.root.join(main.id.as_str()))),
+            );
             std::fs::copy(
                 config.root.join(main.id.as_str()),
                 config.root.join(".build").join(main.id.as_str()),
@@ -922,7 +969,7 @@ async fn process_ftd(
         });
         (new_fallback, message, new_main)
     };
-    match (fallback, message) {
+    let files = match (fallback, message) {
         (Some(fallback), Some(message)) => {
             write_with_fallback(
                 config,
@@ -958,9 +1005,11 @@ async fn process_ftd(
             )
             .await?
         }
-    }
+    };
 
-    return Ok(());
+    file_data.extend(files);
+
+    return Ok(file_data);
 
     async fn write_default(
         config: &fpm::Config,
@@ -968,7 +1017,16 @@ async fn process_ftd(
         new_file_path: &str,
         base_url: &str,
         asset_documents: &std::collections::HashMap<String, String>,
-    ) -> fpm::Result<()> {
+    ) -> fpm::Result<
+        std::collections::HashMap<
+            camino::Utf8PathBuf,
+            (Option<String>, Option<camino::Utf8PathBuf>),
+        >,
+    > {
+        let mut file_data: std::collections::HashMap<
+            camino::Utf8PathBuf,
+            (Option<String>, Option<camino::Utf8PathBuf>),
+        > = Default::default();
         use tokio::io::AsyncWriteExt;
 
         let lib = fpm::Library {
@@ -998,20 +1056,23 @@ async fn process_ftd(
         };
         let ftd_doc = main_ftd_doc.to_rt("main", &main.id);
 
+        let data = replace_markers(
+            fpm::ftd_html(),
+            config,
+            main,
+            doc_title.as_str(),
+            base_url,
+            &ftd_doc,
+        );
+
+        file_data.insert(
+            camino::Utf8PathBuf::from(new_file_path),
+            (Some(data.to_string()), None),
+        );
+
         let mut f = tokio::fs::File::create(new_file_path).await?;
-        f.write_all(
-            replace_markers(
-                fpm::ftd_html(),
-                config,
-                main,
-                doc_title.as_str(),
-                base_url,
-                &ftd_doc,
-            )
-            .as_bytes(),
-        )
-        .await?;
-        Ok(())
+        f.write_all(data.as_bytes()).await?;
+        Ok(file_data)
     }
 
     async fn write_with_message(
@@ -1022,7 +1083,16 @@ async fn process_ftd(
         translated_data: fpm::TranslationData,
         base_url: &str,
         asset_documents: &std::collections::HashMap<String, String>,
-    ) -> fpm::Result<()> {
+    ) -> fpm::Result<
+        std::collections::HashMap<
+            camino::Utf8PathBuf,
+            (Option<String>, Option<camino::Utf8PathBuf>),
+        >,
+    > {
+        let mut file_data: std::collections::HashMap<
+            camino::Utf8PathBuf,
+            (Option<String>, Option<camino::Utf8PathBuf>),
+        > = Default::default();
         use tokio::io::AsyncWriteExt;
 
         let lib = fpm::Library {
@@ -1063,39 +1133,42 @@ async fn process_ftd(
         };
         let message_rt_doc = message_ftd_doc.to_rt("message", &main.id);
 
+        let data = replace_markers(
+            fpm::with_message()
+                .replace(
+                    "__ftd_data_message__",
+                    serde_json::to_string_pretty(&message_rt_doc.data)
+                        .expect("failed to convert document to json")
+                        .as_str(),
+                )
+                .replace(
+                    "__ftd_external_children_message__",
+                    serde_json::to_string_pretty(&message_rt_doc.external_children)
+                        .expect("failed to convert document to json")
+                        .as_str(),
+                )
+                .replace(
+                    "__message__",
+                    format!("{}{}", message_rt_doc.html, config.get_font_style(),).as_str(),
+                )
+                .as_str(),
+            config,
+            main,
+            doc_title.as_str(),
+            base_url,
+            &main_rt_doc,
+        );
+        file_data.insert(
+            camino::Utf8PathBuf::from(new_file_path),
+            (Some(data.to_string()), None),
+        );
+
         let mut f = tokio::fs::File::create(new_file_path).await?;
 
-        f.write_all(
-            replace_markers(
-                fpm::with_message()
-                    .replace(
-                        "__ftd_data_message__",
-                        serde_json::to_string_pretty(&message_rt_doc.data)
-                            .expect("failed to convert document to json")
-                            .as_str(),
-                    )
-                    .replace(
-                        "__ftd_external_children_message__",
-                        serde_json::to_string_pretty(&message_rt_doc.external_children)
-                            .expect("failed to convert document to json")
-                            .as_str(),
-                    )
-                    .replace(
-                        "__message__",
-                        format!("{}{}", message_rt_doc.html, config.get_font_style(),).as_str(),
-                    )
-                    .as_str(),
-                config,
-                main,
-                doc_title.as_str(),
-                base_url,
-                &main_rt_doc,
-            )
-            .as_bytes(),
-        )
-        .await?;
-        Ok(())
+        f.write_all(data.as_bytes()).await?;
+        Ok(file_data)
     }
+
     #[allow(clippy::too_many_arguments)]
     async fn write_with_fallback(
         config: &fpm::Config,
@@ -1106,7 +1179,16 @@ async fn process_ftd(
         translated_data: fpm::TranslationData,
         base_url: &str,
         asset_documents: &std::collections::HashMap<String, String>,
-    ) -> fpm::Result<()> {
+    ) -> fpm::Result<
+        std::collections::HashMap<
+            camino::Utf8PathBuf,
+            (Option<String>, Option<camino::Utf8PathBuf>),
+        >,
+    > {
+        let mut file_data: std::collections::HashMap<
+            camino::Utf8PathBuf,
+            (Option<String>, Option<camino::Utf8PathBuf>),
+        > = Default::default();
         use tokio::io::AsyncWriteExt;
         let lib = fpm::Library {
             config: config.clone(),
@@ -1159,55 +1241,56 @@ async fn process_ftd(
             }
         };
         let fallback_rt_doc = fallback_ftd_doc.to_rt("fallback", &fallback.id);
+        let data = replace_markers(
+            fpm::with_fallback()
+                .replace(
+                    "__ftd_data_message__",
+                    serde_json::to_string_pretty(&message_rt_doc.data)
+                        .expect("failed to convert document to json")
+                        .as_str(),
+                )
+                .replace(
+                    "__ftd_external_children_message__",
+                    serde_json::to_string_pretty(&message_rt_doc.external_children)
+                        .expect("failed to convert document to json")
+                        .as_str(),
+                )
+                .replace(
+                    "__message__",
+                    format!("{}{}", message_rt_doc.html, config.get_font_style(),).as_str(),
+                )
+                .replace(
+                    "__ftd_data_fallback__",
+                    serde_json::to_string_pretty(&fallback_rt_doc.data)
+                        .expect("failed to convert document to json")
+                        .as_str(),
+                )
+                .replace(
+                    "__ftd_external_children_fallback__",
+                    serde_json::to_string_pretty(&fallback_rt_doc.external_children)
+                        .expect("failed to convert document to json")
+                        .as_str(),
+                )
+                .replace(
+                    "__fallback__",
+                    format!("{}{}", fallback_rt_doc.html, config.get_font_style(),).as_str(),
+                )
+                .as_str(),
+            config,
+            main,
+            doc_title.as_str(),
+            base_url,
+            &main_rt_doc,
+        );
+        file_data.insert(
+            camino::Utf8PathBuf::from(new_file_path),
+            (Some(data.to_string()), None),
+        );
 
         let mut f = tokio::fs::File::create(new_file_path).await?;
 
-        f.write_all(
-            replace_markers(
-                fpm::with_fallback()
-                    .replace(
-                        "__ftd_data_message__",
-                        serde_json::to_string_pretty(&message_rt_doc.data)
-                            .expect("failed to convert document to json")
-                            .as_str(),
-                    )
-                    .replace(
-                        "__ftd_external_children_message__",
-                        serde_json::to_string_pretty(&message_rt_doc.external_children)
-                            .expect("failed to convert document to json")
-                            .as_str(),
-                    )
-                    .replace(
-                        "__message__",
-                        format!("{}{}", message_rt_doc.html, config.get_font_style(),).as_str(),
-                    )
-                    .replace(
-                        "__ftd_data_fallback__",
-                        serde_json::to_string_pretty(&fallback_rt_doc.data)
-                            .expect("failed to convert document to json")
-                            .as_str(),
-                    )
-                    .replace(
-                        "__ftd_external_children_fallback__",
-                        serde_json::to_string_pretty(&fallback_rt_doc.external_children)
-                            .expect("failed to convert document to json")
-                            .as_str(),
-                    )
-                    .replace(
-                        "__fallback__",
-                        format!("{}{}", fallback_rt_doc.html, config.get_font_style(),).as_str(),
-                    )
-                    .as_str(),
-                config,
-                main,
-                doc_title.as_str(),
-                base_url,
-                &main_rt_doc,
-            )
-            .as_bytes(),
-        )
-        .await?;
-        Ok(())
+        f.write_all(data.as_bytes()).await?;
+        Ok(file_data)
     }
 }
 
@@ -1215,17 +1298,27 @@ async fn process_static(
     sa: &fpm::Static,
     base_path: &camino::Utf8Path,
     package: &fpm::Package,
-) -> fpm::Result<()> {
-    copy_to_build(sa, base_path, package)?;
+) -> fpm::Result<
+    std::collections::HashMap<camino::Utf8PathBuf, (Option<String>, Option<camino::Utf8PathBuf>)>,
+> {
+    let mut file_data: std::collections::HashMap<
+        camino::Utf8PathBuf,
+        (Option<String>, Option<camino::Utf8PathBuf>),
+    > = Default::default();
+    copy_to_build(sa, base_path, package, &mut file_data)?;
     if let Some(original_package) = package.translation_of.as_ref() {
-        copy_to_build(sa, base_path, original_package)?;
+        copy_to_build(sa, base_path, original_package, &mut file_data)?;
     }
-    return Ok(());
+    return Ok(file_data);
 
     fn copy_to_build(
         sa: &fpm::Static,
         base_path: &camino::Utf8Path,
         package: &fpm::Package,
+        file_data: &mut std::collections::HashMap<
+            camino::Utf8PathBuf,
+            (Option<String>, Option<camino::Utf8PathBuf>),
+        >,
     ) -> fpm::Result<()> {
         let build_path = base_path
             .join(".build")
@@ -1235,6 +1328,10 @@ async fn process_static(
         if let Some((dir, _)) = sa.id.rsplit_once(std::path::MAIN_SEPARATOR) {
             std::fs::create_dir_all(&build_path.join(dir))?;
         }
+        file_data.insert(
+            build_path.join(sa.id.as_str()),
+            (None, Some(sa.base_path.join(sa.id.as_str()))),
+        );
         std::fs::copy(
             sa.base_path.join(sa.id.as_str()),
             build_path.join(sa.id.as_str()),

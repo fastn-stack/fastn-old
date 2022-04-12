@@ -15,6 +15,7 @@ mod document;
 mod font;
 mod i18n;
 mod library;
+mod render;
 mod snapshot;
 mod tracker;
 mod translation;
