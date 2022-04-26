@@ -179,7 +179,24 @@ mobile: $body-small-desktop
 xl: $body-small-desktop
 weight: 400
 
+
+
+-- ftd.font-size heading-large-desktop:
+line-height: 48
+size: 40
+tracking: 0
+
+-- ftd.type heading-large: $font-display
+desktop: $heading-large-desktop
+mobile: $heading-large-desktop
+xl: $heading-large-desktop
+weight: 400
+
+
+
+
 -- record type-data:
+ftd.type heading-large:
 ftd.type display-large:
 ftd.type display-medium:
 ftd.type display-small:
@@ -197,6 +214,7 @@ ftd.type body-medium:
 ftd.type body-small:
 
 -- type-data type:
+heading-large: $heading-large
 display-large: $display-large
 display-medium: $display-medium
 display-small: $display-small
