@@ -230,7 +230,6 @@ dark: #007f9b
 light: #007f9b
 dark: #007f9b
 
-
 -- ftd.color cta-primary-base-:
 light: #2dd4bf
 dark: #2dd4bf
@@ -244,8 +243,8 @@ light: #2cc9b5
 dark: #2cc9b5
 
 -- ftd.color cta-primary-disabled-:
-light: rgba(44,201,181,0.1)
-dark: rgba(44,201,181,0.1)
+light: rgba(44, 201, 181, 0.1)
+dark: rgba(44, 201, 181, 0.1)
 
 -- ftd.color cta-primary-focused-:
 light: #2cbfac
@@ -274,15 +273,15 @@ dark: #4fb2df
 
 -- ftd.color cta-secondary-hover-:
 light: #40afe1
-dark:#40afe1
+dark: #40afe1
 
 -- ftd.color cta-secondary-pressed-:
 light: #4fb2df
 dark: #4fb2df
 
 -- ftd.color cta-secondary-disabled-:
-light: rgba(79,178,223,0.1)
-dark: rgba(79,178,223,0.1)
+light: rgba(79, 178, 223, 0.1)
+dark: rgba(79, 178, 223, 0.1)
 
 -- ftd.color cta-secondary-focused-:
 light: #4fb1df
@@ -318,8 +317,8 @@ light: #3b4047
 dark: #3b4047
 
 -- ftd.color cta-tertiary-disabled-:
-light: rgba(85,99,117,0.1)
-dark: rgba(85,99,117,0.1)
+light: rgba(85, 99, 117, 0.1)
+dark: rgba(85, 99, 117, 0.1)
 
 -- ftd.color cta-tertiary-focused-:
 light: #e0e2e6

@@ -57,16 +57,17 @@ pub struct Document {
 
 impl Document {
     pub fn id_to_path(&self) -> String {
-        self.id
-            .replace("index.ftd", "")
-            .replace(".ftd", std::path::MAIN_SEPARATOR.to_string().as_str())
+        fpm::utils::id_to_path(self.id.as_str())
     }
 
     pub fn id_with_package(&self) -> String {
         format!(
             "{}/{}",
             self.package_name.as_str(),
-            self.id.trim_end_matches(".ftd")
+            self.id
+                .replace("/index.ftd", "/")
+                .replace("index.ftd", "")
+                .replace(".ftd", "/")
         )
     }
 }

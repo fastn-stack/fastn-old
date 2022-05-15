@@ -29,7 +29,20 @@ pub struct Config {
     /// When printing filenames for users consumption we want to print the paths relative to the
     /// `original_directory`, so we keep track of the original directory.
     pub original_directory: camino::Utf8PathBuf,
+    /// The extra_data stores the data passed for variables in ftd files as context.
+    ///
+    /// This data is processed by `get-data` processor.
     pub extra_data: serde_json::Map<String, serde_json::Value>,
+    /// sitemap stores the structure of the package. The structure includes sections, subsections
+    /// and table of content (`toc`). This automatically converts the documents in package into the
+    /// corresponding to structure.
+    pub sitemap: Option<fpm::sitemap::Sitemap>,
+    /// `current_document` stores the document id (Eg: `foo.ftd` or `bar/foo.ftd`) which is
+    /// currently in building process.
+    /// It's value is injected by `fpm::build()` function according to the currently processing
+    /// document.
+    /// It is consumed by the `get-sitemap` processor.
+    pub current_document: Option<String>,
 }
 
 impl Config {
@@ -48,7 +61,7 @@ impl Config {
     /// we will be able to say download the history also for some package.
     ///
     /// ```ftd
-    /// -- ftp.dependency: django
+    /// -- fpm.dependency: django
     ///  with-history: true
     /// ```
     ///     
@@ -278,6 +291,7 @@ impl Config {
             package.dependencies = deps;
 
             let auto_imports: Vec<String> = b.get("fpm#auto-import")?;
+
             // let mut aliases = std::collections::HashMap::<String, String>::new();
             let auto_import = auto_imports
                 .iter()
@@ -287,6 +301,7 @@ impl Config {
 
             package.ignored_paths = b.get::<Vec<String>>("fpm#ignore")?;
             package.fonts = b.get("fpm#font")?;
+            package.sitemap = b.get("fpm#sitemap")?;
             package
         };
 
@@ -304,13 +319,28 @@ impl Config {
                 }
             }
         }
-        Ok(Config {
-            package,
+
+        let mut config = Config {
+            package: package.clone(),
             packages_root: root.clone().join(".packages"),
             root,
             original_directory,
             extra_data: Default::default(),
-        })
+            sitemap: None,
+            current_document: None,
+        };
+
+        config.sitemap = match package.translation_of.as_ref() {
+            Some(translation) => translation,
+            None => &package,
+        }
+        .sitemap
+        .as_ref()
+        .map_or(Ok(None), |v| {
+            fpm::sitemap::Sitemap::parse(v.as_str(), &package, &config).map(Some)
+        })?;
+
+        Ok(config)
     }
 
     /// `attach_data_string()` sets the value of extra data in fpm::Config,
@@ -437,7 +467,7 @@ impl Config {
         id: &str,
         package: &fpm::Package,
     ) -> fpm::Result<fpm::File> {
-        let file_name = get_file_name(&self.root, id)?;
+        let file_name = fpm::Config::get_file_name(&self.root, id)?;
         return self
             .get_files(package)
             .await?
@@ -446,39 +476,34 @@ impl Config {
             .ok_or_else(|| fpm::Error::UsageError {
                 message: format!("No such file found: {}", id),
             });
+    }
 
-        fn get_file_name(root: &camino::Utf8PathBuf, id: &str) -> fpm::Result<String> {
-            if id.eq("/") {
-                if root.join("index.ftd".to_string()).exists() {
-                    return Ok("index.ftd".to_string());
-                }
-                if root.join("README.md".to_string()).exists() {
-                    return Ok("README.md".to_string());
-                }
-                return Err(fpm::Error::UsageError {
-                    message: "File not found".to_string(),
-                });
+    pub(crate) fn get_file_name(root: &camino::Utf8PathBuf, id: &str) -> fpm::Result<String> {
+        let mut id = id.split_once("-/").map(|(id, _)| id).unwrap_or(id).trim();
+        if id.eq("/") {
+            if root.join("index.ftd".to_string()).exists() {
+                return Ok("index.ftd".to_string());
             }
-            let mut id = id;
-            if let Some(i) = id.strip_suffix('/') {
-                id = i;
+            if root.join("README.md".to_string()).exists() {
+                return Ok("README.md".to_string());
             }
-            if let Some(i) = id.strip_prefix('/') {
-                id = i;
-            }
-            if root.join(format!("{}.ftd", id)).exists() {
-                return Ok(format!("{}.ftd", id));
-            }
-            if root.join(format!("{}/index.ftd", id)).exists() {
-                return Ok(format!("{}/index.ftd", id));
-            }
-            if root.join(format!("{}/README.md", id)).exists() {
-                return Ok(format!("{}/README.md", id));
-            }
-            Err(fpm::Error::UsageError {
+            return Err(fpm::Error::UsageError {
                 message: "File not found".to_string(),
-            })
+            });
         }
+        id = id.trim_matches('/');
+        if root.join(format!("{}.ftd", id)).exists() {
+            return Ok(format!("{}.ftd", id));
+        }
+        if root.join(format!("{}/index.ftd", id)).exists() {
+            return Ok(format!("{}/index.ftd", id));
+        }
+        if root.join(format!("{}/README.md", id)).exists() {
+            return Ok(format!("{}/README.md", id));
+        }
+        Err(fpm::Error::UsageError {
+            message: "File not found".to_string(),
+        })
     }
 
     pub(crate) async fn get_assets(
@@ -589,6 +614,7 @@ impl PackageTemp {
             ignored_paths: vec![],
             fonts: vec![],
             import_auto_imports_from_original: self.import_auto_imports_from_original,
+            sitemap: None,
         }
     }
 }
@@ -596,6 +622,7 @@ impl PackageTemp {
 #[derive(Debug, Clone)]
 pub struct Package {
     pub name: String,
+    /// The `versioned` stores the boolean value storing of the fpm package is versioned or not
     pub versioned: bool,
     pub translation_of: Box<Option<Package>>,
     pub translations: Vec<Package>,
@@ -609,6 +636,8 @@ pub struct Package {
     pub dependencies: Vec<fpm::Dependency>,
     /// `auto_import` keeps track of the global auto imports in the package.
     pub auto_import: Vec<fpm::AutoImport>,
+    /// `fpm_path` contains the fpm package root. This value is found in `FPM.ftd` or
+    /// `FPM.manifest.ftd` file.
     pub fpm_path: Option<camino::Utf8PathBuf>,
     /// `ignored` keeps track of files that are to be ignored by `fpm build`, `fpm sync` etc.
     pub ignored_paths: Vec<String>,
@@ -617,6 +646,10 @@ pub struct Package {
     /// Note that this too is kind of bad design, we will move fonts to `fpm::Package` struct soon.
     pub fonts: Vec<fpm::Font>,
     pub import_auto_imports_from_original: bool,
+    /// sitemap stores the structure of the package. The structure includes sections, subsections
+    /// and table of content (`toc`). This automatically converts the documents in package into the
+    /// corresponding to structure.
+    pub sitemap: Option<String>,
 }
 
 impl Package {
@@ -637,6 +670,7 @@ impl Package {
             ignored_paths: vec![],
             fonts: vec![],
             import_auto_imports_from_original: true,
+            sitemap: None,
         }
     }
 
@@ -723,18 +757,35 @@ impl Package {
     }
 
     pub fn generate_canonical_url(&self, path: &str) -> String {
-        match &self.canonical_url {
+        if path.starts_with("-/") {
+            return "".to_string();
+        }
+        let (path, canonical_url) = path
+            .split_once("-/")
+            .map(|(v, _)| {
+                (
+                    v.trim_matches('/'),
+                    Some(
+                        self.canonical_url
+                            .clone()
+                            .unwrap_or_else(|| self.name.to_string()),
+                    ),
+                )
+            })
+            .unwrap_or((path.trim_matches('/'), self.canonical_url.clone()));
+        match canonical_url {
             Some(url) => {
-                // Ignore the FPM document as that path won't exist in the reference website
-                if !path.starts_with("-/") {
-                    format!(
-                        "\n<link rel=\"canonical\" href=\"{canonical_base}{path}\" />",
-                        canonical_base = url,
-                        path = path
-                    )
+                let url = if !url.ends_with('/') {
+                    format!("{}/", url)
                 } else {
-                    "".to_string()
-                }
+                    url
+                };
+                // Ignore the FPM document as that path won't exist in the reference website
+                format!(
+                    "\n<link rel=\"canonical\" href=\"{canonical_base}{path}\" />",
+                    canonical_base = url,
+                    path = path
+                )
             }
             None => "".to_string(),
         }

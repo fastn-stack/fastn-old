@@ -205,6 +205,12 @@ pub(crate) fn validate_zip_url(package: &fpm::Package) -> fpm::Result<()> {
     Ok(())
 }
 
+pub(crate) fn id_to_path(id: &str) -> String {
+    id.replace("/index.ftd", "/")
+        .replace("index.ftd", "/")
+        .replace(".ftd", std::path::MAIN_SEPARATOR.to_string().as_str())
+}
+
 pub(crate) fn replace_markers(
     s: &str,
     config: &fpm::Config,
@@ -250,4 +256,10 @@ pub(crate) fn replace_markers(
 
 pub fn is_test() -> bool {
     std::env::args().any(|e| e == "--test")
+}
+
+pub(crate) fn url_regex() -> regex::Regex {
+    regex::Regex::new(
+        r#"((([A-Za-z]{3,9}:(?://)?)(?:[-;:&=\+\$,\w]+@)?[A-Za-z0-9.-]+|(?:www.|[-;:&=\+\$,\w]+@)[A-Za-z0-9.-]+)((?:/[\+~%/.\w_]*)?\??(?:[-\+=&;%@.\w_]*)\#?(?:[\w]*))?)"#
+    ).unwrap()
 }
