@@ -107,6 +107,7 @@ pub struct Section {
     /// and then renders it.
     pub extra_data: std::collections::BTreeMap<String, String>,
     pub is_active: bool,
+    pub nav_title: Option<String>,
     pub subsections: Vec<Subsection>,
 }
 
@@ -119,6 +120,7 @@ pub struct Subsection {
     pub visible: bool,
     pub extra_data: std::collections::BTreeMap<String, String>,
     pub is_active: bool,
+    pub nav_title: Option<String>,
     pub toc: Vec<TocItem>,
 }
 
@@ -132,6 +134,7 @@ impl Default for Subsection {
             visible: true,
             extra_data: Default::default(),
             is_active: false,
+            nav_title: None,
             toc: vec![],
         }
     }
@@ -145,8 +148,10 @@ pub struct TocItem {
     pub translation_file_location: Option<camino::Utf8PathBuf>,
     pub extra_data: std::collections::BTreeMap<String, String>,
     pub is_active: bool,
+    pub nav_title: Option<String>,
     pub children: Vec<TocItem>,
 }
+
 #[derive(Debug, Default, serde::Serialize)]
 pub struct SiteMapCompat {
     pub sections: Vec<TocItemCompat>,
@@ -242,6 +247,15 @@ impl SitemapElement {
                 s.id = id;
             }
         };
+    }
+
+    pub(crate) fn set_nav_title(&mut self, nav_title: Option<String>) {
+        let nav = match self {
+            SitemapElement::Section(s) => &mut s.nav_title,
+            SitemapElement::Subsection(s) => &mut s.nav_title,
+            SitemapElement::TocItem(s) => &mut s.nav_title,
+        };
+        *nav = nav_title;
     }
 
     pub(crate) fn get_title(&self) -> Option<String> {
@@ -454,6 +468,9 @@ impl SitemapParser {
                             if i.get_title().is_none() {
                                 i.set_title(id);
                             }
+                        }
+                        if k.eq("nav-title") {
+                            i.set_nav_title(Some(v.to_string()));
                         }
                         i.insert_key_value(k, v);
                     }
@@ -747,7 +764,11 @@ impl Sitemap {
                         let active = v.id.as_ref().map(|v| v.eq(id)).unwrap_or(false);
                         let toc = TocItemCompat::new(v.id.clone(), v.title.clone(), active);
                         if active {
-                            current_subsection = Some(toc.clone());
+                            let mut curr_subsection = toc.clone();
+                            if let Some(ref title) = v.nav_title {
+                                curr_subsection.title = Some(title.to_string());
+                            }
+                            current_subsection = Some(curr_subsection);
                         }
                         toc
                     })
@@ -763,13 +784,16 @@ impl Sitemap {
                     toc.extend(toc_list);
                     current_page = current_toc;
                 }
-                let section = TocItemCompat::new(
+                let mut section_toc = TocItemCompat::new(
                     Some(get_url(section.id.as_str())),
                     section.title.clone(),
                     true,
                 );
-                current_section = Some(section.clone());
-                sections.push(section);
+                sections.push(section_toc.clone());
+                if let Some(ref title) = section.nav_title {
+                    section_toc.title = Some(title.to_string());
+                }
+                current_section = Some(section_toc);
                 break;
             }
 
@@ -780,13 +804,16 @@ impl Sitemap {
                 toc.extend(toc_list);
                 current_subsection = curr_subsection;
                 current_page = curr_toc;
-                let section = TocItemCompat::new(
+                let mut section_toc = TocItemCompat::new(
                     Some(get_url(section.id.as_str())),
                     section.title.clone(),
                     true,
                 );
-                current_section = Some(section.clone());
-                sections.push(section);
+                sections.push(section_toc.clone());
+                if let Some(ref title) = section.nav_title {
+                    section_toc.title = Some(title.to_string());
+                }
+                current_section = Some(section_toc);
                 break;
             }
 
@@ -833,13 +860,16 @@ impl Sitemap {
                     let (toc_list, current_toc) = get_all_toc(subsection.toc.as_slice(), id);
                     toc.extend(toc_list);
                     current_page = current_toc;
-                    let subsection = TocItemCompat::new(
+                    let mut subsection_toc = TocItemCompat::new(
                         subsection.id.as_ref().map(|v| get_url(v.as_str())),
                         subsection.title.clone(),
                         true,
                     );
-                    subsection_list.push(subsection.clone());
-                    current_subsection = Some(subsection);
+                    subsection_list.push(subsection_toc.clone());
+                    if let Some(ref title) = subsection.nav_title {
+                        subsection_toc.title = Some(title.to_string());
+                    }
+                    current_subsection = Some(subsection_toc);
                     found = true;
                     break;
                 }
@@ -849,13 +879,16 @@ impl Sitemap {
                     toc.extend(toc_list);
                     current_page = Some(current_toc);
                     if subsection.visible {
-                        let subsection = TocItemCompat::new(
+                        let mut subsection_toc = TocItemCompat::new(
                             subsection.id.as_ref().map(|v| get_url(v.as_str())),
                             subsection.title.clone(),
                             true,
                         );
-                        subsection_list.push(subsection.clone());
-                        current_subsection = Some(subsection);
+                        subsection_list.push(subsection_toc.clone());
+                        if let Some(ref title) = subsection.nav_title {
+                            subsection_toc.title = Some(title.to_string());
+                        }
+                        current_subsection = Some(subsection_toc);
                     }
                     found = true;
                     break;
@@ -903,7 +936,7 @@ impl Sitemap {
             let mut found_here = false;
 
             for toc_item in toc.iter() {
-                let current_toc = {
+                let mut current_toc = {
                     let (is_active, children) =
                         get_toc_by_id_(id, toc_item.children.as_slice(), current_page);
                     let mut current_toc = TocItemCompat::new(
@@ -923,6 +956,9 @@ impl Sitemap {
                 if current_page.is_none() {
                     found_here = toc_item.id.as_str().eq(id);
                     if found_here {
+                        if let Some(ref title) = toc_item.nav_title {
+                            current_toc.title = Some(title.to_string());
+                        }
                         *current_page = Some(current_toc);
                     }
                 }
