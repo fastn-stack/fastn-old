@@ -757,14 +757,14 @@ impl Sitemap {
                     .subsections
                     .iter()
                     .find_or_first(|v| v.id.as_ref().map(|v| v.eq(id)).unwrap_or(false))
-                    .or(section.subsections.first())
+                    .or_else(|| section.subsections.first())
                 {
                     let (toc_list, current_toc) = get_all_toc(sub.toc.as_slice(), id);
                     toc.extend(toc_list);
                     current_page = current_toc;
                 }
                 let section = TocItemCompat::new(
-                    Some(get_url(section.id.as_str()).to_string()),
+                    Some(get_url(section.id.as_str())),
                     section.title.clone(),
                     true,
                 );
@@ -781,7 +781,7 @@ impl Sitemap {
                 current_subsection = curr_subsection;
                 current_page = curr_toc;
                 let section = TocItemCompat::new(
-                    Some(get_url(section.id.as_str()).to_string()),
+                    Some(get_url(section.id.as_str())),
                     section.title.clone(),
                     true,
                 );
@@ -810,6 +810,7 @@ impl Sitemap {
             current_page,
         });
 
+        #[allow(clippy::type_complexity)]
         fn get_subsection_by_id(
             id: &str,
             subsections: &[Subsection],
@@ -890,7 +891,7 @@ impl Sitemap {
             if let Some(current_page) = current_page {
                 return Some((toc_list, current_page));
             }
-            return None;
+            None
         }
 
         fn get_toc_by_id_(
