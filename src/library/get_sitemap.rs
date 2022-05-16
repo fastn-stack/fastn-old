@@ -21,6 +21,7 @@ pub fn processor(
         }
 
         if let Some(sitemap) = sitemap.get_sitemap_by_id(doc_id.as_str()) {
+            dbg!(&sitemap);
             return doc.from_json(&sitemap, section);
         }
     }
