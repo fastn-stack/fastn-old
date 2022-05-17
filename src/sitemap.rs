@@ -228,7 +228,7 @@ impl SitemapElement {
 
     pub(crate) fn set_id(&mut self, id: Option<String>) {
         let id = if let Some(id) = id {
-            id.to_string()
+            id
         } else {
             return;
         };
@@ -991,7 +991,7 @@ impl Sitemap {
             if id.eq("/") {
                 return id.to_string();
             }
-            let id = id.trim_start_matches("/");
+            let id = id.trim_start_matches('/');
             if id.ends_with('/') || id.ends_with("index.html") {
                 return id.to_string();
             }
