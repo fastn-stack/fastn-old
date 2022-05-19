@@ -778,6 +778,19 @@ impl Package {
     }
 
     pub fn generate_canonical_url(&self, path: &str) -> String {
+        if let Some(path) = path.strip_prefix("-/") {
+            let mut url = path
+                .split_once("-/")
+                .map(|(v, _)| v.trim_matches('/'))
+                .unwrap_or_else(|| path.trim_matches('/'))
+                .to_string();
+            if !url.ends_with(".html") {
+                url = format!("{}/", url);
+            }
+
+            return format!("\n<link rel=\"canonical\" href=\"{url}\" />", url = url);
+        }
+
         if path.starts_with("-/") {
             return "".to_string();
         }
