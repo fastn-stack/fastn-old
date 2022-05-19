@@ -343,8 +343,6 @@ impl Config {
                 .map(Some)
         })?;
 
-        dbg!(&config.sitemap);
-
         Ok(config)
     }
 
