@@ -493,7 +493,7 @@ impl Config {
         let mut id = id
             .split_once("-/")
             .map(|(id, _)| id)
-            .unwrap_or(id.as_str())
+            .unwrap_or_else(|| id.as_str())
             .trim()
             .replace("/index.html", "/")
             .replace("index.html", "/");
