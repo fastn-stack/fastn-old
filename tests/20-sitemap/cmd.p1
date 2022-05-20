@@ -4,6 +4,7 @@ output: .build
 
 -- stdout:
 
+Downloading fifthtry.github.io/package-info ... done in <omitted>
 Processing fpm-sitemap/-/index-alias/index.ftd ... done in <omitted>
 Processing fpm-sitemap/-/other-package/index.ftd ... done in <omitted>
 Processing fpm-sitemap/-/other-package/info/index.ftd ... done in <omitted>
