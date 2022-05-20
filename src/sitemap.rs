@@ -179,13 +179,20 @@ pub struct TocItemCompat {
     pub is_disabled: bool,
     #[serde(rename = "is-active")]
     pub is_active: bool,
+    #[serde(rename = "is-open")]
+    pub is_open: bool,
     #[serde(rename = "img-src")]
     pub image_src: Option<String>,
     pub children: Vec<TocItemCompat>,
 }
 
 impl TocItemCompat {
-    fn new(url: Option<String>, title: Option<String>, is_active: bool) -> TocItemCompat {
+    fn new(
+        url: Option<String>,
+        title: Option<String>,
+        is_active: bool,
+        is_open: bool,
+    ) -> TocItemCompat {
         TocItemCompat {
             url,
             number: None,
@@ -194,6 +201,7 @@ impl TocItemCompat {
             font_icon: None,
             is_disabled: false,
             is_active,
+            is_open,
             image_src: None,
             children: vec![],
         }
@@ -821,7 +829,7 @@ impl Sitemap {
                             v.id.as_ref()
                                 .map(|v| fpm::sitemap::Sitemap::ids_matches(v, id))
                                 .unwrap_or(false);
-                        let toc = TocItemCompat::new(v.id.clone(), v.title.clone(), active);
+                        let toc = TocItemCompat::new(v.id.clone(), v.title.clone(), active, active);
                         if active {
                             let mut curr_subsection = toc.clone();
                             if let Some(ref title) = v.nav_title {
@@ -851,6 +859,7 @@ impl Sitemap {
                     Some(get_url(section.id.as_str())),
                     section.title.clone(),
                     true,
+                    true,
                 );
                 sections.push(section_toc.clone());
                 if let Some(ref title) = section.nav_title {
@@ -871,6 +880,7 @@ impl Sitemap {
                     Some(get_url(section.id.as_str())),
                     section.title.clone(),
                     true,
+                    true,
                 );
                 sections.push(section_toc.clone());
                 if let Some(ref title) = section.nav_title {
@@ -884,13 +894,12 @@ impl Sitemap {
                 Some(get_url(section.id.as_str())),
                 section.title.clone(),
                 false,
+                false,
             ));
         }
-        sections.extend(
-            self.sections[index + 1..]
-                .iter()
-                .map(|v| TocItemCompat::new(Some(get_url(v.id.as_str())), v.title.clone(), false)),
-        );
+        sections.extend(self.sections[index + 1..].iter().map(|v| {
+            TocItemCompat::new(Some(get_url(v.id.as_str())), v.title.clone(), false, false)
+        }));
         return Some(SiteMapCompat {
             sections,
             subsections,
@@ -933,6 +942,7 @@ impl Sitemap {
                         subsection.id.as_ref().map(|v| get_url(v.as_str())),
                         subsection.title.clone(),
                         true,
+                        true,
                     );
                     subsection_list.push(subsection_toc.clone());
                     if let Some(ref title) = subsection.nav_title {
@@ -952,6 +962,7 @@ impl Sitemap {
                             subsection.id.as_ref().map(|v| get_url(v.as_str())),
                             subsection.title.clone(),
                             true,
+                            true,
                         );
                         subsection_list.push(subsection_toc.clone());
                         if let Some(ref title) = subsection.nav_title {
@@ -967,6 +978,7 @@ impl Sitemap {
                     subsection.id.as_ref().map(|v| get_url(v.as_str())),
                     subsection.title.clone(),
                     false,
+                    false,
                 ));
             }
 
@@ -974,7 +986,7 @@ impl Sitemap {
                 subsection_list.extend(
                     subsections[index + 1..]
                         .iter()
-                        .map(|v| TocItemCompat::new(v.id.clone(), v.title.clone(), false)),
+                        .map(|v| TocItemCompat::new(v.id.clone(), v.title.clone(), false, false)),
                 );
                 return Some((subsection_list, toc, current_subsection, current_page));
             }
@@ -1006,15 +1018,17 @@ impl Sitemap {
 
             for toc_item in toc.iter() {
                 let mut current_toc = {
-                    let (is_active, children) =
+                    let (is_open, children) =
                         get_toc_by_id_(id, toc_item.children.as_slice(), current_page);
+                    let is_active = fpm::sitemap::Sitemap::ids_matches(toc_item.id.as_str(), id);
                     let mut current_toc = TocItemCompat::new(
                         Some(get_url(toc_item.id.as_str()).to_string()),
                         toc_item.title.clone(),
-                        fpm::sitemap::Sitemap::ids_matches(toc_item.id.as_str(), id) || is_active,
+                        is_active,
+                        is_active || is_open,
                     );
                     current_toc.children = children;
-                    if is_active {
+                    if is_open {
                         found_here = true;
                     }
                     current_toc
