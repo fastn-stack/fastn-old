@@ -16,15 +16,14 @@ pub fn processor(
             }
         })?;
 
-    let version = if let Some((v, _)) = document_id.split_once('/') {
-        fpm::Version::parse(v).map_err(|e| ftd::p1::Error::ParseError {
-            message: format!("{:?}", e),
-            doc_id: doc.name.to_string(),
-            line_number: section.line_number,
-        })?
-    } else {
-        fpm::Version::base()
-    };
+    let version =
+        fpm::Version::parse(document_id, config.package.versioned.as_str()).map_err(|e| {
+            ftd::p1::Error::ParseError {
+                message: format!("{:?}", e),
+                doc_id: doc.name.to_string(),
+                line_number: section.line_number,
+            }
+        })?;
 
     let doc_id = if let Some(doc) = document_id.split_once('/').map(|(_, v)| v) {
         doc
@@ -54,14 +53,19 @@ pub fn processor(
         }
     };
     let mut found = false;
-    if let Some(doc) = versions.get(&fpm::Version::base()) {
+    if let Some(doc) = versions.get(&fpm::Version::base_(version.base.to_owned())) {
         if doc.iter().map(|v| v.get_id()).any(|x| x == doc_id) {
             found = true;
         }
     }
 
     let mut version_toc = vec![];
-    for key in versions.keys().sorted() {
+    for key in versions
+        .iter()
+        .filter(|(v, _)| v.base.eq(&version.base))
+        .map(|(v, _)| v)
+        .sorted()
+    {
         if key.eq(&fpm::Version::base()) {
             continue;
         }

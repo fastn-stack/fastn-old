@@ -46,7 +46,7 @@ pub async fn build(
         );
     }
 
-    if config.package.versioned {
+    if !config.package.versioned.eq("false") {
         fpm::version::build_version(config, file, base_url, ignore_failed, &asset_documents)
             .await?;
     } else {

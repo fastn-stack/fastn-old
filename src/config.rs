@@ -389,11 +389,11 @@ impl Config {
             if file.is_dir() {
                 continue;
             }
-            let version = get_version(&file, &path)?;
+            let version = get_version(package.versioned.as_str(), &file, &path)?;
             let file = fpm::get_file(
                 package.name.to_string(),
                 &file,
-                &(if version.original.eq("BASE_VERSION") {
+                &(if version.original.contains("BASE_VERSION") {
                     path.to_owned()
                 } else {
                     path.join(&version.original)
@@ -409,6 +409,7 @@ impl Config {
         return Ok(hash);
 
         fn get_version(
+            versioned: &str,
             x: &camino::Utf8PathBuf,
             path: &camino::Utf8PathBuf,
         ) -> fpm::Result<fpm::Version> {
@@ -427,11 +428,8 @@ impl Config {
                     });
                 }
             };
-            if let Some((v, _)) = id.split_once('/') {
-                fpm::Version::parse(v)
-            } else {
-                Ok(fpm::Version::base())
-            }
+
+            fpm::Version::parse(id.as_str(), versioned)
         }
     }
 
@@ -591,7 +589,7 @@ pub(crate) fn find_root_for_file(
 #[derive(serde::Deserialize, Debug, Clone)]
 pub(crate) struct PackageTemp {
     pub name: String,
-    pub versioned: bool,
+    pub versioned: String,
     #[serde(rename = "translation-of")]
     pub translation_of: Option<String>,
     #[serde(rename = "translation")]
@@ -644,7 +642,7 @@ impl PackageTemp {
 pub struct Package {
     pub name: String,
     /// The `versioned` stores the boolean value storing of the fpm package is versioned or not
-    pub versioned: bool,
+    pub versioned: String,
     pub translation_of: Box<Option<Package>>,
     pub translations: Vec<Package>,
     pub language: Option<String>,
@@ -677,7 +675,7 @@ impl Package {
     pub fn new(name: &str) -> fpm::Package {
         fpm::Package {
             name: name.to_string(),
-            versioned: false,
+            versioned: "false".to_string(),
             translation_of: Box::new(None),
             translations: vec![],
             language: None,
