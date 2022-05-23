@@ -393,10 +393,16 @@ impl Config {
             let file = fpm::get_file(
                 package.name.to_string(),
                 &file,
-                &(if version.original.contains("BASE_VERSION") {
-                    path.to_owned()
-                } else {
-                    path.join(&version.original)
+                &({
+                    let path = match version.base {
+                        Some(ref base) => path.join(base),
+                        None => path.to_owned(),
+                    };
+                    if version.original.contains("BASE_VERSION") {
+                        path
+                    } else {
+                        path.join(&version.original)
+                    }
                 }),
             )
             .await?;

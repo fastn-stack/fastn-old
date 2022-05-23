@@ -28,20 +28,24 @@ impl Version {
         let get_all_version_base = if versioned.eq("true") {
             vec![]
         } else {
-            versioned.split(',').filter(|v| v.is_empty()).collect()
+            versioned
+                .split(',')
+                .filter(|v| !v.is_empty())
+                .map(|v| v.trim())
+                .collect()
         };
 
         let mut base = None;
         let mut s = s.to_string();
         for version_base in get_all_version_base.iter() {
-            if let Some(id) = s.trim_matches('/').strip_prefix(versioned) {
-                s = id.to_string();
+            if let Some(id) = s.trim_matches('/').strip_prefix(version_base) {
+                s = id.trim_matches('/').to_string();
                 base = Some(version_base.to_string());
                 break;
             }
         }
 
-        if get_all_version_base.is_empty() && base.is_none() {
+        if !get_all_version_base.is_empty() && base.is_none() {
             return Err(fpm::Error::UsageError {
                 message: format!(
                     "{} is not part of any versioned directory: Available versioned directories: {:?}",
@@ -110,7 +114,6 @@ pub(crate) async fn build_version(
     asset_documents: &std::collections::HashMap<String, String>,
 ) -> fpm::Result<()> {
     let versioned_documents = config.get_versions(&config.package).await?;
-    let mut documents = std::collections::BTreeMap::new();
     let mut base_versioned_documents: std::collections::HashMap<
         String,
         std::collections::HashMap<fpm::Version, Vec<fpm::File>>,
@@ -132,7 +135,13 @@ pub(crate) async fn build_version(
         }
     }
 
-    for versioned_documents in base_versioned_documents.values() {
+    for (base, versioned_documents) in base_versioned_documents.iter() {
+        let base = match base.as_ref() {
+            "BASE" => "".to_string(),
+            v => format!("{}/", v),
+        };
+
+        let mut documents = std::collections::BTreeMap::new();
         for key in versioned_documents.keys().sorted() {
             let doc = versioned_documents[key].to_owned();
             documents.extend(
@@ -148,10 +157,11 @@ pub(crate) async fn build_version(
                 if id.eq("FPM.ftd") {
                     continue;
                 }
-                let new_id = format!("{}/{}", key.original, id);
+
+                let new_id = format!("{}{}/{}", base, key.original, id);
                 if !key.original.eq(version) && !fpm::Version::base().original.eq(version) {
                     if let fpm::File::Ftd(_) = doc {
-                        let original_id = format!("{}/{}", version, id);
+                        let original_id = format!("{}{}/{}", base, version, id);
                         let original_file_rel_path = if original_id.contains("index.ftd") {
                             original_id.replace("index.ftd", "index.html")
                         } else {
@@ -192,7 +202,7 @@ pub(crate) async fn build_version(
                     None,
                     None,
                     Default::default(),
-                    format!("{}{}/", base_url, key.original).as_str(),
+                    format!("{}{}{}/", base_url, base, key.original).as_str(),
                     skip_failed,
                     asset_documents,
                     Some(id),
@@ -201,22 +211,24 @@ pub(crate) async fn build_version(
                 .await?;
             }
         }
-    }
-    for (_, doc) in documents.values() {
-        fpm::process_file(
-            config,
-            &config.package,
-            doc,
-            None,
-            None,
-            Default::default(),
-            base_url,
-            skip_failed,
-            asset_documents,
-            None,
-            false,
-        )
-        .await?;
+        for (_, doc) in documents.values_mut() {
+            let id = doc.get_id();
+            doc.set_id(format!("{}{}", base, id).as_str());
+            fpm::process_file(
+                config,
+                &config.package,
+                doc,
+                None,
+                None,
+                Default::default(),
+                format!("{}{}", base_url, base).as_str(),
+                skip_failed,
+                asset_documents,
+                None,
+                false,
+            )
+            .await?;
+        }
     }
     Ok(())
 }
