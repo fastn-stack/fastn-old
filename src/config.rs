@@ -1,3 +1,4 @@
+use crate::File;
 use std::convert::TryInto;
 
 /// `Config` struct keeps track of configuration parameters that is shared with the entire
@@ -332,6 +333,8 @@ impl Config {
 
         let asset_documents = config.get_assets("/").await?;
 
+        let files = config.get_all_files(&config.package).await?;
+
         config.sitemap = match package.translation_of.as_ref() {
             Some(translation) => translation,
             None => &package,
@@ -339,8 +342,15 @@ impl Config {
         .sitemap
         .as_ref()
         .map_or(Ok(None), |v| {
-            fpm::sitemap::Sitemap::parse(v.as_str(), &package, &config, &asset_documents, "/")
-                .map(Some)
+            fpm::sitemap::Sitemap::parse(
+                v.as_str(),
+                &package,
+                &config,
+                &asset_documents,
+                "/",
+                &files,
+            )
+            .map(Some)
         })?;
 
         Ok(config)
@@ -365,6 +375,77 @@ impl Config {
         };
         self.extra_data = data;
         Ok(())
+    }
+
+    pub(crate) async fn get_all_files(
+        &self,
+        package: &fpm::Package,
+    ) -> fpm::Result<std::collections::HashMap<String, String>> {
+        let mut all_files: std::collections::HashMap<String, String> = Default::default();
+        if package.versioned.eq("false") {
+            return Ok(all_files);
+        }
+        let base_versioned_documents = self.get_versions(package).await?;
+        for (version, document) in base_versioned_documents.iter() {
+            all_files.extend(
+                document
+                    .iter()
+                    .filter_map(|v| match v {
+                        File::Ftd(d) | File::Markdown(d) => Some(d),
+                        _ => None,
+                    })
+                    .map(|v| {
+                        let base = if let Some(ref base) = version.base {
+                            format!("{}/", base)
+                        } else {
+                            "".to_string()
+                        };
+                        let original = if version.original.contains("BASE_VERSION") {
+                            "".to_string()
+                        } else {
+                            format!("{}/", version.original)
+                        };
+
+                        (
+                            format!("{}{}", base, v.id_to_path())
+                                .trim_matches('/')
+                                .to_string(),
+                            format!("{}{}{}", base, original, v.id),
+                        )
+                    }),
+            );
+        }
+        Ok(all_files)
+    }
+
+    pub(crate) async fn get_based_versions(
+        &self,
+        package: &fpm::Package,
+    ) -> fpm::Result<
+        std::collections::HashMap<String, std::collections::HashMap<fpm::Version, Vec<fpm::File>>>,
+    > {
+        let versioned_documents = self.get_versions(package).await?;
+        let mut base_versioned_documents: std::collections::HashMap<
+            String,
+            std::collections::HashMap<fpm::Version, Vec<fpm::File>>,
+        > = Default::default();
+        for (version, documents) in versioned_documents {
+            let base = if let Some(ref base) = version.base {
+                base.to_string()
+            } else {
+                "BASE".to_string()
+            };
+
+            if let Some(hashmap) = base_versioned_documents.get_mut(base.as_str()) {
+                hashmap.insert(version, documents);
+            } else {
+                base_versioned_documents.insert(
+                    base,
+                    std::array::IntoIter::new([(version, documents)]).collect(),
+                );
+            }
+        }
+        Ok(base_versioned_documents)
     }
 
     pub(crate) async fn get_versions(
@@ -474,7 +555,7 @@ impl Config {
         id: &str,
         package: &fpm::Package,
     ) -> fpm::Result<fpm::File> {
-        let file_name = fpm::Config::get_file_name(&self.root, id)?;
+        let file_name = fpm::Config::get_file_name(&self.root, id, &Default::default())?;
         return self
             .get_files(package)
             .await?
@@ -485,7 +566,11 @@ impl Config {
             });
     }
 
-    pub(crate) fn get_file_name(root: &camino::Utf8PathBuf, id: &str) -> fpm::Result<String> {
+    pub(crate) fn get_file_name(
+        root: &camino::Utf8PathBuf,
+        id: &str,
+        files: &std::collections::HashMap<String, String>,
+    ) -> fpm::Result<String> {
         let mut id = id.to_string();
         let mut add_packages = "".to_string();
         if let Some(new_id) = id.strip_prefix("-/") {
@@ -528,6 +613,11 @@ impl Config {
             .exists()
         {
             return Ok(format!("{}{}/README.md", add_packages, id));
+        }
+        if let Some(id) = files.get(id.as_str()) {
+            if root.join(id).exists() {
+                return Ok(id.to_string());
+            }
         }
         Err(fpm::Error::UsageError {
             message: "File not found".to_string(),

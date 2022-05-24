@@ -113,27 +113,7 @@ pub(crate) async fn build_version(
     skip_failed: bool,
     asset_documents: &std::collections::HashMap<String, String>,
 ) -> fpm::Result<()> {
-    let versioned_documents = config.get_versions(&config.package).await?;
-    let mut base_versioned_documents: std::collections::HashMap<
-        String,
-        std::collections::HashMap<fpm::Version, Vec<fpm::File>>,
-    > = Default::default();
-    for (version, documents) in versioned_documents {
-        let base = if let Some(ref base) = version.base {
-            base.to_string()
-        } else {
-            "BASE".to_string()
-        };
-
-        if let Some(hashmap) = base_versioned_documents.get_mut(base.as_str()) {
-            hashmap.insert(version, documents);
-        } else {
-            base_versioned_documents.insert(
-                base,
-                std::array::IntoIter::new([(version, documents)]).collect(),
-            );
-        }
-    }
+    let base_versioned_documents = config.get_based_versions(&config.package).await?;
 
     for (base, versioned_documents) in base_versioned_documents.iter() {
         let base = match base.as_ref() {
