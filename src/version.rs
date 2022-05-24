@@ -45,7 +45,7 @@ impl Version {
             }
         }
 
-        if !get_all_version_base.is_empty() && base.is_none() {
+        if !get_all_version_base.is_empty() && base.is_none() && !s.eq("FPM.ftd") {
             return Err(fpm::Error::UsageError {
                 message: format!(
                     "{} is not part of any versioned directory: Available versioned directories: {:?}",
@@ -107,7 +107,7 @@ impl Ord for Version {
 }
 
 pub(crate) async fn build_version(
-    config: &fpm::Config,
+    config: &mut fpm::Config,
     _file: Option<&str>,
     base_url: &str,
     skip_failed: bool,
@@ -195,6 +195,7 @@ pub(crate) async fn build_version(
                     }
                 }
                 doc.set_id(new_id.as_str());
+                config.current_document = Some(new_id);
                 fpm::process_file(
                     config,
                     &config.package,
@@ -212,8 +213,9 @@ pub(crate) async fn build_version(
             }
         }
         for (_, doc) in documents.values_mut() {
-            let id = doc.get_id();
-            doc.set_id(format!("{}{}", base, id).as_str());
+            let id = format!("{}{}", base, doc.get_id());
+            doc.set_id(id.as_str());
+            config.current_document = Some(id);
             fpm::process_file(
                 config,
                 &config.package,

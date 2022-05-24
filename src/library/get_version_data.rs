@@ -25,32 +25,24 @@ pub fn processor(
             }
         })?;
 
-    let doc_id = if let Some(doc) = document_id.split_once('/').map(|(_, v)| v) {
-        doc
-    } else {
-        document_id
-    }
-    .to_string();
+    let url = config
+        .current_document
+        .clone()
+        .map(|v| fpm::utils::id_to_path(v.as_str()))
+        .unwrap_or_else(|| {
+            doc.name
+                .to_string()
+                .replace(config.package.name.as_str(), "")
+        })
+        .trim()
+        .replace(std::path::MAIN_SEPARATOR, "/");
 
-    let base_url = base_url
-        .trim_end_matches('/')
-        .trim_start_matches('/')
-        .to_string();
-    let base_url = if !base_url.is_empty() {
-        format!("/{base_url}/")
-    } else {
-        String::from("/")
-    };
-
-    let url = match doc_id.as_str().rsplit_once('.') {
-        Some(("index", "ftd")) => base_url,
-        Some((file_path, "ftd")) | Some((file_path, "md")) => {
-            format!("{base_url}{file_path}/")
+    let doc_id = {
+        let mut doc_id = document_id.trim_start_matches('/').to_string();
+        if let Some(id) = doc_id.strip_prefix(base_url.trim().trim_matches('/')) {
+            doc_id = id.trim_start_matches('/').to_string();
         }
-        Some(_) | None => {
-            // Unknown file found, create URL
-            format!("{base_url}{file_path}/", file_path = doc_id.as_str())
-        }
+        doc_id
     };
     let mut found = false;
     if let Some(doc) = versions.get(&fpm::Version::base_(version.base.to_owned())) {
@@ -76,10 +68,28 @@ pub fn processor(
             }
             found = true;
         }
+
+        let url = {
+            let mut url = url.trim_start_matches('/').to_string();
+            if let Some(id) = url.strip_prefix(base_url.trim().trim_matches('/')) {
+                url = id.trim_start_matches('/').to_string();
+            }
+            url
+        };
+
         version_toc.push(fpm::library::toc::TocItem {
             id: None,
             title: Some(key.original.to_string()),
-            url: Some(format!("{}{}", key.original, url)),
+            url: Some(format!(
+                "{}{}/{}",
+                if let Some(ref base) = key.base {
+                    format!("/{}/", base)
+                } else {
+                    "/".to_string()
+                },
+                key.original,
+                url
+            )),
             number: vec![],
             is_heading: version.eq(key),
             is_disabled: false,

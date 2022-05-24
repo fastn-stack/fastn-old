@@ -793,21 +793,6 @@ impl Sitemap {
         }
     }
 
-    fn ids_matches(id1: &str, id2: &str) -> bool {
-        return strip_id(id1).eq(&strip_id(id2));
-
-        fn strip_id(id: &str) -> String {
-            let id = id
-                .trim()
-                .replace("/index.html", "/")
-                .replace("index.html", "/");
-            if id.eq("/") {
-                return id;
-            }
-            id.trim_matches('/').to_string()
-        }
-    }
-
     pub(crate) fn get_sitemap_by_id(&self, id: &str) -> Option<SiteMapCompat> {
         let mut sections = vec![];
         let mut subsections = vec![];
@@ -819,7 +804,7 @@ impl Sitemap {
         for (idx, section) in self.sections.iter().enumerate() {
             index = idx;
 
-            if fpm::sitemap::Sitemap::ids_matches(section.id.as_str(), id) {
+            if fpm::utils::ids_matches(section.id.as_str(), id) {
                 subsections = section
                     .subsections
                     .iter()
@@ -827,7 +812,7 @@ impl Sitemap {
                     .map(|v| {
                         let active =
                             v.id.as_ref()
-                                .map(|v| fpm::sitemap::Sitemap::ids_matches(v, id))
+                                .map(|v| fpm::utils::ids_matches(v, id))
                                 .unwrap_or(false);
                         let toc = TocItemCompat::new(v.id.clone(), v.title.clone(), active, active);
                         if active {
@@ -846,7 +831,7 @@ impl Sitemap {
                     .iter()
                     .find_or_first(|v| {
                         v.id.as_ref()
-                            .map(|v| fpm::sitemap::Sitemap::ids_matches(v, id))
+                            .map(|v| fpm::utils::ids_matches(v, id))
                             .unwrap_or(false)
                     })
                     .or_else(|| section.subsections.first())
@@ -932,7 +917,7 @@ impl Sitemap {
                     && subsection
                         .id
                         .as_ref()
-                        .map(|v| fpm::sitemap::Sitemap::ids_matches(v, id))
+                        .map(|v| fpm::utils::ids_matches(v, id))
                         .unwrap_or(false)
                 {
                     let (toc_list, current_toc) = get_all_toc(subsection.toc.as_slice(), id);
@@ -1020,7 +1005,7 @@ impl Sitemap {
                 let mut current_toc = {
                     let (is_open, children) =
                         get_toc_by_id_(id, toc_item.children.as_slice(), current_page);
-                    let is_active = fpm::sitemap::Sitemap::ids_matches(toc_item.id.as_str(), id);
+                    let is_active = fpm::utils::ids_matches(toc_item.id.as_str(), id);
                     let mut current_toc = TocItemCompat::new(
                         Some(get_url(toc_item.id.as_str()).to_string()),
                         toc_item.title.clone(),
@@ -1037,7 +1022,7 @@ impl Sitemap {
                 toc_list.push(current_toc.clone());
 
                 if current_page.is_none() {
-                    found_here = fpm::sitemap::Sitemap::ids_matches(toc_item.id.as_str(), id);
+                    found_here = fpm::utils::ids_matches(toc_item.id.as_str(), id);
                     if found_here {
                         if let Some(ref title) = toc_item.nav_title {
                             current_toc.title = Some(title.to_string());
@@ -1066,7 +1051,7 @@ impl Sitemap {
         id: &str,
     ) -> Option<std::collections::BTreeMap<String, String>> {
         for section in self.sections.iter() {
-            if fpm::sitemap::Sitemap::ids_matches(section.id.as_str(), id) {
+            if fpm::utils::ids_matches(section.id.as_str(), id) {
                 return Some(section.extra_data.to_owned());
             }
             if let Some(data) = get_extra_data_from_subsections(id, section.subsections.as_slice())
@@ -1084,7 +1069,7 @@ impl Sitemap {
         ) -> Option<std::collections::BTreeMap<String, String>> {
             for subsection in subsections {
                 if subsection.visible
-                    && fpm::sitemap::Sitemap::ids_matches(
+                    && fpm::utils::ids_matches(
                         subsection.id.as_ref().unwrap_or(&"".to_string()),
                         id,
                     )
@@ -1105,7 +1090,7 @@ impl Sitemap {
             toc: &[TocItem],
         ) -> Option<std::collections::BTreeMap<String, String>> {
             for toc_item in toc {
-                if fpm::sitemap::Sitemap::ids_matches(toc_item.id.as_str(), id) {
+                if fpm::utils::ids_matches(toc_item.id.as_str(), id) {
                     return Some(toc_item.extra_data.to_owned());
                 }
                 if let Some(data) = get_extra_data_from_toc(id, toc_item.children.as_slice()) {
