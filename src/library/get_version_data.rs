@@ -16,14 +16,16 @@ pub fn processor(
             }
         })?;
 
-    let version =
-        fpm::Version::parse(document_id, config.package.versioned.as_str()).map_err(|e| {
-            ftd::p1::Error::ParseError {
+    let version = fpm::Version::parse(document_id, config.package.versioned.as_str()).unwrap_or({
+        let base = fpm::Version::get_base(document_id, config.package.versioned.as_str()).map_err(
+            |e| ftd::p1::Error::ParseError {
                 message: format!("{:?}", e),
                 doc_id: doc.name.to_string(),
                 line_number: section.line_number,
-            }
-        })?;
+            },
+        )?;
+        fpm::Version::base_(base)
+    });
 
     let url = config
         .current_document
@@ -38,15 +40,27 @@ pub fn processor(
         .replace(std::path::MAIN_SEPARATOR, "/");
 
     let doc_id = {
+        let mut doc_ids = vec![];
         let mut doc_id = document_id.trim_start_matches('/').to_string();
         if let Some(id) = doc_id.strip_prefix(base_url.trim().trim_matches('/')) {
-            doc_id = id.trim_start_matches('/').to_string();
+            doc_id = id.to_string();
         }
-        doc_id
+        if let Some((id, _)) = doc_id.split_once("-/") {
+            if id.eq("/") {
+                doc_ids.push("index.ftd".to_string());
+            } else {
+                let id = id.trim_matches('/').to_string();
+                doc_ids.push(format!("{}.ftd", id));
+                doc_ids.push(format!("{}/index.ftd", id));
+            }
+        } else {
+            doc_ids.push(doc_id.trim_start_matches('/').to_string());
+        }
+        doc_ids
     };
     let mut found = false;
     if let Some(doc) = versions.get(&fpm::Version::base_(version.base.to_owned())) {
-        if doc.iter().map(|v| v.get_id()).any(|x| x == doc_id) {
+        if doc.iter().map(|v| v.get_id()).any(|x| doc_id.contains(&x)) {
             found = true;
         }
     }
@@ -63,7 +77,7 @@ pub fn processor(
         }
         let doc = versions[key].to_owned();
         if !found {
-            if !doc.iter().map(|v| v.get_id()).any(|x| x == doc_id) {
+            if !doc.iter().map(|v| v.get_id()).any(|x| doc_id.contains(&x)) {
                 continue;
             }
             found = true;

@@ -24,7 +24,7 @@ impl Version {
         }
     }
 
-    pub(crate) fn parse(s: &str, versioned: &str) -> fpm::Result<fpm::Version> {
+    pub(crate) fn get_base(s: &str, versioned: &str) -> fpm::Result<Option<String>> {
         let get_all_version_base = if versioned.eq("true") {
             vec![]
         } else {
@@ -52,6 +52,17 @@ impl Version {
                     s, get_all_version_base
                 ),
             });
+        }
+        Ok(base)
+    }
+
+    pub(crate) fn parse(s: &str, versioned: &str) -> fpm::Result<fpm::Version> {
+        let base = fpm::version::Version::get_base(s, versioned)?;
+        let mut s = s.to_string();
+        if let Some(ref base) = base {
+            if let Some(id) = s.trim_matches('/').strip_prefix(base) {
+                s = id.trim_matches('/').to_string();
+            }
         }
 
         if let Some((v, _)) = s.split_once('/') {
@@ -117,7 +128,7 @@ pub(crate) async fn build_version(
         .sitemap
         .as_ref()
         .map(|v| v.get_all_canonical_ids())
-        .unwrap_or(Default::default());
+        .unwrap_or_default();
 
     let base_versioned_documents = config.get_based_versions(&config.package).await?;
 
