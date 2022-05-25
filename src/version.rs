@@ -113,6 +113,12 @@ pub(crate) async fn build_version(
     skip_failed: bool,
     asset_documents: &std::collections::HashMap<String, String>,
 ) -> fpm::Result<()> {
+    let mut all_canonical = config
+        .sitemap
+        .as_ref()
+        .map(|v| v.get_all_canonical_ids())
+        .unwrap_or(Default::default());
+
     let base_versioned_documents = config.get_based_versions(&config.package).await?;
 
     for (base, versioned_documents) in base_versioned_documents.iter() {
@@ -123,7 +129,38 @@ pub(crate) async fn build_version(
 
         let mut documents = std::collections::BTreeMap::new();
         for key in versioned_documents.keys().sorted() {
-            let doc = versioned_documents[key].to_owned();
+            let doc = {
+                let mut doc = versioned_documents[key].to_owned();
+                let mut variants = vec![];
+                for doc in doc.iter() {
+                    let id = doc.get_id();
+                    if id.eq("FPM.ftd") {
+                        continue;
+                    }
+                    let path = fpm::utils::id_to_path(id.as_str())
+                        .trim_start_matches('/')
+                        .to_string();
+                    let find_id = format!("{}{}", base, path);
+                    if let Some(variant) = all_canonical.remove(find_id.as_str()) {
+                        let variant = if variant.ends_with('/') {
+                            variant
+                        } else {
+                            format!("{}/", variant)
+                        };
+                        let mut doc = doc.clone();
+                        let extension = if matches!(doc, fpm::File::Markdown(_)) {
+                            "index.md".to_string()
+                        } else {
+                            "index.ftd".to_string()
+                        };
+
+                        doc.set_id(format!("{}-/{}{}", path, variant, extension).as_str());
+                        variants.push(doc);
+                    }
+                }
+                doc.extend(variants);
+                doc
+            };
             documents.extend(
                 doc.iter()
                     .map(|v| (v.get_id(), (key.original.to_string(), v.to_owned()))),

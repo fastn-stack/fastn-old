@@ -811,6 +811,60 @@ impl Sitemap {
         }
     }
 
+    pub(crate) fn get_all_canonical_ids(&self) -> std::collections::HashMap<String, String> {
+        let mut locations: std::collections::HashMap<String, String> = Default::default();
+        for section in self.sections.iter() {
+            if section.file_location.is_some() {
+                if let Some((id, extension)) = get_id(section.id.as_str()) {
+                    locations.insert(id, extension);
+                }
+            }
+            for subsection in section.subsections.iter() {
+                if subsection.visible {
+                    if let Some(ref subsection_id) = subsection.id {
+                        if let Some((id, extension)) = get_id(subsection_id.as_str()) {
+                            locations.insert(id, extension);
+                        }
+                    }
+                }
+                for toc in subsection.toc.iter() {
+                    if toc.file_location.is_some() {
+                        if let Some((id, extension)) = get_id(toc.id.as_str()) {
+                            locations.insert(id, extension);
+                        }
+                    }
+                    locations.extend(get_toc_canonical_ids(toc));
+                }
+            }
+        }
+        return locations;
+
+        fn get_id(id: &str) -> Option<(String, String)> {
+            if id.starts_with("-/") {
+                return None;
+            }
+            if let Some((id1, id2)) = id.split_once("-/") {
+                return Some((id1.trim().to_string(), id2.trim().to_string()));
+            }
+            None
+        }
+
+        fn get_toc_canonical_ids(
+            toc: &fpm::sitemap::TocItem,
+        ) -> std::collections::HashMap<String, String> {
+            let mut locations: std::collections::HashMap<String, String> = Default::default();
+            for child in toc.children.iter() {
+                if child.file_location.is_some() {
+                    if let Some((id, extension)) = get_id(child.id.as_str()) {
+                        locations.insert(id, extension);
+                    }
+                }
+                locations.extend(get_toc_canonical_ids(child));
+            }
+            locations
+        }
+    }
+
     pub(crate) fn get_sitemap_by_id(&self, id: &str) -> Option<SiteMapCompat> {
         let mut sections = vec![];
         let mut subsections = vec![];
