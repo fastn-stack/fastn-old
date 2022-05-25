@@ -591,6 +591,11 @@ impl Config {
             if root.join(format!("{}README.md", add_packages)).exists() {
                 return Ok(format!("{}README.md", add_packages));
             }
+            if let Some(id) = files.get(id.trim_matches('/')) {
+                if root.join(id).exists() {
+                    return Ok(id.to_string());
+                }
+            }
             return Err(fpm::Error::UsageError {
                 message: "File not found".to_string(),
             });
