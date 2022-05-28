@@ -27,7 +27,7 @@ pub fn processor(
     }
 
     if let Some(ref sitemap) = config.sitemap {
-        let doc_id = config
+        let mut doc_id = config
             .current_document
             .clone()
             .map(|v| fpm::utils::id_to_path(v.as_str()))
@@ -38,6 +38,33 @@ pub fn processor(
             })
             .trim()
             .replace(std::path::MAIN_SEPARATOR, "/");
+
+        if !config.package.versioned.eq("false") {
+            let versions = futures::executor::block_on(config.get_versions(&config.package))
+                .map_err(|e| ftd::p1::Error::ParseError {
+                    message: format!("Cant find versions: {:?}", e),
+                    doc_id: doc.name.to_string(),
+                    line_number: section.line_number,
+                })?;
+            for version in versions.keys() {
+                let base = if let Some(ref base) = version.base {
+                    if base.is_empty() {
+                        base.to_string()
+                    } else {
+                        format!("{}/", base)
+                    }
+                } else {
+                    "".to_string()
+                };
+                if let Some(id) = doc_id
+                    .trim_matches('/')
+                    .strip_prefix(format!("{}{}", base, version.original).as_str())
+                {
+                    doc_id = format!("{}{}", base, id.trim_matches('/'));
+                    break;
+                }
+            }
+        }
 
         if let Some(extra_data) = sitemap.get_extra_data_by_id(doc_id.as_str()) {
             if let Some(data) = extra_data.get(name.as_str()) {
