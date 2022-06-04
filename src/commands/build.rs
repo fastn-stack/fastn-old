@@ -912,7 +912,8 @@ async fn process_ftd(
     translated_data: fpm::TranslationData,
     base_url: &str,
     asset_documents: &std::collections::HashMap<String, String>,
-) -> fpm::Result<()> {
+    // do_write: bool,
+) -> fpm::Result< () /*String*/> {
     if main.id.eq("FPM.ftd") {
         if config.is_translation_package() {
             use std::io::Write;
@@ -1107,6 +1108,7 @@ async fn process_ftd(
         let ftd_doc = main_ftd_doc.to_rt("main", &main.id);
 
         let mut f = tokio::fs::File::create(new_file_path).await?;
+        // TODO: return Document
         f.write_all(
             fpm::utils::replace_markers(
                 fpm::ftd_html(),
