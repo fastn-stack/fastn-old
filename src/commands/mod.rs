@@ -8,3 +8,4 @@ pub(crate) mod stop_tracking;
 pub(crate) mod sync;
 pub(crate) mod translation_status;
 pub(crate) mod update;
+pub(crate) mod start_project;
