@@ -1,25 +1,7 @@
 use itertools::Itertools;
-use std::io::Read;
 // actix_web::Result<actix_files::NamedFile>
-async fn serve_static(req: actix_web::HttpRequest) -> actix_web::HttpResponse {
-    // TODO: It should ideally fallback to index file if not found than an error file or directory listing
-    // TODO:
-    // .build directory should come from config
-    let path: std::path::PathBuf = req.match_info().query("path").parse().unwrap();
-    println!("url arg path : {:?}", path);
 
-    //TODO: This is going to be remove
-    let file_path = std::path::PathBuf::new().join(".build").join(path.clone());
-
-    let file_path = if file_path.is_file() {
-        file_path
-    } else {
-        std::path::PathBuf::new().join(file_path).join("index.html")
-    };
-
-    // println!("static file Path: {:?}", file_path.to_str());
-
-    let config = fpm::Config::read(None).await.unwrap();
+async fn handle_ftd(config: &fpm::Config, path: std::path::PathBuf) -> actix_web::HttpResponse {
     println!("root: {}", config.root);
 
     let dependencies = if let Some(package) = config.package.translation_of.as_ref() {
@@ -75,68 +57,98 @@ async fn serve_static(req: actix_web::HttpRequest) -> actix_web::HttpResponse {
     // replace -/ from path string
     // if starts with -/ serve it from packages
 
-    if !path.starts_with("-/") {
-        let new_path = match path.to_str() {
-            Some(s) => s.replace("-/", ""),
-            None => panic!("Not able to convert path"),
-        };
+    let new_path = match path.to_str() {
+        Some(s) => s.replace("-/", ""),
+        None => panic!("Not able to convert path"),
+    };
 
-        let dep_package = find_dep_package(&config, &dependencies, &new_path);
+    let dep_package = find_dep_package(&config, &dependencies, &new_path);
 
-        println!("file path {}, dep_package: {}", new_path, dep_package.name);
+    println!("file path {}, dep_package: {}", new_path, dep_package.name);
 
-        let f = match config.get_file_by_id(&new_path, dep_package).await {
-            Ok(f) => f,
-            Err(e) => panic!("path: {}, Error: {}", new_path, e),
-        };
+    let f = match config.get_file_by_id(&new_path, dep_package).await {
+        Ok(f) => f,
+        Err(e) => panic!("path: {}, Error: {}", new_path, e),
+    };
 
-        println!("File found: Id {:?}", f.get_id());
+    println!("File found: Id {:?}", f.get_id());
 
-        match f {
-            fpm::File::Ftd(main_document) => {
-                return match fpm::commands::build::process_ftd(
-                    &config,
-                    &main_document,
-                    None,
-                    None,
-                    Default::default(),
-                    "/",
-                    &asset_documents,
-                    false,
-                )
-                .await
-                {
-                    Ok(r) => actix_web::HttpResponse::Ok().body(r),
-                    Err(e) => actix_web::HttpResponse::InternalServerError().body("".as_bytes()),
-                };
-            }
-            _ => (),
-        };
-    }
-
-    // fpm::commands::build::process_file(
-    //     &config,
-    //     dep_package,
-    //     &f,
-    //     None,
-    //     None,
-    //     Default::default(),
-    //     "/",
-    //     false,
-    //     &asset_documents,
-    //     None,
-    //     true
-    // ).await.expect("Some error");
-
-    let mut buffer = String::new();
-    match actix_files::NamedFile::open_async(file_path).await {
-        Ok(file) => {
-            file.file().read_to_string(&mut buffer).expect("");
-            actix_web::HttpResponse::Ok().body(buffer)
+    match f {
+        fpm::File::Ftd(main_document) => {
+            return match fpm::commands::build::process_ftd(
+                &config,
+                &main_document,
+                None,
+                None,
+                Default::default(),
+                "/",
+                &asset_documents,
+                false,
+            )
+            .await
+            {
+                Ok(r) => actix_web::HttpResponse::Ok().body(r),
+                Err(_e) => actix_web::HttpResponse::InternalServerError().body("TODO".as_bytes()),
+            };
         }
-        Err(e) => actix_web::HttpResponse::InternalServerError().body("".as_bytes()),
+        _ => actix_web::HttpResponse::InternalServerError().body("".as_bytes()),
     }
-    // Ok(file)
+}
+
+async fn handle_dash(
+    req: &actix_web::HttpRequest,
+    config: &fpm::Config,
+    path: std::path::PathBuf) -> actix_web::HttpResponse {
+    //TODO: This is going to be remove
+    println!("from handle_dash: {:?}", path);
+
+    let new_path = match path.to_str() {
+        Some(s) => s.replace("-/", ""),
+        None => panic!("Not able to convert path"),
+    };
+
+    let file_path =  if new_path.starts_with(&config.package.name) {
+        std::path::PathBuf::new().join(new_path.strip_prefix(&((&config.package).name.to_string() + "/")).unwrap())
+    }
+    else {
+        std::path::PathBuf::new().join(".packages").join(new_path)
+    };
+
+    println!("file path: {:?}", file_path);
+
+    server_static_file(req, file_path).await
+}
+
+async fn server_static_file(req: &actix_web::HttpRequest, file_path: std::path::PathBuf) -> actix_web::HttpResponse {
+
+    if !file_path.exists() {
+        return actix_web::HttpResponse::NotFound().body("".as_bytes());
+    }
+
+    println!("file_path: {:?}", file_path);
+
+    match actix_files::NamedFile::open_async(file_path).await {
+        Ok(r) =>  r.into_response(req),
+        Err(_e) => actix_web::HttpResponse::NotFound().body("TODO".as_bytes()),
+    }
+}
+async fn serve_static(req: actix_web::HttpRequest) -> actix_web::HttpResponse {
+    let config = fpm::Config::read(None).await.unwrap();
+    // TODO: It should ideally fallback to index file if not found than an error file or directory listing
+    // TODO:
+    // .build directory should come from config
+    let path: std::path::PathBuf = req.match_info().query("path").parse().unwrap();
+    println!("url arg path : {:?}", path);
+
+
+    let favicon = std::path::PathBuf::new().join("favicon.ico");
+    if path.starts_with("-/") {
+        handle_dash(&req, &config, path).await
+    } else if path.eq(&favicon) {
+        server_static_file(&req, favicon).await
+    } else {
+        handle_ftd(&config, path).await
+    }
 }
 
 #[actix_web::main]
