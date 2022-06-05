@@ -1,6 +1,7 @@
+use std::io::Read;
 use itertools::Itertools;
-
-async fn serve_static(req: actix_web::HttpRequest) -> actix_web::Result<actix_files::NamedFile> {
+// actix_web::Result<actix_files::NamedFile>
+async fn serve_static(req: actix_web::HttpRequest) -> actix_web::HttpResponse {
     // TODO: It should ideally fallback to index file if not found than an error file or directory listing
     // TODO:
     // .build directory should come from config
@@ -69,38 +70,44 @@ async fn serve_static(req: actix_web::HttpRequest) -> actix_web::Result<actix_fi
 
     // replace -/ from path string
     // if starts with -/ serve it from packages
-    let new_path = match path.to_str() {
-        Some(s) => s.replace("-/", ""),
-        None => panic!("Not able to convert path")
-    };
 
-    let dep_package = find_dep_package(&config, &dependencies, &new_path);
+    if !path.starts_with("-/") {
+        let new_path = match path.to_str() {
+            Some(s) => s.replace("-/", ""),
+            None => panic!("Not able to convert path")
+        };
 
-    println!("file path {}, dep_package: {}", new_path, dep_package.name);
+        let dep_package = find_dep_package(&config, &dependencies, &new_path);
 
-    let f = match config.get_file_by_id(&new_path, dep_package).await {
-        Ok(f) => f,
-        Err(e) => panic!("path: {}, Error: {}", new_path, e)
-    };
+        println!("file path {}, dep_package: {}", new_path, dep_package.name);
 
-    println!("File found: Id {:?}", f.get_id());
+        let f = match config.get_file_by_id(&new_path, dep_package).await {
+            Ok(f) => f,
+            Err(e) => panic!("path: {}, Error: {}", new_path, e)
+        };
 
-    match f {
-        fpm::File::Ftd(main_document) => {
-            let resp = fpm::commands::build::process_ftd(
-                &config,
-                &main_document,
-                None,
-                None,
-                Default::default(),
-                "/",
-                &asset_documents,
-                false
-            ).await;
-            ()
-        }
-        _ => ()
-    };
+        println!("File found: Id {:?}", f.get_id());
+
+        match f {
+            fpm::File::Ftd(main_document) => {
+                return match fpm::commands::build::process_ftd(
+                    &config,
+                    &main_document,
+                    None,
+                    None,
+                    Default::default(),
+                    "/",
+                    &asset_documents,
+                    false
+                ).await {
+                    Ok(r) => actix_web::HttpResponse::Ok().body(r),
+                    Err(e) => actix_web::HttpResponse::InternalServerError().body("".as_bytes())
+                };
+            }
+            _ => ()
+        };
+
+    }
 
 
     // fpm::commands::build::process_file(
@@ -117,8 +124,15 @@ async fn serve_static(req: actix_web::HttpRequest) -> actix_web::Result<actix_fi
     //     true
     // ).await.expect("Some error");
 
-    let file = actix_files::NamedFile::open_async(file_path).await?;
-    Ok(file)
+    let mut buffer = String::new();
+    match actix_files::NamedFile::open_async(file_path).await {
+        Ok(file) => {
+            file.file().read_to_string(&mut buffer).expect("");
+            actix_web::HttpResponse::Ok().body(buffer)
+             },
+        Err(e) => actix_web::HttpResponse::InternalServerError().body("".as_bytes()),
+    }
+    // Ok(file)
 }
 
 #[actix_web::main]
