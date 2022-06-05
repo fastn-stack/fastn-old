@@ -5,7 +5,7 @@ use std::io::prelude::*;
 
 async fn template_contents(project_name: &str) -> (String,String){
 	let ftd = format!("-- import: fpm\n\n-- fpm.package: {}", project_name);
-	let index = format!("-- ftd.text: Hello world");
+	let index = "-- ftd.text: Hello world".to_string();
 
 	(ftd,index)
 }
