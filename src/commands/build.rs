@@ -242,7 +242,7 @@ async fn build_with_translations(
             Default::default(),
             base_url,
             asset_documents,
-            true
+            true,
         )
         .await?;
         fpm::utils::print_end("Processed translation-status.ftd", start);
@@ -378,7 +378,7 @@ async fn build_with_original(
             Default::default(),
             base_url,
             asset_documents,
-            true
+            true,
         )
         .await?;
         fpm::utils::print_end("Processed translation-status.ftd", start);
@@ -454,7 +454,7 @@ pub(crate) async fn process_file(
                     translated_data,
                     base_url,
                     asset_documents,
-                    true
+                    true,
                 )
                 .await;
                 match (resp, skip_failed) {
@@ -584,7 +584,7 @@ pub(crate) async fn process_file(
                 translated_data,
                 base_url,
                 asset_documents,
-                true
+                true,
             )
             .await;
             match (resp, skip_failed) {
@@ -712,7 +712,8 @@ async fn process_image(
             asset_documents,
             true,
         )
-        .await.map(|_| ());
+        .await
+        .map(|_| ());
     }
 
     return process_ftd(
@@ -723,9 +724,10 @@ async fn process_image(
         translated_data,
         base_url,
         asset_documents,
-        true
+        true,
     )
-    .await.map(|_|());
+    .await
+    .map(|_| ());
 
     fn convert_to_ftd(
         config: &fpm::Config,
@@ -770,9 +772,10 @@ async fn process_code(
                     translated_data,
                     base_url,
                     asset_documents,
-                    true
+                    true,
                 )
-                .await.map(|_|());
+                .await
+                .map(|_| ());
             }
             None => {
                 return Ok(());
@@ -788,9 +791,10 @@ async fn process_code(
         translated_data,
         base_url,
         asset_documents,
-        true
+        true,
     )
-    .await.map(|_|());
+    .await
+    .map(|_| ());
 
     fn convert_to_ftd(
         config: &fpm::Config,
@@ -841,9 +845,10 @@ async fn process_markdown(
                     translated_data,
                     base_url,
                     asset_documents,
-                    true
+                    true,
                 )
-                .await.map(|_|());
+                .await
+                .map(|_| ());
             }
             None => {
                 return Ok(());
@@ -859,8 +864,10 @@ async fn process_markdown(
         translated_data,
         base_url,
         asset_documents,
-        true
-    ).await.map(|_|());
+        true,
+    )
+    .await
+    .map(|_| ());
 
     fn convert_md_to_ftd(
         config: &fpm::Config,
@@ -971,23 +978,21 @@ pub(crate) async fn process_ftd(
             if do_write {
                 let mut file =
                     std::fs::File::create(config.root.join(".build").join(main.id.as_str()))?;
-                file.write_all (fpm.as_bytes())?;
-                return Ok("".into())
+                file.write_all(fpm.as_bytes())?;
+                return Ok("".into());
             } else {
-                return Ok(fpm.as_bytes().into())
+                return Ok(fpm.as_bytes().into());
             }
-
         } else {
             if do_write {
                 std::fs::copy(
                     config.root.join(main.id.as_str()),
                     config.root.join(".build").join(main.id.as_str()),
                 )?;
-                return Ok("".into())
+                return Ok("".into());
             } else {
-                return Ok(std::fs::read(config.root.join(main.id.as_str()))?)
+                return Ok(std::fs::read(config.root.join(main.id.as_str()))?);
             }
-
         }
     }
     let main = {
@@ -1066,7 +1071,7 @@ pub(crate) async fn process_ftd(
                 translated_data,
                 base_url,
                 asset_documents,
-                do_write
+                do_write,
             )
             .await?)
         }
@@ -1089,7 +1094,8 @@ pub(crate) async fn process_ftd(
                 new_file_path.as_str(),
                 base_url,
                 asset_documents,
-            ).await?)
+            )
+            .await?)
         }
     }
 
@@ -1230,7 +1236,7 @@ pub(crate) async fn process_ftd(
         translated_data: fpm::TranslationData,
         base_url: &str,
         asset_documents: &std::collections::HashMap<String, String>,
-        do_write: bool
+        do_write: bool,
     ) -> fpm::Result<Vec<u8>> {
         use tokio::io::AsyncWriteExt;
         let lib = fpm::Library {

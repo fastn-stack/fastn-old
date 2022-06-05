@@ -1,5 +1,5 @@
-use std::io::Read;
 use itertools::Itertools;
+use std::io::Read;
 // actix_web::Result<actix_files::NamedFile>
 async fn serve_static(req: actix_web::HttpRequest) -> actix_web::HttpResponse {
     // TODO: It should ideally fallback to index file if not found than an error file or directory listing
@@ -61,11 +61,15 @@ async fn serve_static(req: actix_web::HttpRequest) -> actix_web::HttpResponse {
     // let all_dep_name = dependencies.iter().map(|d| d.package.name.as_str()).collect_vec();
     // println!("ALL Deps name {:?}", all_dep_name);
 
-
-    fn find_dep_package<'a>(config: &'a fpm::Config, dep: &'a Vec<fpm::Dependency>, file_path: &'a str) -> &'a fpm::Package {
+    fn find_dep_package<'a>(
+        config: &'a fpm::Config,
+        dep: &'a Vec<fpm::Dependency>,
+        file_path: &'a str,
+    ) -> &'a fpm::Package {
         dep.iter()
             .find(|d| file_path.starts_with(&d.package.name))
-            .map(|x| &x.package).unwrap_or(&config.package)
+            .map(|x| &x.package)
+            .unwrap_or(&config.package)
     }
 
     // replace -/ from path string
@@ -74,7 +78,7 @@ async fn serve_static(req: actix_web::HttpRequest) -> actix_web::HttpResponse {
     if !path.starts_with("-/") {
         let new_path = match path.to_str() {
             Some(s) => s.replace("-/", ""),
-            None => panic!("Not able to convert path")
+            None => panic!("Not able to convert path"),
         };
 
         let dep_package = find_dep_package(&config, &dependencies, &new_path);
@@ -83,7 +87,7 @@ async fn serve_static(req: actix_web::HttpRequest) -> actix_web::HttpResponse {
 
         let f = match config.get_file_by_id(&new_path, dep_package).await {
             Ok(f) => f,
-            Err(e) => panic!("path: {}, Error: {}", new_path, e)
+            Err(e) => panic!("path: {}, Error: {}", new_path, e),
         };
 
         println!("File found: Id {:?}", f.get_id());
@@ -98,17 +102,17 @@ async fn serve_static(req: actix_web::HttpRequest) -> actix_web::HttpResponse {
                     Default::default(),
                     "/",
                     &asset_documents,
-                    false
-                ).await {
+                    false,
+                )
+                .await
+                {
                     Ok(r) => actix_web::HttpResponse::Ok().body(r),
-                    Err(e) => actix_web::HttpResponse::InternalServerError().body("".as_bytes())
+                    Err(e) => actix_web::HttpResponse::InternalServerError().body("".as_bytes()),
                 };
             }
-            _ => ()
+            _ => (),
         };
-
     }
-
 
     // fpm::commands::build::process_file(
     //     &config,
@@ -129,7 +133,7 @@ async fn serve_static(req: actix_web::HttpRequest) -> actix_web::HttpResponse {
         Ok(file) => {
             file.file().read_to_string(&mut buffer).expect("");
             actix_web::HttpResponse::Ok().body(buffer)
-             },
+        }
         Err(e) => actix_web::HttpResponse::InternalServerError().body("".as_bytes()),
     }
     // Ok(file)
