@@ -30,13 +30,13 @@ async fn handle_ftd(config: &fpm::Config, path: std::path::PathBuf) -> actix_web
     let mut asset_documents = std::collections::HashMap::new();
     asset_documents.insert(
         config.package.name.clone(),
-        config.package.get_assets_doc(&config, "/").await.unwrap(),
+        config.package.get_assets_doc(config, "/").await.unwrap(),
     );
 
     for dep in &dependencies {
         asset_documents.insert(
             dep.package.name.clone(),
-            dep.package.get_assets_doc(&config, "/").await.unwrap(),
+            dep.package.get_assets_doc(config, "/").await.unwrap(),
         );
     }
 
@@ -45,7 +45,7 @@ async fn handle_ftd(config: &fpm::Config, path: std::path::PathBuf) -> actix_web
 
     fn find_dep_package<'a>(
         config: &'a fpm::Config,
-        dep: &'a Vec<fpm::Dependency>,
+        dep: &'a [fpm::Dependency],
         file_path: &'a str,
     ) -> &'a fpm::Package {
         dep.iter()
@@ -62,7 +62,7 @@ async fn handle_ftd(config: &fpm::Config, path: std::path::PathBuf) -> actix_web
         None => panic!("Not able to convert path"),
     };
 
-    let dep_package = find_dep_package(&config, &dependencies, &new_path);
+    let dep_package = find_dep_package(config, &dependencies, &new_path);
 
     println!("file path {}, dep_package: {}", new_path, dep_package.name);
 
@@ -76,7 +76,7 @@ async fn handle_ftd(config: &fpm::Config, path: std::path::PathBuf) -> actix_web
     match f {
         fpm::File::Ftd(main_document) => {
             return match fpm::commands::build::process_ftd(
-                &config,
+                config,
                 &main_document,
                 None,
                 None,
@@ -111,7 +111,7 @@ async fn handle_dash(
     let file_path = if new_path.starts_with(&config.package.name) {
         std::path::PathBuf::new().join(
             new_path
-                .strip_prefix(&((&config.package).name.to_string() + "/"))
+                .strip_prefix(&(config.package.name.to_string() + "/"))
                 .unwrap(),
         )
     } else {

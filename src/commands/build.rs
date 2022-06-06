@@ -920,6 +920,7 @@ async fn process_markdown(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) async fn process_ftd(
     config: &fpm::Config,
     main: &fpm::Document,
@@ -984,14 +985,14 @@ pub(crate) async fn process_ftd(
                 return Ok(fpm.as_bytes().into());
             }
         } else {
-            if do_write {
+            return if do_write {
                 std::fs::copy(
                     config.root.join(main.id.as_str()),
                     config.root.join(".build").join(main.id.as_str()),
                 )?;
-                return Ok("".into());
+                Ok("".into())
             } else {
-                return Ok(std::fs::read(config.root.join(main.id.as_str()))?);
+                Ok(std::fs::read(config.root.join(main.id.as_str()))?)
             }
         }
     }
@@ -1062,7 +1063,7 @@ pub(crate) async fn process_ftd(
     };
     match (fallback, message) {
         (Some(fallback), Some(message)) => {
-            return Ok(write_with_fallback(
+            return write_with_fallback(
                 config,
                 &final_main,
                 fallback,
@@ -1072,11 +1073,10 @@ pub(crate) async fn process_ftd(
                 base_url,
                 asset_documents,
                 do_write,
-            )
-            .await?)
+            ).await
         }
         (None, Some(message)) => {
-            return Ok(write_with_message(
+            return write_with_message(
                 config,
                 &final_main,
                 new_file_path.as_str(),
@@ -1084,18 +1084,16 @@ pub(crate) async fn process_ftd(
                 translated_data,
                 base_url,
                 asset_documents,
-            )
-            .await?)
+            ).await
         }
         _ => {
-            return Ok(write_default(
+            return write_default(
                 config,
                 &final_main,
                 new_file_path.as_str(),
                 base_url,
                 asset_documents,
-            )
-            .await?)
+            ).await
         }
     }
 
