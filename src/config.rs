@@ -389,7 +389,7 @@ impl Config {
             if file.is_dir() {
                 continue;
             }
-            let version = get_version(&file, &path)?;
+            let version = get_version(&file, &path).await?;
             let file = fpm::get_file(
                 package.name.to_string(),
                 &file,
@@ -408,11 +408,11 @@ impl Config {
         }
         return Ok(hash);
 
-        fn get_version(
+        async fn get_version(
             x: &camino::Utf8PathBuf,
             path: &camino::Utf8PathBuf,
         ) -> fpm::Result<fpm::Version> {
-            let id = match std::fs::canonicalize(x)?.to_str().unwrap().rsplit_once(
+            let id = match tokio::fs::canonicalize(x).await?.to_str().unwrap().rsplit_once(
                 if path.as_str().ends_with(std::path::MAIN_SEPARATOR) {
                     path.as_str().to_string()
                 } else {

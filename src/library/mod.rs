@@ -224,7 +224,7 @@ impl Library {
                 &self.config,
                 self.document_id.as_str(),
                 self.base_url.as_str(),
-            ),
+            ).await,
             t => unimplemented!("No such processor: {}", t),
         }
     }
