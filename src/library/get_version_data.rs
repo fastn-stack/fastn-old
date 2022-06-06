@@ -7,14 +7,15 @@ pub async fn processor<'a>(
     document_id: &str,
     base_url: &str,
 ) -> ftd::p1::Result<ftd::Value> {
-
-    let versions = config.get_versions(&config.package).await.map_err(|e| {
-            ftd::p1::Error::ParseError {
+    let versions =
+        config
+            .get_versions(&config.package)
+            .await
+            .map_err(|e| ftd::p1::Error::ParseError {
                 message: format!("Cant find versions: {:?}", e),
                 doc_id: doc.name.to_string(),
                 line_number: section.line_number,
-            }
-    })?;
+            })?;
 
     let version = if let Some((v, _)) = document_id.split_once('/') {
         fpm::Version::parse(v).map_err(|e| ftd::p1::Error::ParseError {

@@ -1,5 +1,9 @@
 // TODO: make async
-pub async fn parse<'a>(name: &str, source: &str, lib: &'a fpm::Library) -> ftd::p1::Result<ftd::p2::Document> {
+pub async fn parse<'a>(
+    name: &str,
+    source: &str,
+    lib: &'a fpm::Library,
+) -> ftd::p1::Result<ftd::p2::Document> {
     let mut s = ftd::interpret(name, source)?;
     let document;
     loop {
@@ -9,7 +13,9 @@ pub async fn parse<'a>(name: &str, source: &str, lib: &'a fpm::Library) -> ftd::
                 break;
             }
             ftd::Interpreter::StuckOnProcessor { state, section } => {
-                let value = lib.process(&section, &state.tdoc(&mut Default::default())).await?;
+                let value = lib
+                    .process(&section, &state.tdoc(&mut Default::default()))
+                    .await?;
                 s = state.continue_after_processor(&section, value)?;
             }
             ftd::Interpreter::StuckOnImport { module, state: st } => {

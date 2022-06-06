@@ -993,7 +993,7 @@ pub(crate) async fn process_ftd(
                 Ok("".into())
             } else {
                 Ok(std::fs::read(config.root.join(main.id.as_str()))?)
-            }
+            };
         }
     }
     let main = {
@@ -1073,7 +1073,8 @@ pub(crate) async fn process_ftd(
                 base_url,
                 asset_documents,
                 do_write,
-            ).await
+            )
+            .await
         }
         (None, Some(message)) => {
             return write_with_message(
@@ -1084,7 +1085,8 @@ pub(crate) async fn process_ftd(
                 translated_data,
                 base_url,
                 asset_documents,
-            ).await
+            )
+            .await
         }
         _ => {
             return write_default(
@@ -1093,7 +1095,8 @@ pub(crate) async fn process_ftd(
                 new_file_path.as_str(),
                 base_url,
                 asset_documents,
-            ).await
+            )
+            .await
         }
     }
 
@@ -1118,7 +1121,9 @@ pub(crate) async fn process_ftd(
         };
 
         let main_ftd_doc =
-            match fpm::doc::parse(main.id_with_package().as_str(), main.content.as_str(), &lib).await {
+            match fpm::doc::parse(main.id_with_package().as_str(), main.content.as_str(), &lib)
+                .await
+            {
                 Ok(v) => v,
                 Err(e) => {
                     return Err(fpm::Error::PackageError {
@@ -1168,7 +1173,9 @@ pub(crate) async fn process_ftd(
         };
 
         let main_ftd_doc =
-            match fpm::doc::parse(main.id_with_package().as_str(), main.content.as_str(), &lib).await {
+            match fpm::doc::parse(main.id_with_package().as_str(), main.content.as_str(), &lib)
+                .await
+            {
                 Ok(v) => v,
                 Err(e) => {
                     return Err(fpm::Error::PackageError {
@@ -1247,7 +1254,9 @@ pub(crate) async fn process_ftd(
         };
 
         let main_ftd_doc =
-            match fpm::doc::parse(main.id_with_package().as_str(), main.content.as_str(), &lib).await {
+            match fpm::doc::parse(main.id_with_package().as_str(), main.content.as_str(), &lib)
+                .await
+            {
                 Ok(v) => v,
                 Err(e) => {
                     return Err(fpm::Error::PackageError {
@@ -1276,7 +1285,9 @@ pub(crate) async fn process_ftd(
             main.id_with_package().as_str(),
             fallback.content.as_str(),
             &lib,
-        ).await {
+        )
+        .await
+        {
             Ok(v) => v,
             Err(e) => {
                 return Err(fpm::Error::PackageError {

@@ -218,13 +218,16 @@ impl Library {
             "include" => fpm::library::include::processor(section, doc, &self.config),
             "get-data" => fpm::library::get_data::processor(section, doc, &self.config),
             "sitemap" => fpm::library::sitemap::processor(section, doc, &self.config),
-            "get-version-data" => fpm::library::get_version_data::processor(
-                section,
-                doc,
-                &self.config,
-                self.document_id.as_str(),
-                self.base_url.as_str(),
-            ).await,
+            "get-version-data" => {
+                fpm::library::get_version_data::processor(
+                    section,
+                    doc,
+                    &self.config,
+                    self.document_id.as_str(),
+                    self.base_url.as_str(),
+                )
+                .await
+            }
             t => unimplemented!("No such processor: {}", t),
         }
     }

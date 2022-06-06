@@ -3,7 +3,7 @@ pub async fn processor<'a>(
     doc: &ftd::p2::TDoc<'a>,
     config: &fpm::Config,
 ) -> ftd::p1::Result<ftd::Value> {
-    tokio::task::block_in_place( move || processor_(section, doc, config))
+    tokio::task::block_in_place(move || processor_(section, doc, config))
 }
 
 pub fn processor_(

@@ -1,4 +1,7 @@
-pub async fn processor<'a>(section: &ftd::p1::Section, doc: &ftd::p2::TDoc<'a>) -> ftd::p1::Result<ftd::Value> {
+pub async fn processor<'a>(
+    section: &ftd::p1::Section,
+    doc: &ftd::p2::TDoc<'a>,
+) -> ftd::p1::Result<ftd::Value> {
     {
         let method = section
             .header

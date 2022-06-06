@@ -173,7 +173,8 @@ impl Config {
     pub async fn read(root: Option<String>) -> fpm::Result<fpm::Config> {
         let (root, original_directory) = match root {
             Some(r) => {
-                let r: camino::Utf8PathBuf = tokio::fs::canonicalize(r.as_str()).await?
+                let r: camino::Utf8PathBuf = tokio::fs::canonicalize(r.as_str())
+                    .await?
                     .to_str()
                     .map_or_else(|| r, |r| r.to_string())
                     .into();
@@ -206,7 +207,8 @@ impl Config {
                                                     fpm_manifest_path,
                                                     |accumulator, part| accumulator.join(part),
                                                 );
-                                            if new_package_root.join("FPM.ftd").exists() { // TODO: async
+                                            if new_package_root.join("FPM.ftd").exists() {
+                                                // TODO: async
                                                 new_package_root
                                             } else {
                                                 return Err(fpm::Error::PackageError {
@@ -412,14 +414,18 @@ impl Config {
             x: &camino::Utf8PathBuf,
             path: &camino::Utf8PathBuf,
         ) -> fpm::Result<fpm::Version> {
-            let id = match tokio::fs::canonicalize(x).await?.to_str().unwrap().rsplit_once(
-                if path.as_str().ends_with(std::path::MAIN_SEPARATOR) {
-                    path.as_str().to_string()
-                } else {
-                    format!("{}{}", path, std::path::MAIN_SEPARATOR)
-                }
-                .as_str(),
-            ) {
+            let id = match tokio::fs::canonicalize(x)
+                .await?
+                .to_str()
+                .unwrap()
+                .rsplit_once(
+                    if path.as_str().ends_with(std::path::MAIN_SEPARATOR) {
+                        path.as_str().to_string()
+                    } else {
+                        format!("{}{}", path, std::path::MAIN_SEPARATOR)
+                    }
+                    .as_str(),
+                ) {
                 Some((_, id)) => id.to_string(),
                 None => {
                     return Err(fpm::Error::UsageError {
