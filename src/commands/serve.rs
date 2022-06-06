@@ -98,7 +98,8 @@ async fn handle_ftd(config: &fpm::Config, path: std::path::PathBuf) -> actix_web
 async fn handle_dash(
     req: &actix_web::HttpRequest,
     config: &fpm::Config,
-    path: std::path::PathBuf) -> actix_web::HttpResponse {
+    path: std::path::PathBuf,
+) -> actix_web::HttpResponse {
     //TODO: This is going to be remove
     println!("from handle_dash: {:?}", path);
 
@@ -107,10 +108,13 @@ async fn handle_dash(
         None => panic!("Not able to convert path"),
     };
 
-    let file_path =  if new_path.starts_with(&config.package.name) {
-        std::path::PathBuf::new().join(new_path.strip_prefix(&((&config.package).name.to_string() + "/")).unwrap())
-    }
-    else {
+    let file_path = if new_path.starts_with(&config.package.name) {
+        std::path::PathBuf::new().join(
+            new_path
+                .strip_prefix(&((&config.package).name.to_string() + "/"))
+                .unwrap(),
+        )
+    } else {
         std::path::PathBuf::new().join(".packages").join(new_path)
     };
 
@@ -119,8 +123,10 @@ async fn handle_dash(
     server_static_file(req, file_path).await
 }
 
-async fn server_static_file(req: &actix_web::HttpRequest, file_path: std::path::PathBuf) -> actix_web::HttpResponse {
-
+async fn server_static_file(
+    req: &actix_web::HttpRequest,
+    file_path: std::path::PathBuf,
+) -> actix_web::HttpResponse {
     if !file_path.exists() {
         return actix_web::HttpResponse::NotFound().body("".as_bytes());
     }
@@ -128,7 +134,7 @@ async fn server_static_file(req: &actix_web::HttpRequest, file_path: std::path::
     println!("file_path: {:?}", file_path);
 
     match actix_files::NamedFile::open_async(file_path).await {
-        Ok(r) =>  r.into_response(req),
+        Ok(r) => r.into_response(req),
         Err(_e) => actix_web::HttpResponse::NotFound().body("TODO".as_bytes()),
     }
 }
@@ -139,7 +145,6 @@ async fn serve_static(req: actix_web::HttpRequest) -> actix_web::HttpResponse {
     // .build directory should come from config
     let mut path: std::path::PathBuf = req.match_info().query("path").parse().unwrap();
     println!("url arg path : {:?}", path);
-
 
     let favicon = std::path::PathBuf::new().join("favicon.ico");
     if path.starts_with("-/") {
