@@ -31,6 +31,7 @@ impl Dependency {
     }
 }
 
+// TODO: async
 pub fn ensure(base_dir: &camino::Utf8PathBuf, package: &mut fpm::Package) -> fpm::Result<()> {
     /*futures::future::join_all(
         deps.into_iter()

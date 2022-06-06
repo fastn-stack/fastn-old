@@ -22,6 +22,7 @@ pub struct Library {
 }
 
 impl Library {
+    // TODO: async
     pub fn get_with_result(&self, name: &str, doc: &ftd::p2::TDoc) -> ftd::p1::Result<String> {
         match self.get(name, doc) {
             Some(v) => Ok(v),
@@ -200,18 +201,19 @@ impl Library {
         }
     }
 
-    pub fn process(
-        &self,
+    // TODO: async
+    pub async fn process<'a>(
+        &'a self,
         section: &ftd::p1::Section,
-        doc: &ftd::p2::TDoc,
+        doc: &'a ftd::p2::TDoc<'a>,
     ) -> ftd::p1::Result<ftd::Value> {
         match section
             .header
             .str(doc.name, section.line_number, "$processor$")?
         {
             // "toc" => fpm::library::toc::processor(section, doc),
-            "http" => fpm::library::http::processor(section, doc),
-            "package-query" => fpm::library::sqlite::processor(section, doc, &self.config),
+            "http" => fpm::library::http::processor(section, doc).await,
+            "package-query" => fpm::library::sqlite::processor(section, doc, &self.config).await,
             "toc" => fpm::library::toc::processor(section, doc, &self.config),
             "include" => fpm::library::include::processor(section, doc, &self.config),
             "get-data" => fpm::library::get_data::processor(section, doc, &self.config),

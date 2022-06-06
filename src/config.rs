@@ -173,14 +173,14 @@ impl Config {
     pub async fn read(root: Option<String>) -> fpm::Result<fpm::Config> {
         let (root, original_directory) = match root {
             Some(r) => {
-                let r: camino::Utf8PathBuf = std::fs::canonicalize(r.as_str())?
+                let r: camino::Utf8PathBuf = tokio::fs::canonicalize(r.as_str()).await?
                     .to_str()
                     .map_or_else(|| r, |r| r.to_string())
                     .into();
                 (r.clone(), r)
             }
             None => {
-                let original_directory: camino::Utf8PathBuf =
+                let original_directory: camino::Utf8PathBuf = // TODO: make async
                     std::env::current_dir()?.canonicalize()?.try_into()?;
                 (
                     match find_root_for_file(&original_directory, "FPM.ftd") {
@@ -206,7 +206,7 @@ impl Config {
                                                     fpm_manifest_path,
                                                     |accumulator, part| accumulator.join(part),
                                                 );
-                                            if new_package_root.join("FPM.ftd").exists() {
+                                            if new_package_root.join("FPM.ftd").exists() { // TODO: async
                                                 new_package_root
                                             } else {
                                                 return Err(fpm::Error::PackageError {
@@ -574,6 +574,7 @@ impl Config {
 
 /// `find_root_for_file()` starts with the given path, which is the current directory where the
 /// application started in, and goes up till it finds a folder that contains `FPM.ftd` file.
+/// TODO: make async
 pub(crate) fn find_root_for_file(
     dir: &camino::Utf8Path,
     file_name: &str,

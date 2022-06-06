@@ -143,7 +143,7 @@ async fn serve_static(req: actix_web::HttpRequest) -> actix_web::HttpResponse {
     // TODO: It should ideally fallback to index file if not found than an error file or directory listing
     // TODO:
     // .build directory should come from config
-    let mut path: std::path::PathBuf = req.match_info().query("path").parse().unwrap();
+    let path: std::path::PathBuf = req.match_info().query("path").parse().unwrap();
     println!("url arg path : {:?}", path);
 
     let favicon = std::path::PathBuf::new().join("favicon.ico");

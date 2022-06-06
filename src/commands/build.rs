@@ -1120,7 +1120,7 @@ pub(crate) async fn process_ftd(
         };
 
         let main_ftd_doc =
-            match fpm::doc::parse(main.id_with_package().as_str(), main.content.as_str(), &lib) {
+            match fpm::doc::parse(main.id_with_package().as_str(), main.content.as_str(), &lib).await {
                 Ok(v) => v,
                 Err(e) => {
                     return Err(fpm::Error::PackageError {
@@ -1170,7 +1170,7 @@ pub(crate) async fn process_ftd(
         };
 
         let main_ftd_doc =
-            match fpm::doc::parse(main.id_with_package().as_str(), main.content.as_str(), &lib) {
+            match fpm::doc::parse(main.id_with_package().as_str(), main.content.as_str(), &lib).await {
                 Ok(v) => v,
                 Err(e) => {
                     return Err(fpm::Error::PackageError {
@@ -1185,7 +1185,7 @@ pub(crate) async fn process_ftd(
         };
         let main_rt_doc = main_ftd_doc.to_rt("main", &main.id);
 
-        let message_ftd_doc = match fpm::doc::parse("message", message, &lib) {
+        let message_ftd_doc = match fpm::doc::parse("message", message, &lib).await {
             Ok(v) => v,
             Err(e) => {
                 return Err(fpm::Error::PackageError {
@@ -1236,7 +1236,7 @@ pub(crate) async fn process_ftd(
         translated_data: fpm::TranslationData,
         base_url: &str,
         asset_documents: &std::collections::HashMap<String, String>,
-        do_write: bool,
+        _do_write: bool, // TODO: Do it later
     ) -> fpm::Result<Vec<u8>> {
         use tokio::io::AsyncWriteExt;
         let lib = fpm::Library {
@@ -1249,7 +1249,7 @@ pub(crate) async fn process_ftd(
         };
 
         let main_ftd_doc =
-            match fpm::doc::parse(main.id_with_package().as_str(), main.content.as_str(), &lib) {
+            match fpm::doc::parse(main.id_with_package().as_str(), main.content.as_str(), &lib).await {
                 Ok(v) => v,
                 Err(e) => {
                     return Err(fpm::Error::PackageError {
@@ -1259,7 +1259,7 @@ pub(crate) async fn process_ftd(
             };
         let main_rt_doc = main_ftd_doc.to_rt("main", &main.id);
 
-        let message_ftd_doc = match fpm::doc::parse("message", message, &lib) {
+        let message_ftd_doc = match fpm::doc::parse("message", message, &lib).await {
             Ok(v) => v,
             Err(e) => {
                 return Err(fpm::Error::PackageError {
@@ -1278,7 +1278,7 @@ pub(crate) async fn process_ftd(
             main.id_with_package().as_str(),
             fallback.content.as_str(),
             &lib,
-        ) {
+        ).await {
             Ok(v) => v,
             Err(e) => {
                 return Err(fpm::Error::PackageError {
