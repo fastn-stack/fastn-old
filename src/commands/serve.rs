@@ -1,5 +1,3 @@
-// actix_web::Result<actix_files::NamedFile>
-
 async fn handle_ftd(config: &mut fpm::Config, path: std::path::PathBuf) -> actix_web::HttpResponse {
     use itertools::Itertools;
     let dependencies = if let Some(package) = config.package.translation_of.as_ref() {
