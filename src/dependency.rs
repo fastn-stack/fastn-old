@@ -1,8 +1,3 @@
-lazy_static! {
-    static ref DOWNLOADED_PACKAGES: std::sync::Arc<tokio::sync::Mutex<Vec<String>>> =
-        std::sync::Arc::new(tokio::sync::Mutex::new(vec![]));
-}
-
 use crate::utils::HasElements;
 
 #[derive(Debug, Clone)]
