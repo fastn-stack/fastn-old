@@ -45,24 +45,23 @@ pub async fn ensure(base_dir: &camino::Utf8PathBuf, package: &mut fpm::Package) 
         });
     }
 
-    DOWNLOADED_PACKAGES.lock().await.push(package.name.clone());
-    let downloaded_package = DOWNLOADED_PACKAGES.clone();
+    let mut downloaded_package = vec![package.name.clone()];
 
-    let mut future_tasks = Vec::new();
     if let Some(translation_of) = package.translation_of.as_mut() {
         if package.language.is_none() {
             return Err(fpm::Error::UsageError {
                 message: "Translation package needs to declare the language".to_string(),
             });
         }
-        future_tasks.push(translation_of.process(base_dir, downloaded_package.clone(), true, true));
+        translation_of
+            .process(base_dir, &mut downloaded_package, true, true)
+            .await?;
     }
 
     for dep in package.dependencies.iter_mut() {
-        future_tasks.push(
-            dep.package
-                .process(base_dir, downloaded_package.clone(), false, true),
-        );
+        dep.package
+            .process(base_dir, &mut downloaded_package, false, true)
+            .await?;
     }
 
     for translation in package.translations.iter_mut() {
@@ -71,9 +70,10 @@ pub async fn ensure(base_dir: &camino::Utf8PathBuf, package: &mut fpm::Package) 
                 message: "Package needs to declare the language".to_string(),
             });
         }
-        future_tasks.push(translation.process(base_dir, downloaded_package.clone(), false, false));
+        translation
+            .process(base_dir, &mut downloaded_package, false, false)
+            .await?;
     }
-    futures::future::join_all(future_tasks).await;
 
     Ok(())
 }
@@ -116,7 +116,7 @@ impl fpm::Package {
     pub async fn process(
         &mut self,
         base_dir: &camino::Utf8PathBuf,
-        downloaded_package: std::sync::Arc<tokio::sync::Mutex<Vec<String>>>,
+        downloaded_package: &mut Vec<String>,
         download_translations: bool,
         download_dependencies: bool,
     ) -> fpm::Result<()> {
@@ -328,7 +328,7 @@ impl fpm::Package {
     async fn process_fpm(
         root: &camino::Utf8PathBuf,
         base_path: &camino::Utf8PathBuf,
-        downloaded_package: std::sync::Arc<tokio::sync::Mutex<Vec<String>>>,
+        downloaded_package: &mut Vec<String>,
         mutpackage: &mut fpm::Package,
         download_translations: bool,
         download_dependencies: bool,
@@ -353,8 +353,8 @@ impl fpm::Package {
 
         package.translation_status_summary = ftd_document.get("fpm#translation-status-summary")?;
 
-        let mut dp = downloaded_package.lock().await;
-        dp.push(mutpackage.name.to_string());
+
+        downloaded_package.push(mutpackage.name.to_string());
 
         package.fpm_path = Some(fpm_path.to_owned());
         package.dependencies = {
@@ -381,7 +381,7 @@ impl fpm::Package {
             for dep in package.dependencies.iter_mut() {
                 let dep_path = root.join(".packages").join(dep.package.name.as_str());
 
-                if downloaded_package.lock().await.contains(&dep.package.name) {
+                if downloaded_package.contains(&dep.package.name) {
                     continue;
                 }
                 if dep_path.exists() {
@@ -392,7 +392,7 @@ impl fpm::Package {
                     fpm::Package::process_fpm(
                         &dst,
                         base_path,
-                        downloaded_package.clone(),
+                        downloaded_package,
                         &mut dep.package,
                         false,
                         true,
@@ -401,7 +401,7 @@ impl fpm::Package {
                     .await?;
                 }
                 dep.package
-                    .process(base_path, downloaded_package.clone(), false, true)
+                    .process(base_path, downloaded_package, false, true)
                     .await?;
             }
         }
@@ -419,7 +419,7 @@ impl fpm::Package {
             }
             for translation in package.translations.iter_mut() {
                 let original_path = root.join(".packages").join(translation.name.as_str());
-                if downloaded_package.lock().await.contains(&translation.name) {
+                if downloaded_package.contains(&translation.name) {
                     continue;
                 }
                 if original_path.exists() {
@@ -430,7 +430,7 @@ impl fpm::Package {
                     fpm::Package::process_fpm(
                         &dst,
                         base_path,
-                        downloaded_package.clone(),
+                        downloaded_package,
                         translation,
                         false,
                         false,
@@ -439,7 +439,7 @@ impl fpm::Package {
                     .await?;
                 } else {
                     translation
-                        .process(base_path, downloaded_package.clone(), false, false)
+                        .process(base_path, downloaded_package, false, false)
                         .await?;
                 }
             }
