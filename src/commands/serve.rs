@@ -1,7 +1,7 @@
-use itertools::Itertools;
 // actix_web::Result<actix_files::NamedFile>
 
 async fn handle_ftd(config: &mut fpm::Config, path: std::path::PathBuf) -> actix_web::HttpResponse {
+    use itertools::Itertools;
     let dependencies = if let Some(package) = config.package.translation_of.as_ref() {
         let mut deps = package
             .get_flattened_dependencies()
@@ -40,14 +40,20 @@ async fn handle_ftd(config: &mut fpm::Config, path: std::path::PathBuf) -> actix
 
     let new_path = match path.to_str() {
         Some(s) => s.replace("-/", ""),
-        None => panic!("Not able to convert path"),
+        None => {
+            println!("handle_ftd: Not able to convert path");
+            return actix_web::HttpResponse::InternalServerError().body("".as_bytes());
+        }
     };
 
     let dep_package = find_dep_package(config, &dependencies, &new_path);
 
     let f = match config.get_file_by_id(&new_path, dep_package).await {
         Ok(f) => f,
-        Err(e) => panic!("path: {}, Error: {}", new_path, e),
+        Err(e) => {
+            println!("path: {}, Error: {:?}", new_path, e);
+            return actix_web::HttpResponse::InternalServerError().body("".as_bytes());
+        }
     };
 
     config.current_document = Some(f.get_id());
@@ -91,7 +97,10 @@ async fn handle_dash(
 ) -> actix_web::HttpResponse {
     let new_path = match path.to_str() {
         Some(s) => s.replace("-/", ""),
-        None => panic!("Not able to convert path"),
+        None => {
+            println!("handle_dash: Not able to convert path");
+            return actix_web::HttpResponse::InternalServerError().body("".as_bytes());
+        }
     };
 
     let file_path = if new_path.starts_with(&config.package.name) {
