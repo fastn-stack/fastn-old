@@ -2,8 +2,6 @@ use itertools::Itertools;
 // actix_web::Result<actix_files::NamedFile>
 
 async fn handle_ftd(config: &mut fpm::Config, path: std::path::PathBuf) -> actix_web::HttpResponse {
-    println!("root: {}", config.root);
-
     let dependencies = if let Some(package) = config.package.translation_of.as_ref() {
         let mut deps = package
             .get_flattened_dependencies()
@@ -40,12 +38,6 @@ async fn handle_ftd(config: &mut fpm::Config, path: std::path::PathBuf) -> actix
         );
     }
 
-    // let all_dep_name = dependencies.iter().map(|d| d.package.name.as_str()).collect_vec();
-    // println!("ALL Deps name {:?}", all_dep_name);
-
-    // replace -/ from path string
-    // if starts with -/ serve it from packages
-
     let new_path = match path.to_str() {
         Some(s) => s.replace("-/", ""),
         None => panic!("Not able to convert path"),
@@ -53,14 +45,10 @@ async fn handle_ftd(config: &mut fpm::Config, path: std::path::PathBuf) -> actix
 
     let dep_package = find_dep_package(config, &dependencies, &new_path);
 
-    println!("file path {}, dep_package: {}", new_path, dep_package.name);
-
     let f = match config.get_file_by_id(&new_path, dep_package).await {
         Ok(f) => f,
         Err(e) => panic!("path: {}, Error: {}", new_path, e),
     };
-
-    println!("File found: Id {:?}", f.get_id());
 
     config.current_document = Some(f.get_id());
     return match f {
@@ -101,9 +89,6 @@ async fn handle_dash(
     config: &fpm::Config,
     path: std::path::PathBuf,
 ) -> actix_web::HttpResponse {
-    //TODO: This is going to be remove
-    println!("from handle_dash: {:?}", path);
-
     let new_path = match path.to_str() {
         Some(s) => s.replace("-/", ""),
         None => panic!("Not able to convert path"),
@@ -119,8 +104,6 @@ async fn handle_dash(
         std::path::PathBuf::new().join(".packages").join(new_path)
     };
 
-    println!("file path: {:?}", file_path);
-
     server_static_file(req, file_path).await
 }
 
@@ -132,8 +115,6 @@ async fn server_static_file(
         return actix_web::HttpResponse::NotFound().body("".as_bytes());
     }
 
-    println!("file_path: {:?}", file_path);
-
     match actix_files::NamedFile::open_async(file_path).await {
         Ok(r) => r.into_response(req),
         Err(_e) => actix_web::HttpResponse::NotFound().body("TODO".as_bytes()),
@@ -141,11 +122,7 @@ async fn server_static_file(
 }
 async fn serve_static(req: actix_web::HttpRequest) -> actix_web::HttpResponse {
     let mut config = fpm::Config::read(None).await.unwrap();
-    // TODO: It should ideally fallback to index file if not found than an error file or directory listing
-    // TODO:
-    // .build directory should come from config
     let path: std::path::PathBuf = req.match_info().query("path").parse().unwrap();
-    println!("url arg path : {:?}", path);
 
     let favicon = std::path::PathBuf::new().join("favicon.ico");
     if path.starts_with("-/") {

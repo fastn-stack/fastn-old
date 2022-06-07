@@ -976,26 +976,17 @@ pub(crate) async fn process_ftd(
                 )
             };
 
-            if do_write {
-                let mut file =
-                    std::fs::File::create(config.root.join(".build").join(main.id.as_str()))?;
-                file.write_all(fpm.as_bytes())?;
-                return Ok("".into());
-            } else {
-                return Ok(fpm.as_bytes().into());
-            }
+            let mut file =
+                std::fs::File::create(config.root.join(".build").join(main.id.as_str()))?;
+            file.write_all(fpm.as_bytes())?;
         } else {
-            return if do_write {
-                std::fs::copy(
-                    config.root.join(main.id.as_str()),
-                    config.root.join(".build").join(main.id.as_str()),
-                )?;
-                Ok("".into())
-            } else {
-                Ok(std::fs::read(config.root.join(main.id.as_str()))?)
-            };
+            std::fs::copy(
+                config.root.join(main.id.as_str()),
+                config.root.join(".build").join(main.id.as_str()),
+            )?;
         }
     }
+
     let main = {
         let mut main = main.to_owned();
         if main.id.eq("FPM.ftd") {
@@ -1099,8 +1090,6 @@ pub(crate) async fn process_ftd(
             .await
         }
     }
-
-    // return Ok(());
 
     async fn write_default(
         config: &fpm::Config,
