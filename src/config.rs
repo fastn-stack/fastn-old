@@ -1,3 +1,4 @@
+use crate::File;
 use std::convert::TryInto;
 
 /// `Config` struct keeps track of configuration parameters that is shared with the entire
@@ -332,6 +333,8 @@ impl Config {
 
         let asset_documents = config.get_assets("/").await?;
 
+        let files = config.get_all_files(&config.package).await?;
+
         config.sitemap = match package.translation_of.as_ref() {
             Some(translation) => translation,
             None => &package,
@@ -339,8 +342,15 @@ impl Config {
         .sitemap
         .as_ref()
         .map_or(Ok(None), |v| {
-            fpm::sitemap::Sitemap::parse(v.as_str(), &package, &config, &asset_documents, "/")
-                .map(Some)
+            fpm::sitemap::Sitemap::parse(
+                v.as_str(),
+                &package,
+                &config,
+                &asset_documents,
+                "/",
+                &files,
+            )
+            .map(Some)
         })?;
 
         Ok(config)
@@ -367,6 +377,77 @@ impl Config {
         Ok(())
     }
 
+    pub(crate) async fn get_all_files(
+        &self,
+        package: &fpm::Package,
+    ) -> fpm::Result<std::collections::HashMap<String, String>> {
+        let mut all_files: std::collections::HashMap<String, String> = Default::default();
+        if package.versioned.eq("false") {
+            return Ok(all_files);
+        }
+        let base_versioned_documents = self.get_versions(package).await?;
+        for (version, document) in base_versioned_documents.iter() {
+            all_files.extend(
+                document
+                    .iter()
+                    .filter_map(|v| match v {
+                        File::Ftd(d) | File::Markdown(d) => Some(d),
+                        _ => None,
+                    })
+                    .map(|v| {
+                        let base = if let Some(ref base) = version.base {
+                            format!("{}/", base)
+                        } else {
+                            "".to_string()
+                        };
+                        let original = if version.original.contains("BASE_VERSION") {
+                            "".to_string()
+                        } else {
+                            format!("{}/", version.original)
+                        };
+
+                        (
+                            format!("{}{}", base, v.id_to_path())
+                                .trim_matches('/')
+                                .to_string(),
+                            format!("{}{}{}", base, original, v.id),
+                        )
+                    }),
+            );
+        }
+        Ok(all_files)
+    }
+
+    pub(crate) async fn get_based_versions(
+        &self,
+        package: &fpm::Package,
+    ) -> fpm::Result<
+        std::collections::HashMap<String, std::collections::HashMap<fpm::Version, Vec<fpm::File>>>,
+    > {
+        let versioned_documents = self.get_versions(package).await?;
+        let mut base_versioned_documents: std::collections::HashMap<
+            String,
+            std::collections::HashMap<fpm::Version, Vec<fpm::File>>,
+        > = Default::default();
+        for (version, documents) in versioned_documents {
+            let base = if let Some(ref base) = version.base {
+                base.to_string()
+            } else {
+                "BASE".to_string()
+            };
+
+            if let Some(hashmap) = base_versioned_documents.get_mut(base.as_str()) {
+                hashmap.insert(version, documents);
+            } else {
+                base_versioned_documents.insert(
+                    base,
+                    std::array::IntoIter::new([(version, documents)]).collect(),
+                );
+            }
+        }
+        Ok(base_versioned_documents)
+    }
+
     pub(crate) async fn get_versions(
         &self,
         package: &fpm::Package,
@@ -389,14 +470,20 @@ impl Config {
             if file.is_dir() {
                 continue;
             }
-            let version = get_version(&file, &path)?;
+            let version = get_version(package.versioned.as_str(), &file, &path)?;
             let file = fpm::get_file(
                 package.name.to_string(),
                 &file,
-                &(if version.original.eq("BASE_VERSION") {
-                    path.to_owned()
-                } else {
-                    path.join(&version.original)
+                &({
+                    let path = match version.base {
+                        Some(ref base) => path.join(base),
+                        None => path.to_owned(),
+                    };
+                    if version.original.contains("BASE_VERSION") {
+                        path
+                    } else {
+                        path.join(&version.original)
+                    }
                 }),
             )
             .await?;
@@ -409,6 +496,7 @@ impl Config {
         return Ok(hash);
 
         fn get_version(
+            versioned: &str,
             x: &camino::Utf8PathBuf,
             path: &camino::Utf8PathBuf,
         ) -> fpm::Result<fpm::Version> {
@@ -427,11 +515,8 @@ impl Config {
                     });
                 }
             };
-            if let Some((v, _)) = id.split_once('/') {
-                fpm::Version::parse(v)
-            } else {
-                Ok(fpm::Version::base())
-            }
+
+            fpm::Version::parse(id.as_str(), versioned)
         }
     }
 
@@ -470,7 +555,7 @@ impl Config {
         id: &str,
         package: &fpm::Package,
     ) -> fpm::Result<fpm::File> {
-        let file_name = fpm::Config::get_file_name(&self.root, id)?;
+        let file_name = fpm::Config::get_file_name(&self.root, id, &Default::default())?;
         return self
             .get_files(package)
             .await?
@@ -481,7 +566,11 @@ impl Config {
             });
     }
 
-    pub(crate) fn get_file_name(root: &camino::Utf8PathBuf, id: &str) -> fpm::Result<String> {
+    pub(crate) fn get_file_name(
+        root: &camino::Utf8PathBuf,
+        id: &str,
+        files: &std::collections::HashMap<String, String>,
+    ) -> fpm::Result<String> {
         let mut id = id.to_string();
         let mut add_packages = "".to_string();
         if let Some(new_id) = id.strip_prefix("-/") {
@@ -501,6 +590,11 @@ impl Config {
             }
             if root.join(format!("{}README.md", add_packages)).exists() {
                 return Ok(format!("{}README.md", add_packages));
+            }
+            if let Some(id) = files.get(id.trim_matches('/')) {
+                if root.join(id).exists() {
+                    return Ok(id.to_string());
+                }
             }
             return Err(fpm::Error::UsageError {
                 message: "File not found".to_string(),
@@ -524,6 +618,11 @@ impl Config {
             .exists()
         {
             return Ok(format!("{}{}/README.md", add_packages, id));
+        }
+        if let Some(id) = files.get(id.as_str()) {
+            if root.join(id).exists() {
+                return Ok(id.to_string());
+            }
         }
         Err(fpm::Error::UsageError {
             message: "File not found".to_string(),
@@ -594,7 +693,7 @@ pub(crate) fn find_root_for_file(
 #[derive(serde::Deserialize, Debug, Clone)]
 pub(crate) struct PackageTemp {
     pub name: String,
-    pub versioned: bool,
+    pub versioned: String,
     #[serde(rename = "translation-of")]
     pub translation_of: Option<String>,
     #[serde(rename = "translation")]
@@ -647,7 +746,7 @@ impl PackageTemp {
 pub struct Package {
     pub name: String,
     /// The `versioned` stores the boolean value storing of the fpm package is versioned or not
-    pub versioned: bool,
+    pub versioned: String,
     pub translation_of: Box<Option<Package>>,
     pub translations: Vec<Package>,
     pub language: Option<String>,
@@ -680,7 +779,7 @@ impl Package {
     pub fn new(name: &str) -> fpm::Package {
         fpm::Package {
             name: name.to_string(),
-            versioned: false,
+            versioned: "false".to_string(),
             translation_of: Box::new(None),
             translations: vec![],
             language: None,

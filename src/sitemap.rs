@@ -498,6 +498,7 @@ impl Sitemap {
         config: &fpm::Config,
         asset_documents: &std::collections::HashMap<String, String>,
         base_url: &str,
+        files: &std::collections::HashMap<String, String>,
     ) -> Result<Self, ParseError> {
         let mut parser = SitemapParser {
             state: ParsingState::WaitingForSection,
@@ -516,7 +517,7 @@ impl Sitemap {
         };
 
         sitemap
-            .resolve(package, config, asset_documents, base_url)
+            .resolve(package, config, asset_documents, base_url, files)
             .map_err(|e| ParseError::InvalidTOCItem {
                 doc_id: package.name.to_string(),
                 message: e.to_string(),
@@ -532,6 +533,7 @@ impl Sitemap {
         config: &fpm::Config,
         asset_documents: &std::collections::HashMap<String, String>,
         base_url: &str,
+        files: &std::collections::HashMap<String, String>,
     ) -> fpm::Result<()> {
         let package_root = config.get_root_for_package(package);
         let current_package_root = config.root.to_owned();
@@ -543,6 +545,7 @@ impl Sitemap {
                 asset_documents,
                 base_url,
                 config,
+                files,
             )?;
         }
         return Ok(());
@@ -554,38 +557,47 @@ impl Sitemap {
             asset_documents: &std::collections::HashMap<String, String>,
             base_url: &str,
             config: &fpm::Config,
+            files: &std::collections::HashMap<String, String>,
         ) -> fpm::Result<()> {
-            let (file_location, translation_file_location) =
-                if fpm::utils::url_regex().find(section.id.as_str()).is_some() {
-                    (None, None)
-                } else {
-                    match fpm::Config::get_file_name(current_package_root, section.id.as_str()) {
-                        Ok(name) => {
-                            if current_package_root.eq(package_root) {
-                                (Some(current_package_root.join(name)), None)
-                            } else {
-                                (
-                                    Some(package_root.join(name.as_str())),
-                                    Some(current_package_root.join(name)),
-                                )
-                            }
+            let (file_location, translation_file_location) = if fpm::utils::url_regex()
+                .find(section.id.as_str())
+                .is_some()
+            {
+                (None, None)
+            } else {
+                match fpm::Config::get_file_name(current_package_root, section.id.as_str(), files) {
+                    Ok(name) => {
+                        if current_package_root.eq(package_root) {
+                            (Some(current_package_root.join(name)), None)
+                        } else {
+                            (
+                                Some(package_root.join(name.as_str())),
+                                Some(current_package_root.join(name)),
+                            )
                         }
-                        Err(_) => (
-                            Some(
-                                package_root.join(
-                                    fpm::Config::get_file_name(package_root, section.id.as_str())
-                                        .map_err(|e| fpm::Error::UsageError {
+                    }
+                    Err(_) => (
+                        Some(
+                            package_root.join(
+                                fpm::Config::get_file_name(
+                                    package_root,
+                                    section.id.as_str(),
+                                    files,
+                                )
+                                .map_err(|e| {
+                                    fpm::Error::UsageError {
                                         message: format!(
                                         "`{}` not found, fix fpm.sitemap in FPM.ftd. Error: {:?}",
                                         section.id, e
                                     ),
-                                    })?,
-                                ),
+                                    }
+                                })?,
                             ),
-                            None,
                         ),
-                    }
-                };
+                        None,
+                    ),
+                }
+            };
             section.file_location = file_location;
             section.translation_file_location = translation_file_location;
 
@@ -597,6 +609,7 @@ impl Sitemap {
                     asset_documents,
                     base_url,
                     config,
+                    files,
                 )?;
             }
             Ok(())
@@ -609,6 +622,7 @@ impl Sitemap {
             asset_documents: &std::collections::HashMap<String, String>,
             base_url: &str,
             config: &fpm::Config,
+            files: &std::collections::HashMap<String, String>,
         ) -> fpm::Result<()> {
             if let Some(ref id) = subsection.id {
                 let (file_location, translation_file_location) = if fpm::utils::url_regex()
@@ -617,7 +631,7 @@ impl Sitemap {
                 {
                     (None, None)
                 } else {
-                    match fpm::Config::get_file_name(current_package_root, id.as_str()) {
+                    match fpm::Config::get_file_name(current_package_root, id.as_str(), files) {
                             Ok(name) => {
                                 if current_package_root.eq(package_root) {
                                     (Some(current_package_root.join(name)), None)
@@ -630,7 +644,7 @@ impl Sitemap {
                             }
                             Err(_) => (
                                 Some(package_root.join(
-                                    fpm::Config::get_file_name(package_root, id.as_str()).map_err(
+                                    fpm::Config::get_file_name(package_root, id.as_str(), files).map_err(
                                         |e| fpm::Error::UsageError {
                                             message: format!(
                                                 "`{}` not found, fix fpm.sitemap in FPM.ftd. Error: {:?}",
@@ -655,6 +669,7 @@ impl Sitemap {
                     asset_documents,
                     base_url,
                     config,
+                    files,
                 )?;
             }
             Ok(())
@@ -667,13 +682,14 @@ impl Sitemap {
             asset_documents: &std::collections::HashMap<String, String>,
             base_url: &str,
             config: &fpm::Config,
+            files: &std::collections::HashMap<String, String>,
         ) -> fpm::Result<()> {
             let (file_location, translation_file_location) = if toc.id.trim().is_empty()
                 || fpm::utils::url_regex().find(toc.id.as_str()).is_some()
             {
                 (None, None)
             } else {
-                match fpm::Config::get_file_name(current_package_root, toc.id.as_str()) {
+                match fpm::Config::get_file_name(current_package_root, toc.id.as_str(), files) {
                     Ok(name) => {
                         if current_package_root.eq(package_root) {
                             (Some(current_package_root.join(name)), None)
@@ -685,16 +701,17 @@ impl Sitemap {
                         }
                     }
                     Err(_) => (
-                        Some(package_root.join(
-                            fpm::Config::get_file_name(package_root, toc.id.as_str()).map_err(
-                                |e| fpm::Error::UsageError {
-                                    message: format!(
+                        Some(
+                            package_root.join(
+                                fpm::Config::get_file_name(package_root, toc.id.as_str(), files)
+                                    .map_err(|e| fpm::Error::UsageError {
+                                        message: format!(
                                         "`{}` not found, fix fpm.sitemap in FPM.ftd. Error: {:?}",
                                         toc.id, e
                                     ),
-                                },
-                            )?,
-                        )),
+                                    })?,
+                            ),
+                        ),
                         None,
                     ),
                 }
@@ -710,6 +727,7 @@ impl Sitemap {
                     asset_documents,
                     base_url,
                     config,
+                    files,
                 )?;
             }
             Ok(())
@@ -793,18 +811,57 @@ impl Sitemap {
         }
     }
 
-    fn ids_matches(id1: &str, id2: &str) -> bool {
-        return strip_id(id1).eq(&strip_id(id2));
-
-        fn strip_id(id: &str) -> String {
-            let id = id
-                .trim()
-                .replace("/index.html", "/")
-                .replace("index.html", "/");
-            if id.eq("/") {
-                return id;
+    pub(crate) fn get_all_canonical_ids(&self) -> std::collections::HashMap<String, String> {
+        let mut locations: std::collections::HashMap<String, String> = Default::default();
+        for section in self.sections.iter() {
+            if section.file_location.is_some() {
+                if let Some((id, extension)) = get_id(section.id.as_str()) {
+                    locations.insert(id, extension);
+                }
             }
-            id.trim_matches('/').to_string()
+            for subsection in section.subsections.iter() {
+                if subsection.visible {
+                    if let Some(ref subsection_id) = subsection.id {
+                        if let Some((id, extension)) = get_id(subsection_id.as_str()) {
+                            locations.insert(id, extension);
+                        }
+                    }
+                }
+                for toc in subsection.toc.iter() {
+                    if toc.file_location.is_some() {
+                        if let Some((id, extension)) = get_id(toc.id.as_str()) {
+                            locations.insert(id, extension);
+                        }
+                    }
+                    locations.extend(get_toc_canonical_ids(toc));
+                }
+            }
+        }
+        return locations;
+
+        fn get_id(id: &str) -> Option<(String, String)> {
+            if id.starts_with("-/") {
+                return None;
+            }
+            if let Some((id1, id2)) = id.split_once("-/") {
+                return Some((id1.trim().to_string(), id2.trim().to_string()));
+            }
+            None
+        }
+
+        fn get_toc_canonical_ids(
+            toc: &fpm::sitemap::TocItem,
+        ) -> std::collections::HashMap<String, String> {
+            let mut locations: std::collections::HashMap<String, String> = Default::default();
+            for child in toc.children.iter() {
+                if child.file_location.is_some() {
+                    if let Some((id, extension)) = get_id(child.id.as_str()) {
+                        locations.insert(id, extension);
+                    }
+                }
+                locations.extend(get_toc_canonical_ids(child));
+            }
+            locations
         }
     }
 
@@ -819,7 +876,7 @@ impl Sitemap {
         for (idx, section) in self.sections.iter().enumerate() {
             index = idx;
 
-            if fpm::sitemap::Sitemap::ids_matches(section.id.as_str(), id) {
+            if fpm::utils::ids_matches(section.id.as_str(), id) {
                 subsections = section
                     .subsections
                     .iter()
@@ -827,7 +884,7 @@ impl Sitemap {
                     .map(|v| {
                         let active =
                             v.id.as_ref()
-                                .map(|v| fpm::sitemap::Sitemap::ids_matches(v, id))
+                                .map(|v| fpm::utils::ids_matches(v, id))
                                 .unwrap_or(false);
                         let toc = TocItemCompat::new(v.id.clone(), v.title.clone(), active, active);
                         if active {
@@ -846,7 +903,7 @@ impl Sitemap {
                     .iter()
                     .find_or_first(|v| {
                         v.id.as_ref()
-                            .map(|v| fpm::sitemap::Sitemap::ids_matches(v, id))
+                            .map(|v| fpm::utils::ids_matches(v, id))
                             .unwrap_or(false)
                     })
                     .or_else(|| section.subsections.first())
@@ -932,7 +989,7 @@ impl Sitemap {
                     && subsection
                         .id
                         .as_ref()
-                        .map(|v| fpm::sitemap::Sitemap::ids_matches(v, id))
+                        .map(|v| fpm::utils::ids_matches(v, id))
                         .unwrap_or(false)
                 {
                     let (toc_list, current_toc) = get_all_toc(subsection.toc.as_slice(), id);
@@ -1020,7 +1077,7 @@ impl Sitemap {
                 let mut current_toc = {
                     let (is_open, children) =
                         get_toc_by_id_(id, toc_item.children.as_slice(), current_page);
-                    let is_active = fpm::sitemap::Sitemap::ids_matches(toc_item.id.as_str(), id);
+                    let is_active = fpm::utils::ids_matches(toc_item.id.as_str(), id);
                     let mut current_toc = TocItemCompat::new(
                         Some(get_url(toc_item.id.as_str()).to_string()),
                         toc_item.title.clone(),
@@ -1037,7 +1094,7 @@ impl Sitemap {
                 toc_list.push(current_toc.clone());
 
                 if current_page.is_none() {
-                    found_here = fpm::sitemap::Sitemap::ids_matches(toc_item.id.as_str(), id);
+                    found_here = fpm::utils::ids_matches(toc_item.id.as_str(), id);
                     if found_here {
                         if let Some(ref title) = toc_item.nav_title {
                             current_toc.title = Some(title.to_string());
@@ -1066,7 +1123,7 @@ impl Sitemap {
         id: &str,
     ) -> Option<std::collections::BTreeMap<String, String>> {
         for section in self.sections.iter() {
-            if fpm::sitemap::Sitemap::ids_matches(section.id.as_str(), id) {
+            if fpm::utils::ids_matches(section.id.as_str(), id) {
                 return Some(section.extra_data.to_owned());
             }
             if let Some(data) = get_extra_data_from_subsections(id, section.subsections.as_slice())
@@ -1084,7 +1141,7 @@ impl Sitemap {
         ) -> Option<std::collections::BTreeMap<String, String>> {
             for subsection in subsections {
                 if subsection.visible
-                    && fpm::sitemap::Sitemap::ids_matches(
+                    && fpm::utils::ids_matches(
                         subsection.id.as_ref().unwrap_or(&"".to_string()),
                         id,
                     )
@@ -1105,7 +1162,7 @@ impl Sitemap {
             toc: &[TocItem],
         ) -> Option<std::collections::BTreeMap<String, String>> {
             for toc_item in toc {
-                if fpm::sitemap::Sitemap::ids_matches(toc_item.id.as_str(), id) {
+                if fpm::utils::ids_matches(toc_item.id.as_str(), id) {
                     return Some(toc_item.extra_data.to_owned());
                 }
                 if let Some(data) = get_extra_data_from_toc(id, toc_item.children.as_slice()) {
