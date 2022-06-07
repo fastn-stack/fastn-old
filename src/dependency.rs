@@ -1,3 +1,7 @@
+lazy_static!{
+    static ref DOWNLOADED_PACKAGES: std::sync::Arc<tokio::sync::Mutex<Vec<String>>> = std::sync::Arc::new(tokio::sync::Mutex::new(vec![]));
+}
+
 use crate::utils::HasElements;
 
 #[derive(Debug, Clone)]
@@ -32,20 +36,8 @@ impl Dependency {
 }
 
 pub async fn ensure(base_dir: &camino::Utf8PathBuf, package: &mut fpm::Package) -> fpm::Result<()> {
-    /*futures::future::join_all(
-        deps.into_iter()
-            .map(|x| (x, base_dir.clone()))
-            .map(|(x, base_dir)| {
-                tokio::spawn(async move { x.package.process(base_dir, x.repo.as_str()).await })
-            })
-            .collect::<Vec<tokio::task::JoinHandle<_>>>(),
-    )
-    .await;*/
-    // TODO: To convert it back to async. Not sure we can or should do it as `downloaded_package` would be
-    //  referred and updated by all the dep.package.process. To make it async we have change this
-    //  function to unsafe and downloaded_package as global static variable to have longer lifetime
-
-    let downloaded_package = std::sync::Arc::new(tokio::sync::Mutex::new(vec![package.name.clone()]));
+    DOWNLOADED_PACKAGES.lock().await.push(package.name.clone());
+    let downloaded_package = DOWNLOADED_PACKAGES.clone();
 
     if let Some(translation_of) = package.translation_of.as_mut() {
         if package.language.is_none() {
@@ -58,10 +50,15 @@ pub async fn ensure(base_dir: &camino::Utf8PathBuf, package: &mut fpm::Package) 
             .process(base_dir,downloaded_package.clone(), true, true)
             .await?;
     }
+
+    let mut v = Vec::new();
+
     for dep in package.dependencies.iter_mut() {
-        dep.package
-            .process(base_dir, downloaded_package.clone(), false, true).await?;
+        v.push(dep.package
+            .process(base_dir, downloaded_package.clone(), false, true));
     }
+
+    futures::future::join_all(v).await;
 
     if package.translations.has_elements() && package.translation_of.is_some() {
         return Err(fpm::Error::UsageError {
