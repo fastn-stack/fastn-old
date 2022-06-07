@@ -1,5 +1,6 @@
-lazy_static!{
-    static ref DOWNLOADED_PACKAGES: std::sync::Arc<tokio::sync::Mutex<Vec<String>>> = std::sync::Arc::new(tokio::sync::Mutex::new(vec![]));
+lazy_static! {
+    static ref DOWNLOADED_PACKAGES: std::sync::Arc<tokio::sync::Mutex<Vec<String>>> =
+        std::sync::Arc::new(tokio::sync::Mutex::new(vec![]));
 }
 
 use crate::utils::HasElements;
@@ -36,30 +37,6 @@ impl Dependency {
 }
 
 pub async fn ensure(base_dir: &camino::Utf8PathBuf, package: &mut fpm::Package) -> fpm::Result<()> {
-    DOWNLOADED_PACKAGES.lock().await.push(package.name.clone());
-    let downloaded_package = DOWNLOADED_PACKAGES.clone();
-
-    if let Some(translation_of) = package.translation_of.as_mut() {
-        if package.language.is_none() {
-            return Err(fpm::Error::UsageError {
-                message: "Translation package needs to declare the language".to_string(),
-            });
-        }
-
-        translation_of
-            .process(base_dir,downloaded_package.clone(), true, true)
-            .await?;
-    }
-
-    let mut v = Vec::new();
-
-    for dep in package.dependencies.iter_mut() {
-        v.push(dep.package
-            .process(base_dir, downloaded_package.clone(), false, true));
-    }
-
-    futures::future::join_all(v).await;
-
     if package.translations.has_elements() && package.translation_of.is_some() {
         return Err(fpm::Error::UsageError {
             message: "Package cannot be both original and translation package. \
@@ -68,16 +45,36 @@ pub async fn ensure(base_dir: &camino::Utf8PathBuf, package: &mut fpm::Package) 
         });
     }
 
+    DOWNLOADED_PACKAGES.lock().await.push(package.name.clone());
+    let downloaded_package = DOWNLOADED_PACKAGES.clone();
+
+    let mut future_tasks = Vec::new();
+    if let Some(translation_of) = package.translation_of.as_mut() {
+        if package.language.is_none() {
+            return Err(fpm::Error::UsageError {
+                message: "Translation package needs to declare the language".to_string(),
+            });
+        }
+        future_tasks.push(translation_of.process(base_dir, downloaded_package.clone(), true, true));
+    }
+
+    for dep in package.dependencies.iter_mut() {
+        future_tasks.push(
+            dep.package
+                .process(base_dir, downloaded_package.clone(), false, true),
+        );
+    }
+
     for translation in package.translations.iter_mut() {
         if package.language.is_none() {
             return Err(fpm::Error::UsageError {
                 message: "Package needs to declare the language".to_string(),
             });
         }
-        translation
-            .process(base_dir, downloaded_package.clone(), false, false)
-            .await?;
+        future_tasks.push(translation.process(base_dir, downloaded_package.clone(), false, false));
     }
+    futures::future::join_all(future_tasks).await;
+
     Ok(())
 }
 
