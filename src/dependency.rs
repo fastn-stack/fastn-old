@@ -45,7 +45,8 @@ pub async fn ensure(base_dir: &camino::Utf8PathBuf, package: &mut fpm::Package) 
     //  referred and updated by all the dep.package.process. To make it async we have change this
     //  function to unsafe and downloaded_package as global static variable to have longer lifetime
 
-    let downloaded_package = std::sync::Arc::new(tokio::sync::Mutex::new(vec![package.name.clone()]));
+    let downloaded_package =
+        std::sync::Arc::new(tokio::sync::Mutex::new(vec![package.name.clone()]));
 
     if let Some(translation_of) = package.translation_of.as_mut() {
         if package.language.is_none() {
@@ -55,12 +56,13 @@ pub async fn ensure(base_dir: &camino::Utf8PathBuf, package: &mut fpm::Package) 
         }
 
         translation_of
-            .process(base_dir,downloaded_package.clone(), true, true)
+            .process(base_dir, downloaded_package.clone(), true, true)
             .await?;
     }
     for dep in package.dependencies.iter_mut() {
         dep.package
-            .process(base_dir, downloaded_package.clone(), false, true).await?;
+            .process(base_dir, downloaded_package.clone(), false, true)
+            .await?;
     }
 
     if package.translations.has_elements() && package.translation_of.is_some() {
