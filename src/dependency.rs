@@ -349,7 +349,6 @@ impl fpm::Package {
 
         package.translation_status_summary = ftd_document.get("fpm#translation-status-summary")?;
 
-
         downloaded_package.push(mutpackage.name.to_string());
 
         package.fpm_path = Some(fpm_path.to_owned());

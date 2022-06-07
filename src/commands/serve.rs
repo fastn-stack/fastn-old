@@ -1,7 +1,7 @@
 use itertools::Itertools;
 // actix_web::Result<actix_files::NamedFile>
 
-async fn handle_ftd(config: &fpm::Config, path: std::path::PathBuf) -> actix_web::HttpResponse {
+async fn handle_ftd(config: &mut fpm::Config, path: std::path::PathBuf) -> actix_web::HttpResponse {
     println!("root: {}", config.root);
 
     let dependencies = if let Some(package) = config.package.translation_of.as_ref() {
@@ -43,17 +43,6 @@ async fn handle_ftd(config: &fpm::Config, path: std::path::PathBuf) -> actix_web
     // let all_dep_name = dependencies.iter().map(|d| d.package.name.as_str()).collect_vec();
     // println!("ALL Deps name {:?}", all_dep_name);
 
-    fn find_dep_package<'a>(
-        config: &'a fpm::Config,
-        dep: &'a [fpm::Dependency],
-        file_path: &'a str,
-    ) -> &'a fpm::Package {
-        dep.iter()
-            .find(|d| file_path.starts_with(&d.package.name))
-            .map(|x| &x.package)
-            .unwrap_or(&config.package)
-    }
-
     // replace -/ from path string
     // if starts with -/ serve it from packages
 
@@ -73,7 +62,8 @@ async fn handle_ftd(config: &fpm::Config, path: std::path::PathBuf) -> actix_web
 
     println!("File found: Id {:?}", f.get_id());
 
-    match f {
+    config.current_document = Some(f.get_id());
+    return match f {
         fpm::File::Ftd(main_document) => {
             return match fpm::commands::build::process_ftd(
                 config,
@@ -92,6 +82,17 @@ async fn handle_ftd(config: &fpm::Config, path: std::path::PathBuf) -> actix_web
             };
         }
         _ => actix_web::HttpResponse::InternalServerError().body("".as_bytes()),
+    };
+
+    fn find_dep_package<'a>(
+        config: &'a fpm::Config,
+        dep: &'a [fpm::Dependency],
+        file_path: &'a str,
+    ) -> &'a fpm::Package {
+        dep.iter()
+            .find(|d| file_path.starts_with(&d.package.name))
+            .map(|x| &x.package)
+            .unwrap_or(&config.package)
     }
 }
 
@@ -139,7 +140,7 @@ async fn server_static_file(
     }
 }
 async fn serve_static(req: actix_web::HttpRequest) -> actix_web::HttpResponse {
-    let config = fpm::Config::read(None).await.unwrap();
+    let mut config = fpm::Config::read(None).await.unwrap();
     // TODO: It should ideally fallback to index file if not found than an error file or directory listing
     // TODO:
     // .build directory should come from config
@@ -152,9 +153,9 @@ async fn serve_static(req: actix_web::HttpRequest) -> actix_web::HttpResponse {
     } else if path.eq(&favicon) {
         server_static_file(&req, favicon).await
     } else if path.eq(&std::path::PathBuf::new().join("")) {
-        handle_ftd(&config, path.join("index")).await
+        handle_ftd(&mut config, path.join("index")).await
     } else {
-        handle_ftd(&config, path).await
+        handle_ftd(&mut config, path).await
     }
 }
 
