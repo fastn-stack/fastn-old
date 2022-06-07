@@ -191,21 +191,22 @@ impl fpm::Package {
             std::io::stdout().flush()?;
             // Download the zip folder
             {
-                let response =
+                let mut response =
                     if download_url[1..].contains("://") || download_url.starts_with("//") {
-                        reqwest::get(download_url.as_str()).await?
+                        reqwest::get(download_url.as_str())?
                     } else if let Ok(response) =
-                        reqwest::get(format!("https://{}", download_url).as_str()).await
+                        reqwest::get(format!("https://{}", download_url).as_str())
                     {
                         response
                     } else {
-                        reqwest::get(format!("http://{}", download_url).as_str()).await?
+                        reqwest::get(format!("http://{}", download_url).as_str())?
                     };
                 let mut file = std::fs::File::create(&path)?;
                 // TODO: instead of reading the whole thing in memory use tokio::io::copy() somehow?
-                // let mut buf: Vec<u8> = vec![];
-                // response.copy_to(&mut buf)?;
-                file.write_all(response.text().await?.as_bytes())?;
+                let mut buf: Vec<u8> = vec![];
+                response.copy_to(&mut buf)?;
+                file.write_all(&buf)?;
+                // file.write_all(response.text().await?.as_bytes())?;
             }
 
             let file = std::fs::File::open(&path)?;
@@ -280,7 +281,7 @@ impl fpm::Package {
 
         async fn get_fpm(name: &str) -> fpm::Result<String> {
             let response_fpm = if let Ok(response_fpm) =
-                reqwest::get(format!("https://{}/FPM.ftd", name).as_str()).await
+                reqwest::get(format!("https://{}/FPM.ftd", name).as_str())
             {
                 if response_fpm.status().is_success() {
                     Some(response_fpm)
@@ -288,7 +289,7 @@ impl fpm::Package {
                     None
                 }
             } else if let Ok(response_fpm) =
-                reqwest::get(format!("http://{}/FPM.ftd", name).as_str()).await
+                reqwest::get(format!("http://{}/FPM.ftd", name).as_str())
             {
                 if response_fpm.status().is_success() {
                     Some(response_fpm)
@@ -299,7 +300,7 @@ impl fpm::Package {
                 None
             };
             match response_fpm {
-                Some(response_fpm) => Ok(response_fpm.text().await?),
+                Some(mut response_fpm) => Ok(response_fpm.text()?),
                 None => Err(fpm::Error::UsageError {
                     message: format!(
                         "Unable to find the FPM.ftd for the dependency package: {}",
