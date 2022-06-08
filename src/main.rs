@@ -4,13 +4,15 @@ async fn main() -> fpm::Result<()> {
 
     // Block of code to run when start-project subcommand is used
     if let Some(project) = matches.subcommand_matches("start-project") {
-        // project-name => required field
-        let project_name = project.value_of("project-name");
-        // project path => optional with default value being the current directory
-        let project_path = project.value_of("project-path");
-
-        fpm::start_project(project_name, project_path).await?;
-        return Ok(())
+        // project-name => required field (any package Url or standard project name)
+        if let Some(name) = project.value_of("package-name") {
+            // project path => optional
+            let path = project.value_of("package-path");
+            fpm::start_project(name, path).await?;
+        } else {
+            panic!("Error while parsing package-name!!");
+        }
+        return Ok(());
     }
 
     let mut config = fpm::Config::read(None).await?;
@@ -102,29 +104,26 @@ fn app(authors: &'static str, version: &'static str) -> clap::App<'static, 'stat
                 .hidden(true),
         )
         .subcommand(
-            /* 
-            Initial subcommand format
-            fpm start-project <project-name> [project-path]
-                               -n or --name   -p or --path
-            Necessary <project-name> with Optional [project-path]
-            */
+            // Initial subcommand format
+            // fpm start-project <project-name> [project-path]
+            //                   -n or --name   -p or --path
+            // Necessary <project-name> with Optional [project-path]
             clap::SubCommand::with_name("start-project")
                 .about("Creates a template ftd project at the target location with the given project name")
                 .arg(
-                    clap::Arg::with_name("project-name")
+                    clap::Arg::with_name("package-name")
                         .short("n")
                         .long("name")
                         .required(true)
                         .takes_value(true)
-                        .help("Project name")
+                        .help("Package name")
                 )
                 .arg(
-                    clap::Arg::with_name("project-path")
+                    clap::Arg::with_name("package-path")
                         .short("p")
                         .long("path")
                         .takes_value(true)
-                        .default_value(".")
-                        .help("Project path (relative)")
+                        .help("Package path (relative)")
                 )
                 .version(env!("CARGO_PKG_VERSION")),
         )
