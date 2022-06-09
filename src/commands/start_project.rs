@@ -14,7 +14,6 @@ async fn write_file(file_name: &str, dir: &str, content: &str) -> fpm::Result<()
 }
 
 pub async fn start_project(name: &str, path: Option<&str>) -> fpm::Result<()> {
-
     let base_path = {
         match std::env::current_dir() {
             Ok(bp) => match bp.to_str() {
@@ -35,9 +34,7 @@ pub async fn start_project(name: &str, path: Option<&str>) -> fpm::Result<()> {
 
     let final_dir = {
         match path {
-            Some(p) => camino::Utf8PathBuf::from(base_path)
-                .join(p)
-                .join(name),
+            Some(p) => camino::Utf8PathBuf::from(base_path).join(p).join(name),
             None => camino::Utf8PathBuf::from(base_path).join(name),
         }
     };
