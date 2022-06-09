@@ -5,13 +5,10 @@ async fn main() -> fpm::Result<()> {
     // Block of code to run when start-project subcommand is used
     if let Some(project) = matches.subcommand_matches("start-project") {
         // project-name => required field (any package Url or standard project name)
-        if let Some(name) = project.value_of("package-name") {
-            // project path => optional
-            let path = project.value_of("package-path");
-            fpm::start_project(name, path).await?;
-        } else {
-            panic!("Error while parsing package-name!!");
-        }
+        let name = project.value_of("package-name").unwrap();
+        // project-path is optional
+        let path = project.value_of("package-path");
+        fpm::start_project(name, path).await?;
         return Ok(());
     }
 
