@@ -79,6 +79,11 @@ pub fn processor(
         }
     }
 
+    if let Ok(path) = section.header.str(doc.name, section.line_number, "file") {
+        let g = std::fs::read_to_string(path)?;
+        return doc.from_json(&serde_json::from_str::<serde_json::Value>(&g)?, section);
+    }
+
     if let Some((_, ref b)) = section.body {
         return doc.from_json(&serde_json::from_str::<serde_json::Value>(b)?, section);
     }
