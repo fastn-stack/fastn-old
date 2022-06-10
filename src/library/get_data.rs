@@ -79,8 +79,9 @@ pub fn processor(
         }
     }
 
+    dbg!(&section);
     if let Ok(path) = section.header.str(doc.name, section.line_number, "file") {
-        let g = std::fs::read_to_string(path)?;
+        let g = std::fs::read_to_string(path).unwrap();
         return doc.from_json(&serde_json::from_str::<serde_json::Value>(&g)?, section);
     }
 
