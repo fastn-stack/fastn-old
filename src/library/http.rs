@@ -78,7 +78,7 @@ async fn get(
     }
 }
 
-async fn _get(url: url::Url) -> reqwest::Result<String> {
+pub async fn _get(url: url::Url) -> reqwest::Result<String> {
     let mut headers = reqwest::header::HeaderMap::new();
     headers.insert(
         reqwest::header::USER_AGENT,
