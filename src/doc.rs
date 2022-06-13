@@ -4,8 +4,6 @@ pub async fn parse<'a>(
     source: &str,
     lib: &'a fpm::Library,
 ) -> ftd::p1::Result<ftd::p2::Document> {
-    dbg!(&name, &lib.config.package);
-    let current_package = vec![&lib.config.package];
     let mut s = ftd::interpret(name, source)?;
     let document;
     loop {
@@ -20,18 +18,20 @@ pub async fn parse<'a>(
                     .await?;
                 s = state.continue_after_processor(&section, value)?;
             }
-            ftd::Interpreter::StuckOnImport { module, state: st } => {
-                if module.eq("aia") {
-                    s = st.continue_after_import(module.as_str(), None, Some(module.as_str()))?;
+            ftd::Interpreter::StuckOnImport {
+                module,
+                state: mut st,
+            } => {
+                let source = if module.eq("fpm/time") {
+                    st.add_foreign_variable_prefix(module.as_str());
+                    "".to_string()
                 } else {
-                    let source =
-                        lib.get_with_result(module.as_str(), &st.tdoc(&mut Default::default()))?;
-                    s = st.continue_after_import(module.as_str(), Some(source.as_str()), None)?;
-                }
+                    lib.get_with_result(module.as_str(), &st.tdoc(&mut Default::default()))?
+                };
+                s = st.continue_after_import(module.as_str(), source.as_str())?;
             }
             ftd::Interpreter::StuckOnForeignVariable { variable, state } => {
-                let value =
-                    resolve_foreign_variable(variable.as_str(), state.document_stack.last());
+                let value = resolve_foreign_variable(variable.as_str(), name)?;
                 s = state.continue_after_variable(variable.as_str(), value)?
             }
         }
@@ -39,22 +39,23 @@ pub async fn parse<'a>(
     Ok(document)
 }
 
-fn resolve_foreign_variable(variable: &str, document: Option<&ftd::ParsedDocument>) -> ftd::Value {
-    dbg!(&variable, &document.unwrap().get_doc_aliases());
-
-    ftd::Value::String {
-        text: format!(
-            "Time is: {}",
-            std::str::from_utf8(
-                std::process::Command::new("date")
-                    .output()
-                    .expect("failed to execute process")
-                    .stdout
-                    .as_slice()
-            )
-            .unwrap()
-        ),
-        source: ftd::TextSource::Header,
+fn resolve_foreign_variable(variable: &str, doc_name: &str) -> ftd::p1::Result<ftd::Value> {
+    match variable.strip_prefix("fpm/time#") {
+        Some("now-str") => Ok(ftd::Value::String {
+            text: format!(
+                "{}",
+                std::str::from_utf8(
+                    std::process::Command::new("date")
+                        .output()
+                        .expect("failed to execute process")
+                        .stdout
+                        .as_slice()
+                )
+                .unwrap()
+            ),
+            source: ftd::TextSource::Header,
+        }),
+        _ => ftd::e2(format!("{} not found", variable).as_str(), doc_name, 0),
     }
 }
 
@@ -79,11 +80,10 @@ pub fn parse_ftd(
             ftd::Interpreter::StuckOnImport { module, state: st } => {
                 let source =
                     lib.get_with_result(module.as_str(), &st.tdoc(&mut Default::default()))?;
-                s = st.continue_after_import(module.as_str(), Some(source.as_str()), None)?;
+                s = st.continue_after_import(module.as_str(), source.as_str())?;
             }
             ftd::Interpreter::StuckOnForeignVariable { variable, state } => {
-                let value =
-                    resolve_foreign_variable(variable.as_str(), state.document_stack.last());
+                let value = resolve_foreign_variable(variable.as_str(), name)?;
                 s = state.continue_after_variable(variable.as_str(), value)?
             }
         }
