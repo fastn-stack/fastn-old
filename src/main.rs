@@ -12,6 +12,17 @@ async fn main() -> fpm::Result<()> {
         return Ok(());
     }
 
+    // Serve block moved up
+    if let Some(mark) = matches.subcommand_matches("serve") {
+        let port = mark.value_of("port").unwrap_or("8000").to_string();
+        tokio::task::spawn_blocking(move || {
+            fpm::serve(port.as_str()).expect("http service error");
+        })
+        .await
+        .expect("Thread spawn error");
+        return Ok(());
+    }
+
     let mut config = fpm::Config::read(None).await?;
 
     if matches.subcommand_matches("update").is_some() {
@@ -71,14 +82,6 @@ async fn main() -> fpm::Result<()> {
         let source = mark.value_of("source").unwrap();
         let target = mark.value_of("target");
         fpm::stop_tracking(&config, source, target).await?;
-    }
-    if let Some(mark) = matches.subcommand_matches("serve") {
-        let port = mark.value_of("port").unwrap_or("8000").to_string();
-        tokio::task::spawn_blocking(move || {
-            fpm::serve(port.as_str()).expect("http service error");
-        })
-        .await
-        .expect("Thread spawn error");
     }
     Ok(())
 }
