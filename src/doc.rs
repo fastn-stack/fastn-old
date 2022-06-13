@@ -42,17 +42,15 @@ pub async fn parse<'a>(
 fn resolve_foreign_variable(variable: &str, doc_name: &str) -> ftd::p1::Result<ftd::Value> {
     match variable.strip_prefix("fpm/time#") {
         Some("now-str") => Ok(ftd::Value::String {
-            text: format!(
-                "{}",
-                std::str::from_utf8(
-                    std::process::Command::new("date")
-                        .output()
-                        .expect("failed to execute process")
-                        .stdout
-                        .as_slice()
-                )
-                .unwrap()
-            ),
+            text: std::str::from_utf8(
+                std::process::Command::new("date")
+                    .output()
+                    .expect("failed to execute process")
+                    .stdout
+                    .as_slice(),
+            )
+            .unwrap()
+            .to_string(),
             source: ftd::TextSource::Header,
         }),
         _ => ftd::e2(format!("{} not found", variable).as_str(), doc_name, 0),
