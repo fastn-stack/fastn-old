@@ -79,7 +79,7 @@ pub fn processor(
         }
     }
 
-    dbg!(&section);
+    &section;
     if let Ok(path) = section.header.str(doc.name, section.line_number, "file") {
         let g = std::fs::read_to_string(path).map_err(|_e| ftd::p1::Error::ParseError {
             message: format!("Value is not passed for {}", name),
