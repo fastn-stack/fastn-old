@@ -390,6 +390,9 @@ pub enum Error {
     #[error("HttpError: {}", _0)]
     HttpError(#[from] reqwest::Error),
 
+    #[error("APIResponseError: {}", _0)]
+    APIResponseError(String),
+
     #[error("IoError: {}", _0)]
     IoError(#[from] std::io::Error),
 
