@@ -145,17 +145,7 @@ async fn serve_static(req: actix_web::HttpRequest) -> actix_web::HttpResponse {
 
 #[actix_web::main]
 pub async fn serve(port: &str) -> std::io::Result<()> {
-    let use_controller = {
-        let mut use_controller = false;
-        if let Ok(val) = std::env::var("CONTROLLER") {
-            if let Ok(val) = val.parse::<bool>() {
-                use_controller = val;
-            }
-        }
-        use_controller
-    };
-
-    if use_controller {
+    if cfg!(feature = "controller") {
         // fpm-controller base path and ec2 instance id (hardcoded for now)
         let fpm_controller: String = std::env::var("FPM_CONTROLLER")
             .unwrap_or_else(|_| "https://controller.fifthtry.com".to_string());
