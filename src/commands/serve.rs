@@ -70,7 +70,7 @@ async fn handle_ftd(config: &mut fpm::Config, path: std::path::PathBuf) -> actix
             .await
             {
                 Ok(r) => actix_web::HttpResponse::Ok().body(r),
-                Err(_e) => actix_web::HttpResponse::InternalServerError().body("TODO".as_bytes()),
+                Err(e) => actix_web::HttpResponse::InternalServerError().body(e.to_string()),
             };
         }
         _ => actix_web::HttpResponse::InternalServerError().body("".as_bytes()),
@@ -158,7 +158,7 @@ pub async fn serve(port: &str) -> std::io::Result<()> {
     if use_controller {
         // fpm-controller base path and ec2 instance id (hardcoded for now)
         let fpm_controller: String = std::env::var("FPM_CONTROLLER")
-            .unwrap_or_else(|_| "https:///controller.fifthtry.com".to_string());
+            .unwrap_or_else(|_| "https://controller.fifthtry.com".to_string());
         let fpm_instance: String =
             std::env::var("FPM_INSTANCE_ID").unwrap_or_else(|_| "<instance_id>".to_string());
 
@@ -180,24 +180,31 @@ pub async fn serve(port: &str) -> std::io::Result<()> {
     .await
 }
 
-// FPM Controller Support
-// FPM cli supports communication with fpm controller. This is an optional feature, and is only available when controller feature is enabled, which is not enabled by default.
-// Controller Communication
-// When controller feature is enabled, fpm serve will first communicate with the FPM controller service’s /get-package/ API.
+/// FPM Controller Support
+/// FPM cli supports communication with fpm controller. This is an optional feature, and is only
+/// available when controller feature is enabled, which is not enabled by default.
+/// Controller Communication
+/// When controller feature is enabled, fpm serve will first communicate with the FPM controller
+/// service’s /get-package/ API.
 
-// FPM Controller Service Endpoint
-// The FPM Controller Service’s endpoint is computed by using environment variable FPM_CONTROLLER, which will look something like this: https://controller.fifthtry.com, with the API path.
-// FPM Controller Service has more than one APIs: /get-package/ and /fpm-ready/.
+/// FPM Controller Service Endpoint
+/// The FPM Controller Service’s endpoint is computed by using environment variable FPM_CONTROLLER,
+/// which will look something like this: https://controller.fifthtry.com, with the API path.
+/// FPM Controller Service has more than one APIs: /get-package/ and /fpm-ready/.
 
-// get-package:
-// Through an environment variable FPM_INSTANCE_ID, the fpm serve will learn it’s instance id, and it will pass the instance id to the get-package API.
-// The API returns the URL of the package to be downloaded, git repository URL and the package name.
-// FPM will clone the git repository in the current directory. The current directory will contain FPM.ftd and other files of the package.
-// FPM will then calls fpm install on it.
+/// get-package:
+/// Through an environment variable FPM_INSTANCE_ID, the fpm serve will learn it’s instance id, and
+/// it will pass the instance id to the get-package API.
+/// The API returns the URL of the package to be downloaded, git repository URL and the package name.
+/// FPM will clone the git repository in the current directory. The current directory will contain
+/// FPM.ftd and other files of the package.
+/// FPM will then calls fpm install on it.
 
-// fpm-ready:
-// Once dependencies are ready fpm calls /fpm-ready/ API on the controller. We will pass the FPM_INSTANCE_ID and the git commit hash as input to the API
-// The API will return with success, and once it is done fpm will start receiving HTTP traffic from the controller service.
+/// fpm-ready:
+/// Once dependencies are ready fpm calls /fpm-ready/ API on the controller. We will pass the
+/// FPM_INSTANCE_ID and the git commit hash as input to the API
+/// The API will return with success, and once it is done fpm will start receiving HTTP traffic
+/// from the controller service.
 
 mod controller {
     pub async fn resolve_dependencies(
@@ -299,7 +306,11 @@ mod controller {
         fpm_instance: &str,
         fpm_controller: &str,
     ) -> fpm::Result<serde_json::Value> {
-        let controller_api = format!("{}/get-package?instance={}", fpm_controller, fpm_instance);
+        let controller_api = format!(
+            "{}/v1/fpm/get-package?ec2_reservation={}",
+            fpm_controller, fpm_instance
+        );
+
         let url = match url::Url::parse(controller_api.as_str()) {
             Ok(safe_url) => safe_url,
             Err(e) => panic!("Invalid get-package API endpoint, Parse error: {}", e),
@@ -322,7 +333,7 @@ mod controller {
         let git_commit = "<dummy-git-commit-hash-xxx123>";
 
         let controller_api = format!(
-            "{}/fpm-ready?instance={}&git-commit={}",
+            "{}/v1/fpm/fpm-ready?ec2_reservation={}&hash={}",
             fpm_controller, fpm_instance, git_commit
         );
 
@@ -334,6 +345,7 @@ mod controller {
         // This request should be put request for fpm_ready API to update the instance status to ready
         // Using http::_get() function to make request to this API for now
         let val = fpm::library::http::get(url, "", 0).await?;
+        dbg!(&val);
         Ok(val)
     }
 }
