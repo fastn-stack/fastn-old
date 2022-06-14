@@ -145,19 +145,30 @@ async fn serve_static(req: actix_web::HttpRequest) -> actix_web::HttpResponse {
 
 #[actix_web::main]
 pub async fn serve(port: &str) -> std::io::Result<()> {
-    // For debugging (will be refactored later)
-    let use_controller = false;
+    let use_controller = {
+        let mut use_controller = false;
+        if let Ok(val) = std::env::var("CONTROLLER") {
+            if let Ok(val) = val.parse::<bool>() {
+                use_controller = val;
+            }
+        }
+        use_controller
+    };
 
     if use_controller {
         // fpm-controller base path and ec2 instance id (hardcoded for now)
-        let fpm_controller: String = "https:///controller.fifthtry.com".to_string();
-        let fpm_instance: String = "<some-ec2-instance-id>".to_string();
+        let fpm_controller: String = std::env::var("FPM_CONTROLLER")
+            .unwrap_or("https:///controller.fifthtry.com".to_string());
+        let fpm_instance: String =
+            std::env::var("FPM_INSTANCE_ID").unwrap_or("<instance_id>".to_string());
 
         match controller::resolve_dependencies(fpm_instance, fpm_controller).await {
             Ok(_) => println!("Dependencies resolved"),
             Err(_) => panic!("Error resolving dependencies using controller!!"),
         }
     }
+
+    let mut config = fpm::Config::read(None).await.unwrap();
 
     println!("### Server Started ###");
     println!("Go to: http://127.0.0.1:{}", port);
@@ -199,38 +210,61 @@ mod controller {
         let package_response = get_package(fpm_instance.as_str(), fpm_controller.as_str()).await?;
         let gp_status = match package_response["success"].as_bool() {
             Some(res) => res,
-            None => panic!("success parameter doesn't exist in Json or isn't valid boolean type"),
+            None => {
+                return Err(fpm::Error::UsageError {
+                    message: "success parameter doesn't exist in Json or isn't valid boolean type"
+                        .to_string(),
+                })
+            }
         };
 
-        match gp_status {
-            true => {
-                // package name and git repo url
-                let package_name = match package_response["result"]["package"].as_str() {
-                    Some(valid_name) => valid_name,
-                    None => panic!("received invalid package name from get_package API"),
-                };
-                if let Some(git_url) = package_response["result"]["git"].as_str() {
-                    // Clone the git package into the current directory
-                    // Need to execute shell commands from rust
-                    // git_url https format: https://github.com/<user>/<repo>.git
-                    let out = std::process::Command::new("git")
-                        .arg("clone")
-                        .arg(git_url)
-                        .output()
-                        .expect("unable to execute git clone command");
+        if !gp_status {
+            return Err(fpm::Error::UsageError {
+                message: "get-package api success status returned false!!".to_string(),
+            });
+        }
 
-                    if out.status.success() {
-                        // By this time the cloned repo should be available in the current directory
-                        println!("Git cloning successful for the package {}", package_name);
-                        // Resolve dependencies by reading the FPM.ftd using config.read()
-                        // Assuming package_name and repo name are identical
-                        let _config = fpm::Config::read(Some(package_name.to_string())).await?;
-                    }
-                } else {
-                    panic!("Invalid git url for the package {}", package_name);
-                }
-            },
-            false => panic!("get-package api success status returned false!!")
+        // package name and git repo url
+        let package_name = match package_response["result"]["package"].as_str() {
+            Some(valid_name) => valid_name,
+            None => {
+                return Err(fpm::Error::UsageError {
+                    message: "received invalid package name from get_package API".to_string(),
+                })
+            }
+        };
+
+        if let Some(git_url) = package_response["result"]["git"].as_str() {
+            // Clone the git package into the current directory
+            // Need to execute shell commands from rust
+            // git_url https format: https://github.com/<user>/<repo>.git
+
+            let package = {
+                let mut package = fpm::Package::new(package_name);
+                package.zip = Some(git_url.to_string());
+                package
+            };
+
+            package.unzip_package().await?;
+            fpm::Config::read(None).await?;
+
+            /*let out = std::process::Command::new("git")
+                .arg("clone")
+                .arg(git_url)
+                .output()
+                .expect("unable to execute git clone command");
+
+            if out.status.success() {
+                // By this time the cloned repo should be available in the current directory
+                println!("Git cloning successful for the package {}", package_name);
+                // Resolve dependencies by reading the FPM.ftd using config.read()
+                // Assuming package_name and repo name are identical
+                let _config = fpm::Config::read(Some(package_name.to_string())).await?;
+            }*/
+        } else {
+            return Err(fpm::Error::UsageError {
+                message: "received invalid package name from get_package API".to_string(),
+            });
         }
 
         // Once the dependencies are resolved for the package
@@ -251,72 +285,61 @@ mod controller {
         Ok(())
     }
 
-    async fn make_get_request(url: url::Url) -> fpm::Result<serde_json::Value> {
-        use fpm::library::http;
-        let response = match http::_get(url).await {
-            Ok(some_response) => some_response,
-            Err(e) => {
-                panic!("failed to fetch data, error: {}", e.to_string())
-            }
-        };
-
-        match serde_json::from_str(response.as_str()) {
-            Ok(v) => Ok(v),
-            Err(e) => panic!(
-                "failed parsing json from response text, error: {}",
-                e.to_string()
-            ),
-        }
-    }
-
+    /// get-package API
+    /// input: fpm_instance
+    /// output: package_name and git repo URL
+    /// format: {
+    ///     "success": true,
+    ///     "result": {
+    ///         "package": "<package name>"
+    ///         "git": "<git url>"
+    ///     }
+    /// }
     async fn get_package(
         fpm_instance: &str,
         fpm_controller: &str,
     ) -> fpm::Result<serde_json::Value> {
-        // get-package API
-        // input: fpm_instance
-        // output: package_name and git repo URL
-        // format: {
-        //     "success": true,
-        //     "result": {
-        //         "package": "<package name>"
-        //         "git": "<git url>"
-        //     }
-        // }
-
-        let query_string = format!("instance={}", fpm_instance);
-        let controller_api = format!("{}/get-package?{}", fpm_controller, query_string);
-
+        let controller_api = format!("{}/get-package?instance={}", fpm_controller, fpm_instance);
         let url = match url::Url::parse(controller_api.as_str()) {
             Ok(safe_url) => safe_url,
-            Err(e) => panic!("Invalid get-package API endpoint, Parse error: {}",e.to_string()),
+            Err(e) => panic!(
+                "Invalid get-package API endpoint, Parse error: {}",
+                e.to_string()
+            ),
         };
 
-        make_get_request(url).await
+        let val = fpm::library::http::get(url, "", 0).await?;
+        Ok(val)
     }
 
-    async fn fpm_ready(fpm_instance: &str, fpm_controller: &str) -> fpm::Result<serde_json::Value> {
-        // fpm-ready API
-        // input: fpm_instance, *(git commit hash)
-        // output: success: true/false
-        // format: lang: json
-        // {
-        //     "success": true
-        // }
+    /// fpm-ready API
+    /// input: fpm_instance, *(git commit hash)
+    /// output: success: true/false
+    /// format: lang: json
+    /// {
+    ///     "success": true
+    /// }
 
-        // Git commit hash needs to be computed before making a call to the fpm_ready API
+    /// Git commit hash needs to be computed before making a call to the fpm_ready API
+    async fn fpm_ready(fpm_instance: &str, fpm_controller: &str) -> fpm::Result<serde_json::Value> {
         let git_commit = "<dummy-git-commit-hash-xxx123>";
 
-        let query_string = format!("instance={}&git-commit={}", fpm_instance, git_commit);
-        let controller_api = format!("{}/fpm-ready?{}", fpm_controller, query_string);
+        let controller_api = format!(
+            "{}/fpm-ready?instance={}&git-commit={}",
+            fpm_controller, fpm_instance, git_commit
+        );
 
         let url = match url::Url::parse(controller_api.as_str()) {
             Ok(safe_url) => safe_url,
-            Err(e) => panic!("Invalid fpm_ready API endpoint, Parse error: {}",e.to_string()),
+            Err(e) => panic!(
+                "Invalid fpm_ready API endpoint, Parse error: {}",
+                e.to_string()
+            ),
         };
 
         // This request should be put request for fpm_ready API to update the instance status to ready
         // Using http::_get() function to make request to this API for now
-        make_get_request(url).await
+        let val = fpm::library::http::get(url, "", 0).await?;
+        Ok(val)
     }
 }

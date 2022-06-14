@@ -53,7 +53,7 @@ pub async fn processor<'a>(
     doc.from_json(&json, section)
 }
 
-async fn get(
+pub(crate) async fn get(
     url: url::Url,
     doc_id: &str,
     line_number: usize,
@@ -78,7 +78,7 @@ async fn get(
     }
 }
 
-pub async fn _get(url: url::Url) -> reqwest::Result<String> {
+async fn _get(url: url::Url) -> reqwest::Result<String> {
     let mut headers = reqwest::header::HeaderMap::new();
     headers.insert(
         reqwest::header::USER_AGENT,
