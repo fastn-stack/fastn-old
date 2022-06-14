@@ -158,9 +158,9 @@ pub async fn serve(port: &str) -> std::io::Result<()> {
     if use_controller {
         // fpm-controller base path and ec2 instance id (hardcoded for now)
         let fpm_controller: String = std::env::var("FPM_CONTROLLER")
-            .unwrap_or("https:///controller.fifthtry.com".to_string());
+            .unwrap_or_else(|_| "https:///controller.fifthtry.com".to_string());
         let fpm_instance: String =
-            std::env::var("FPM_INSTANCE_ID").unwrap_or("<instance_id>".to_string());
+            std::env::var("FPM_INSTANCE_ID").unwrap_or_else(|_| "<instance_id>".to_string());
 
         match controller::resolve_dependencies(fpm_instance, fpm_controller).await {
             Ok(_) => println!("Dependencies resolved"),
@@ -168,7 +168,7 @@ pub async fn serve(port: &str) -> std::io::Result<()> {
         }
     }
 
-    let mut config = fpm::Config::read(None).await.unwrap();
+    fpm::Config::read(None).await.unwrap();
 
     println!("### Server Started ###");
     println!("Go to: http://127.0.0.1:{}", port);
@@ -302,10 +302,7 @@ mod controller {
         let controller_api = format!("{}/get-package?instance={}", fpm_controller, fpm_instance);
         let url = match url::Url::parse(controller_api.as_str()) {
             Ok(safe_url) => safe_url,
-            Err(e) => panic!(
-                "Invalid get-package API endpoint, Parse error: {}",
-                e.to_string()
-            ),
+            Err(e) => panic!("Invalid get-package API endpoint, Parse error: {}", e),
         };
 
         let val = fpm::library::http::get(url, "", 0).await?;
@@ -331,10 +328,7 @@ mod controller {
 
         let url = match url::Url::parse(controller_api.as_str()) {
             Ok(safe_url) => safe_url,
-            Err(e) => panic!(
-                "Invalid fpm_ready API endpoint, Parse error: {}",
-                e.to_string()
-            ),
+            Err(e) => panic!("Invalid fpm_ready API endpoint, Parse error: {}", e),
         };
 
         // This request should be put request for fpm_ready API to update the instance status to ready
