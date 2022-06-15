@@ -10,6 +10,7 @@ pub(crate) mod utils;
 mod auto_import;
 mod commands;
 mod config;
+mod controller;
 mod dependency;
 mod doc;
 mod file;
@@ -419,6 +420,9 @@ pub enum Error {
 
     #[error("SitemapParseError: {}", _0)]
     SitemapParseError(#[from] fpm::sitemap::ParseError),
+
+    #[error("URLParseError: {}", _0)]
+    UrlParseError(#[from] url::ParseError),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

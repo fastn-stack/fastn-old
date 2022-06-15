@@ -107,5 +107,5 @@ pub async fn get_with_type<T: serde::de::DeserializeOwned>(
             resp.text()
         )));
     }
-    resp.json().map_err(|x| x.into())
+    Ok(resp.json()?)
 }
