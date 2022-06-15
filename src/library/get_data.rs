@@ -79,8 +79,26 @@ pub fn processor(
         }
     }
 
-    (&section);
     if let Ok(path) = section.header.str(doc.name, section.line_number, "file") {
+        match std::path::Path::new(path).extension() {
+            Some(extension) => {
+                if !extension.eq("json") {
+                    return Err(ftd::p1::Error::ParseError {
+                        message: format!("only json file supported {}", path),
+                        doc_id: doc.name.to_string(),
+                        line_number: section.line_number,
+                    });
+                }
+            }
+            None => {
+                return Err(ftd::p1::Error::ParseError {
+                    message: format!("file does not have any extension {}", path),
+                    doc_id: doc.name.to_string(),
+                    line_number: section.line_number,
+                });
+            }
+        }
+
         let file = std::fs::read_to_string(path).map_err(|_e| ftd::p1::Error::ParseError {
             message: format!("Value is not passed for {}", name),
             doc_id: doc.name.to_string(),
