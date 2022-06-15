@@ -142,8 +142,9 @@ async fn fpm_ready(fpm_instance: &str, fpm_controller: &str) -> fpm::Result<()> 
         reqwest::header::HeaderValue::from_static("fpm"),
     );
 
-    // TODO: here i32 is wrong,
-    let resp: ApiResponse<i32> = fpm::library::http::get_with_type(url, headers).await?;
+    // TODO: here Map is wrong,
+    let resp: ApiResponse<std::collections::HashMap<String, String>> =
+        fpm::library::http::get_with_type(url, headers).await?;
     if !resp.success {
         return Err(fpm::Error::APIResponseError(format!(
             "fpm_ready api error: {:?}",
