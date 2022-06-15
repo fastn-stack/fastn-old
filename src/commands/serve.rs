@@ -144,28 +144,26 @@ async fn serve_static(req: actix_web::HttpRequest) -> actix_web::HttpResponse {
 }
 
 #[actix_web::main]
-pub async fn serve(port: &str) -> std::io::Result<()> {
+pub async fn serve(bind_address: &str, port: &str) -> std::io::Result<()> {
     if cfg!(feature = "controller") {
         // fpm-controller base path and ec2 instance id (hardcoded for now)
         let fpm_controller: String = std::env::var("FPM_CONTROLLER")
             .unwrap_or_else(|_| "https://controller.fifthtry.com".to_string());
         let fpm_instance: String =
-            std::env::var("FPM_INSTANCE_ID").unwrap_or_else(|_| "<instance_id>".to_string());
+            std::env::var("FPM_INSTANCE_ID").expect("FPM_INSTANCE_ID is required");
 
         match crate::controller::resolve_dependencies(fpm_instance, fpm_controller).await {
             Ok(_) => println!("Dependencies resolved"),
-            Err(_) => panic!("Error resolving dependencies using controller!!"),
+            Err(e) => panic!("Error resolving dependencies using controller!!: {:?}", e),
         }
     }
 
-    fpm::Config::read(None).await.unwrap();
-
     println!("### Server Started ###");
-    println!("Go to: http://127.0.0.1:{}", port);
+    println!("Go to: http://{}:{}", bind_address, port);
     actix_web::HttpServer::new(|| {
         actix_web::App::new().route("/{path:.*}", actix_web::web::get().to(serve_static))
     })
-    .bind(format!("127.0.0.1:{}", port))?
+    .bind(format!("{}:{}", bind_address, port))?
     .run()
     .await
 }

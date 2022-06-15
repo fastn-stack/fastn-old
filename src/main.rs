@@ -14,13 +14,16 @@ async fn main() -> fpm::Result<()> {
 
     // Serve block moved up
     if let Some(mark) = matches.subcommand_matches("serve") {
-        let port = mark.value_of("port").unwrap_or("8000").to_string();
+        let port = mark
+            .value_of("port")
+            .unwrap_or_else(|| mark.value_of("positional_port").unwrap_or("8000"))
+            .to_string();
+        let bind = mark.value_of("bind").unwrap_or("127.0.0.1").to_string();
         tokio::task::spawn_blocking(move || {
-            fpm::serve(port.as_str()).expect("http service error");
+            fpm::serve(bind.as_str(), port.as_str()).expect("http service error");
         })
         .await
         .expect("Thread spawn error");
-        return Ok(());
     }
 
     let mut config = fpm::Config::read(None).await?;
@@ -225,7 +228,24 @@ fn app(authors: &'static str, version: &'static str) -> clap::App<'static, 'stat
         )
         .subcommand(
             clap::SubCommand::with_name("serve")
-                .arg(clap::Arg::with_name("port").required(false))
+                .arg(clap::Arg::with_name("port")
+                        .required_unless("positional_port")
+                        .required(false)
+                        .help("Specify the port to serve on")
+                )
+                .arg(clap::Arg::with_name("positional_port")
+                        .long("--port")
+                        .required_unless("bind")
+                        .takes_value(true)
+                        .required(false)
+                        .help("Specify the port to serve on")
+                )
+                .arg(clap::Arg::with_name("bind")
+                        .long("--bind")
+                        .takes_value(true)
+                        .required(false)
+                        .help("Specify the bind address to serve on")
+                )
                 .about("Create an http server and serves static files")
                 .version(env!("CARGO_PKG_VERSION")),
         )
