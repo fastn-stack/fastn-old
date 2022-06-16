@@ -130,7 +130,7 @@ impl Library {
                     }
                     // return Some(package.get_assets_doc());
                 } else if let Some(body) = get_file_from_location(&path, new_name.as_str()) {
-                    return Some(package.get_prefixed_body(body.as_str(), name, false));
+                    return Some(package.get_prefixed_body(body.as_str(), name, true));
                 }
             }
             None
