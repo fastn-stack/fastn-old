@@ -3,6 +3,7 @@ pub async fn parse<'a>(
     name: &str,
     source: &str,
     lib: &'a fpm::Library,
+    base_url: &str,
 ) -> ftd::p1::Result<ftd::p2::Document> {
     let mut s = ftd::interpret(name, source)?;
     let mut packages_under_process = vec![&lib.config.package];
@@ -57,12 +58,14 @@ pub async fn parse<'a>(
                     })?;
 
                     if module.starts_with(current_package.name.as_str()) {
-                        current_package.get_font_ftd().unwrap_or("".to_string())
+                        current_package
+                            .get_font_ftd()
+                            .unwrap_or_else(|| "".to_string())
                     } else {
                         let mut font_ftd = "".to_string();
                         for (alias, package) in current_package.aliases() {
                             if module.starts_with(alias) {
-                                font_ftd = package.get_font_ftd().unwrap_or("".to_string());
+                                font_ftd = package.get_font_ftd().unwrap_or_else(|| "".to_string());
                                 break;
                             }
                         }
@@ -83,8 +86,13 @@ pub async fn parse<'a>(
                             doc_id: "".to_string(),
                             line_number: 0,
                         })?;
-                let value =
-                    resolve_foreign_variable(variable.as_str(), name, current_package, lib)?;
+                let value = resolve_foreign_variable(
+                    variable.as_str(),
+                    name,
+                    current_package,
+                    lib,
+                    base_url,
+                )?;
                 s = state.continue_after_variable(variable.as_str(), value)?
             }
         }
@@ -97,6 +105,7 @@ fn resolve_foreign_variable(
     doc_name: &str,
     package: &fpm::Package,
     lib: &fpm::Library,
+    base_url: &str,
 ) -> ftd::p1::Result<ftd::Value> {
     if let Ok(value) = resolve_ftd_foreign_variable(variable, doc_name) {
         return Ok(value);
@@ -104,13 +113,13 @@ fn resolve_foreign_variable(
 
     if let Some((package_name, files)) = variable.split_once("/assets#files.") {
         if package.name.eq(package_name) {
-            if let Ok(value) = get_assets_value(package, files, lib, doc_name) {
+            if let Ok(value) = get_assets_value(package, files, lib, doc_name, base_url) {
                 return Ok(value);
             }
         }
         for (alias, package) in package.aliases() {
             if alias.eq(package_name) {
-                if let Ok(value) = get_assets_value(package, files, lib, doc_name) {
+                if let Ok(value) = get_assets_value(package, files, lib, doc_name, base_url) {
                     return Ok(value);
                 }
             }
@@ -124,7 +133,9 @@ fn resolve_foreign_variable(
         files: &str,
         lib: &fpm::Library,
         doc_name: &str,
+        base_url: &str,
     ) -> ftd::p1::Result<ftd::Value> {
+        let base_url = base_url.trim_end_matches('/');
         let path = lib.config.get_root_for_package(package);
         match files.rsplit_once(".") {
             Some((file, ext))
@@ -136,13 +147,18 @@ fn resolve_foreign_variable(
                         .join(format!("{}.{}", file.replace('.', "/"), ext))
                         .exists() =>
             {
-                let light_mode = format!("/-/{}/{}.{}", package.name, file.replace('.', "/"), ext);
+                let light_mode = format!(
+                    "{base_url}/-/{}/{}.{}",
+                    package.name,
+                    file.replace('.', "/"),
+                    ext
+                );
                 let dark_mode = if path
                     .join(format!("{}-dark.{}", file.replace('.', "/"), ext))
                     .exists()
                 {
                     format!(
-                        "/-/{}/{}-dark.{}",
+                        "{base_url}/-/{}/{}-dark.{}",
                         package.name,
                         file.replace('.', "/"),
                         ext
