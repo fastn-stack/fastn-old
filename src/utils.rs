@@ -268,3 +268,27 @@ pub(crate) fn url_regex() -> regex::Regex {
         r#"((([A-Za-z]{3,9}:(?://)?)(?:[-;:&=\+\$,\w]+@)?[A-Za-z0-9.-]+|(?:www.|[-;:&=\+\$,\w]+@)[A-Za-z0-9.-]+)((?:/[\+~%/.\w_]*)?\??(?:[-\+=&;%@.\w_]*)\#?(?:[\w]*))?)"#
     ).unwrap()
 }
+
+pub(crate) async fn http_get_str<T: reqwest::IntoUrl + std::fmt::Debug>(
+    url: T,
+) -> fpm::Result<String> {
+    let mut headers = reqwest::header::HeaderMap::new();
+    headers.insert(
+        reqwest::header::USER_AGENT,
+        reqwest::header::HeaderValue::from_static("fpm"),
+    );
+    let c = reqwest::Client::builder()
+        .default_headers(headers)
+        .build()?;
+    let url_f = format!("{:?}", url);
+    let mut res = c.get(url).send()?;
+    if !res.status().eq(&reqwest::StatusCode::OK) {
+        return Err(fpm::Error::APIResponseError(format!(
+            "url: {}, response_status: {}, response: {:?}",
+            url_f,
+            res.status(),
+            res.text()
+        )));
+    }
+    Ok(res.text()?)
+}

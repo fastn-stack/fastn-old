@@ -1,46 +1,28 @@
 async fn handle_ftd(config: &mut fpm::Config, path: std::path::PathBuf) -> actix_web::HttpResponse {
-    use itertools::Itertools;
-    let dependencies = if let Some(package) = config.package.translation_of.as_ref() {
-        let mut deps = package
-            .get_flattened_dependencies()
-            .into_iter()
-            .unique_by(|dep| dep.package.name.clone())
-            .collect_vec();
-        deps.extend(
-            config
-                .package
-                .get_flattened_dependencies()
-                .into_iter()
-                .unique_by(|dep| dep.package.name.clone()),
-        );
-        deps
-    } else {
-        config
-            .package
-            .get_flattened_dependencies()
-            .into_iter()
-            .unique_by(|dep| dep.package.name.clone())
-            .collect_vec()
-    };
-
-    let new_path = match path.to_str() {
-        Some(s) => s.trim_start_matches("-/"),
+    let path = match path.to_str() {
+        Some(s) => s,
         None => {
             println!("handle_ftd: Not able to convert path");
             return actix_web::HttpResponse::InternalServerError().body("".as_bytes());
         }
     };
 
-    let dep_package = find_dep_package(config, &dependencies, new_path);
-
-    dbg!(&dep_package.name);
-    let f = match config
-        .get_file_by_id2(path.to_str().unwrap(), dep_package)
+    let dep_package = if let Ok(dep) = config
+        .resolve_package(find_dep_package(config, &config.package, path))
         .await
     {
+        dep
+    } else {
+        println!("handle_ftd: Cannot resolve package");
+        return actix_web::HttpResponse::InternalServerError().body("".as_bytes());
+    };
+
+    config.add_package(&dep_package);
+
+    let f = match config.get_file_by_id2(path, &dep_package).await {
         Ok(f) => f,
         Err(e) => {
-            println!("new_path: {}, Error: {:?}", new_path, e);
+            println!("new_path: {}, Error: {:?}", path, e);
             return actix_web::HttpResponse::InternalServerError().body(e.to_string());
         }
     };
@@ -69,10 +51,17 @@ async fn handle_ftd(config: &mut fpm::Config, path: std::path::PathBuf) -> actix
 
     fn find_dep_package<'a>(
         config: &'a fpm::Config,
-        dep: &'a [fpm::Dependency],
+        package: &'a fpm::Package,
         file_path: &'a str,
     ) -> &'a fpm::Package {
-        dep.iter()
+        let file_path = if let Some(file_path) = file_path.strip_prefix("-/") {
+            file_path
+        } else {
+            return &config.package;
+        };
+        package
+            .dependencies
+            .iter()
             .find(|d| file_path.starts_with(&d.package.name))
             .map(|x| &x.package)
             .unwrap_or(&config.package)
@@ -119,13 +108,10 @@ async fn server_static_file(
     }
 }
 async fn serve_static(req: actix_web::HttpRequest) -> actix_web::HttpResponse {
-    dbg!("serve_static");
-    let mut config = fpm::Config::read(None).await.unwrap();
-    dbg!("config");
+    let mut config = fpm::Config::read2(None).await.unwrap();
     let path: std::path::PathBuf = req.match_info().query("path").parse().unwrap();
 
     let favicon = std::path::PathBuf::new().join("favicon.ico");
-    dbg!("path", &path);
     /*if path.starts_with("-/") {
         handle_dash(&req, &config, path).await
     } else*/

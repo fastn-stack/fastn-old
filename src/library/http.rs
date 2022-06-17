@@ -90,29 +90,6 @@ async fn _get(url: url::Url) -> reqwest::Result<String> {
     c.get(url.to_string().as_str()).send()?.text()
 }
 
-pub(crate) async fn get2<T: reqwest::IntoUrl + std::fmt::Debug>(url: T) -> fpm::Result<String> {
-    let mut headers = reqwest::header::HeaderMap::new();
-    headers.insert(
-        reqwest::header::USER_AGENT,
-        reqwest::header::HeaderValue::from_static("fpm"),
-    );
-    let c = reqwest::Client::builder()
-        .default_headers(headers)
-        .build()?;
-    let url_f = format!("{:?}", url);
-    let mut res = c.get(url).send()?;
-    dbg!(&res);
-    if !res.status().eq(&reqwest::StatusCode::OK) {
-        return Err(fpm::Error::APIResponseError(format!(
-            "url: {}, response_status: {}, response: {:?}",
-            url_f,
-            res.status(),
-            res.text()
-        )));
-    }
-    Ok(res.text()?)
-}
-
 pub async fn get_with_type<T: serde::de::DeserializeOwned>(
     url: url::Url,
     headers: reqwest::header::HeaderMap,
