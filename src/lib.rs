@@ -27,7 +27,7 @@ mod version;
 pub(crate) use auto_import::AutoImport;
 pub(crate) use commands::build::process_file;
 pub use commands::{
-    build::build, diff::diff, mark_upto_date::mark_upto_date, serve::serve,
+    build::build, diff::diff, mark_upto_date::mark_upto_date, serve::serve, serve2::serve2,
     start_project::start_project, start_tracking::start_tracking, status::status,
     stop_tracking::stop_tracking, sync::sync, translation_status::translation_status,
     update::update,

@@ -349,6 +349,7 @@ impl fpm::Package {
                 let mut f = std::fs::File::create(&file_extract_path)?;
                 f.write_all(fpm_string.as_bytes())?;
             }
+            dbg!("process_fpm2 1");
             return fpm::Package::process_fpm2(
                 &root,
                 base_dir,
@@ -369,6 +370,9 @@ impl fpm::Package {
             let mut file = tokio::fs::File::create(root.join("FPM.ftd")).await?;
             file.write_all(fpm_string.as_bytes()).await?;
         }
+
+        dbg!("after root.exists()", &root);
+
         let fpm_ftd_path = if root.join("FPM.ftd").exists() {
             root.join("FPM.ftd")
         } else {
@@ -399,6 +403,8 @@ impl fpm::Package {
                 }
             }
         };
+
+        dbg!("fpm_ftd_path ", &fpm_ftd_path);
 
         return fpm::Package::process_fpm2(
             &root,
@@ -694,11 +700,20 @@ impl fpm::Package {
             for dep in package.dependencies.iter_mut() {
                 let dep_path = root.join(".packages").join(dep.package.name.as_str());
 
+                dbg!(
+                    "download_dependencies",
+                    &dep_path,
+                    &dep.package.name,
+                    &root,
+                    &base_path
+                );
                 if dep_path.exists() {
+                    dbg!("path exists", &dep_path, &root);
                     let dst = base_path.join(".packages").join(dep.package.name.as_str());
                     if !dst.exists() {
                         futures::executor::block_on(fpm::copy_dir_all(dep_path, dst.clone()))?;
                     }
+                    dbg!("download_dependencies process_fpm2 1", &package.name);
                     fpm::Package::process_fpm2(
                         &dst,
                         base_path,
@@ -710,6 +725,11 @@ impl fpm::Package {
                     )
                     .await?;
                 } else {
+                    dbg!(
+                        "download_dependencies process2 1",
+                        &package.name,
+                        &dep.package.name
+                    );
                     dep.package
                         .process2(base_path, downloaded_package, false, true)
                         .await?;
@@ -735,6 +755,7 @@ impl fpm::Package {
                     if !dst.exists() {
                         futures::executor::block_on(fpm::copy_dir_all(original_path, dst.clone()))?;
                     }
+                    dbg!("download_translations process2 1", &package.name);
                     fpm::Package::process_fpm2(
                         &dst,
                         base_path,

@@ -309,7 +309,9 @@ impl Config {
 
         fpm::utils::validate_base_url(&package)?;
 
+        dbg!("calling ensure");
         fpm::dependency::ensure(&root, &mut package).await?;
+        dbg!("after ensure");
         if package.import_auto_imports_from_original {
             if let Some(ref original_package) = *package.translation_of {
                 if !package.auto_import.is_empty() {
@@ -487,6 +489,197 @@ impl Config {
             .ok_or_else(|| fpm::Error::UsageError {
                 message: format!("No such file found: {}", id),
             });
+    }
+
+    pub(crate) async fn get_file_by_id2(
+        &self,
+        id: &str,
+        package: &fpm::Package,
+    ) -> fpm::Result<fpm::File> {
+        let file_name = fpm::Config::get_file_name2(&self.root, id, package).await?;
+        return fpm::get_file(
+            package.name.to_string(),
+            &self.root.join(file_name),
+            &self.root,
+        )
+        .await;
+    }
+
+    pub(crate) async fn get_file_name2(
+        root: &camino::Utf8PathBuf,
+        id: &str,
+        package: &fpm::Package,
+    ) -> fpm::Result<String> {
+        let mut id = id.to_string();
+        let mut add_packages = "".to_string();
+        if let Some(new_id) = id.strip_prefix("-/") {
+            id = new_id.to_string();
+            add_packages = ".packages/".to_string()
+        }
+        let mut id = id
+            .split_once("-/")
+            .map(|(id, _)| id)
+            .unwrap_or_else(|| id.as_str())
+            .trim()
+            .replace("/index.html", "/")
+            .replace("index.html", "/");
+        if id.eq("/") {
+            if root.join(format!("{}index.ftd", add_packages)).exists() {
+                return Ok(format!("{}index.ftd", add_packages));
+            }
+            if root.join(format!("{}README.md", add_packages)).exists() {
+                return Ok(format!("{}README.md", add_packages));
+            }
+            return Err(fpm::Error::UsageError {
+                message: "File not found".to_string(),
+            });
+        }
+        id = id.trim_matches('/').to_string();
+        if root.join(format!("{}{}.ftd", add_packages, id)).exists() {
+            return Ok(format!("{}{}.ftd", add_packages, id));
+        }
+        if root
+            .join(format!("{}{}/index.ftd", add_packages, id))
+            .exists()
+        {
+            return Ok(format!("{}{}/index.ftd", add_packages, id));
+        }
+        if root.join(format!("{}{}.md", add_packages, id)).exists() {
+            return Ok(format!("{}{}.md", add_packages, id));
+        }
+        if root
+            .join(format!("{}{}/README.md", add_packages, id))
+            .exists()
+        {
+            return Ok(format!("{}{}/README.md", add_packages, id));
+        }
+        if !add_packages.is_empty() {
+            return fpm::Config::download_required_file(root, id.as_str(), &package).await;
+        }
+        return Err(fpm::Error::UsageError {
+            message: "File not found".to_string(),
+        });
+    }
+
+    async fn download_required_file(
+        root: &camino::Utf8PathBuf,
+        id: &str,
+        package: &fpm::Package,
+    ) -> fpm::Result<String> {
+        use tokio::io::AsyncWriteExt;
+        dbg!("download_required_file", &root, &id, &package);
+        let (package, id) = package
+            .aliases()
+            .into_iter()
+            .find_map(|(alias, package)| {
+                if let Some(r) = id.strip_prefix(alias) {
+                    Some((package, r))
+                } else {
+                    None
+                }
+            })
+            .ok_or(fpm::Error::PackageError {
+                message: "package not found for".to_string(),
+            })?;
+        dbg!(&package.name, &id);
+
+        let base = package
+            .base
+            .clone()
+            .ok_or_else(|| fpm::Error::PackageError {
+                message: "package base not found".to_string(),
+            })?;
+
+        dbg!(&base);
+
+        if id.eq("/") {
+            if let Ok(string) = fpm::library::http::get2(
+                format!("{}/index.ftd", base.trim_end_matches('/')).as_str(),
+            )
+            .await
+            {
+                let base = root.join(".packages").join(package.name.as_str());
+                tokio::fs::create_dir_all(&base).await?;
+                tokio::fs::File::create(base.join("index.ftd"))
+                    .await?
+                    .write_all(string.as_bytes())
+                    .await?;
+                return Ok(format!(".packages/{}/index.ftd", package.name));
+            }
+            if let Ok(string) = fpm::library::http::get2(
+                format!("{}/README.md", base.trim_end_matches('/')).as_str(),
+            )
+            .await
+            {
+                let base = root.join(".packages").join(package.name.as_str());
+                tokio::fs::create_dir_all(&base).await?;
+                tokio::fs::File::create(base.join("README.md"))
+                    .await?
+                    .write_all(string.as_bytes())
+                    .await?;
+                return Ok(format!(".packages/{}/README.md", package.name));
+            }
+            return Err(fpm::Error::UsageError {
+                message: "File not found".to_string(),
+            });
+        }
+
+        let id = id.trim_matches('/').to_string();
+        if let Ok(string) = fpm::library::http::get2(
+            dbg!(format!("{}/{}.ftd", base.trim_end_matches('/'), id)).as_str(),
+        )
+        .await
+        {
+            let base = root.join(".packages").join(package.name.as_str());
+            dbg!("after http request", &base);
+            tokio::fs::create_dir_all(&base).await?;
+            tokio::fs::File::create(base.join(format!("{}.ftd", id)))
+                .await?
+                .write_all(string.as_bytes())
+                .await?;
+            return Ok(format!(".packages/{}/{}.ftd", package.name, id));
+        }
+        if let Ok(string) = fpm::library::http::get2(
+            format!("{}/{}/index.ftd", base.trim_end_matches('/'), id).as_str(),
+        )
+        .await
+        {
+            let base = root.join(".packages").join(package.name.as_str());
+            tokio::fs::create_dir_all(&base).await?;
+            tokio::fs::File::create(base.join(format!("{}/index.ftd", id)))
+                .await?
+                .write_all(string.as_bytes())
+                .await?;
+            return Ok(format!(".packages/{}/{}/index.ftd", package.name, id));
+        }
+        if let Ok(string) =
+            fpm::library::http::get2(format!("{}/{}.md", base.trim_end_matches('/'), id).as_str())
+                .await
+        {
+            let base = root.join(".packages").join(package.name.as_str());
+            tokio::fs::create_dir_all(&base).await?;
+            tokio::fs::File::create(base.join(format!("{}.md", id)))
+                .await?
+                .write_all(string.as_bytes())
+                .await?;
+            return Ok(format!(".packages/{}/{}.md", package.name, id));
+        }
+        if let Ok(string) = fpm::library::http::get2(
+            format!("{}/{}/README.md", base.trim_end_matches('/'), id).as_str(),
+        )
+        .await
+        {
+            let base = root.join(".packages").join(package.name.as_str());
+            tokio::fs::create_dir_all(&base).await?;
+            tokio::fs::File::create(base.join(format!("{}/README.md", id)))
+                .await?
+                .write_all(string.as_bytes())
+                .await?;
+            return Ok(format!(".packages/{}/{}/README.md", package.name, id));
+        }
+        return Err(fpm::Error::UsageError {
+            message: "File not found".to_string(),
+        });
     }
 
     pub(crate) fn get_file_name(root: &camino::Utf8PathBuf, id: &str) -> fpm::Result<String> {
