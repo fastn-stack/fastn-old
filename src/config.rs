@@ -554,11 +554,11 @@ impl Config {
             return Ok(format!("{}{}/README.md", add_packages, id));
         }
         if !add_packages.is_empty() {
-            return fpm::Config::download_required_file(root, id.as_str(), &package).await;
+            return fpm::Config::download_required_file(root, id.as_str(), package).await;
         }
-        return Err(fpm::Error::UsageError {
+        Err(fpm::Error::UsageError {
             message: "File not found".to_string(),
-        });
+        })
     }
 
     async fn download_required_file(
@@ -571,13 +571,7 @@ impl Config {
         let (package, id) = package
             .aliases()
             .into_iter()
-            .find_map(|(alias, package)| {
-                if let Some(r) = id.strip_prefix(alias) {
-                    Some((package, r))
-                } else {
-                    None
-                }
-            })
+            .find_map(|(alias, package)| id.strip_prefix(alias).map(|r| (package, r)))
             .ok_or(fpm::Error::PackageError {
                 message: "package not found for".to_string(),
             })?;
@@ -677,9 +671,9 @@ impl Config {
                 .await?;
             return Ok(format!(".packages/{}/{}/README.md", package.name, id));
         }
-        return Err(fpm::Error::UsageError {
+        Err(fpm::Error::UsageError {
             message: "File not found".to_string(),
-        });
+        })
     }
 
     pub(crate) fn get_file_name(root: &camino::Utf8PathBuf, id: &str) -> fpm::Result<String> {

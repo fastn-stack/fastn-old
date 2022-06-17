@@ -35,7 +35,7 @@ async fn handle_ftd(config: &mut fpm::Config, path: std::path::PathBuf) -> actix
 
     dbg!(&dep_package.name);
     let f = match config
-        .get_file_by_id2(&path.to_str().unwrap(), dep_package)
+        .get_file_by_id2(path.to_str().unwrap(), dep_package)
         .await
     {
         Ok(f) => f,
@@ -79,31 +79,31 @@ async fn handle_ftd(config: &mut fpm::Config, path: std::path::PathBuf) -> actix
     }
 }
 
-async fn handle_dash(
-    req: &actix_web::HttpRequest,
-    config: &fpm::Config,
-    path: std::path::PathBuf,
-) -> actix_web::HttpResponse {
-    let new_path = match path.to_str() {
-        Some(s) => s.replace("-/", ""),
-        None => {
-            println!("handle_dash: Not able to convert path");
-            return actix_web::HttpResponse::InternalServerError().body("".as_bytes());
-        }
-    };
-
-    let file_path = if new_path.starts_with(&config.package.name) {
-        std::path::PathBuf::new().join(
-            new_path
-                .strip_prefix(&(config.package.name.to_string() + "/"))
-                .unwrap(),
-        )
-    } else {
-        std::path::PathBuf::new().join(".packages").join(new_path)
-    };
-
-    server_static_file(req, file_path).await
-}
+// async fn handle_dash(
+//     req: &actix_web::HttpRequest,
+//     config: &fpm::Config,
+//     path: std::path::PathBuf,
+// ) -> actix_web::HttpResponse {
+//     let new_path = match path.to_str() {
+//         Some(s) => s.replace("-/", ""),
+//         None => {
+//             println!("handle_dash: Not able to convert path");
+//             return actix_web::HttpResponse::InternalServerError().body("".as_bytes());
+//         }
+//     };
+//
+//     let file_path = if new_path.starts_with(&config.package.name) {
+//         std::path::PathBuf::new().join(
+//             new_path
+//                 .strip_prefix(&(config.package.name.to_string() + "/"))
+//                 .unwrap(),
+//         )
+//     } else {
+//         std::path::PathBuf::new().join(".packages").join(new_path)
+//     };
+//
+//     server_static_file(req, file_path).await
+// }
 
 async fn server_static_file(
     req: &actix_web::HttpRequest,
