@@ -197,9 +197,9 @@ pub(crate) fn seconds_to_human(s: u64) -> String {
     }
 }
 
-pub(crate) fn validate_zip_url(package: &fpm::Package) -> fpm::Result<()> {
-    if package.zip.is_none() {
-        warning!("expected zip in fpm.package");
+pub(crate) fn validate_base_url(package: &fpm::Package) -> fpm::Result<()> {
+    if package.base.is_none() {
+        warning!("expected base in fpm.package");
     }
 
     Ok(())
