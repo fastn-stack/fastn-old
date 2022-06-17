@@ -32,6 +32,7 @@ impl Dependency {
 }
 
 pub async fn ensure(base_dir: &camino::Utf8PathBuf, package: &mut fpm::Package) -> fpm::Result<()> {
+    // `translations` and `translation_of` both can't have together
     if package.translations.has_elements() && package.translation_of.is_some() {
         return Err(fpm::Error::UsageError {
             message: "Package cannot be both original and translation package. \
