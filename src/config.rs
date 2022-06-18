@@ -505,7 +505,7 @@ impl Config {
         return fpm::get_file(
             package.name.to_string(),
             &self.root.join(file_name),
-            &self.root,
+            &self.get_root_for_package(package),
         )
         .await;
     }
@@ -566,20 +566,16 @@ impl Config {
         })
     }
 
-    async fn download_required_file(
+    pub(crate) async fn download_required_file(
         root: &camino::Utf8PathBuf,
         id: &str,
         package: &fpm::Package,
     ) -> fpm::Result<String> {
         use tokio::io::AsyncWriteExt;
 
-        let (package, id) = package
-            .aliases()
-            .into_iter()
-            .find_map(|(alias, package)| id.strip_prefix(alias).map(|r| (package, r)))
-            .ok_or(fpm::Error::PackageError {
-                message: "package not found for".to_string(),
-            })?;
+        dbg!("download_required_file****", &package.name);
+
+        let id = id.trim_start_matches(package.name.as_str());
 
         let base = package
             .base
@@ -587,8 +583,6 @@ impl Config {
             .ok_or_else(|| fpm::Error::PackageError {
                 message: "package base not found".to_string(),
             })?;
-
-        dbg!(&base);
 
         if id.eq("/") {
             if let Ok(string) = fpm::utils::http_get_str(
@@ -628,27 +622,41 @@ impl Config {
         )
         .await
         {
-            let base = root.join(".packages").join(package.name.as_str());
+            let (prefix, id) = match id.rsplit_once('/') {
+                Some((prefix, id)) => (format!("/{}", prefix), id.to_string()),
+                None => ("".to_string(), id),
+            };
+            let base = root
+                .join(".packages")
+                .join(format!("{}{}", package.name.as_str(), prefix));
             dbg!("after http request", &base);
             tokio::fs::create_dir_all(&base).await?;
-            tokio::fs::File::create(base.join(format!("{}.ftd", id)))
+            let file_path = base.join(format!("{}.ftd", id));
+            dbg!(&file_path);
+            tokio::fs::File::create(&file_path)
                 .await?
                 .write_all(string.as_bytes())
                 .await?;
-            return Ok(format!(".packages/{}/{}.ftd", package.name, id));
+            return Ok(file_path.to_string());
         }
-        if let Ok(string) = fpm::utils::http_get_str(
-            format!("{}/{}/index.ftd", base.trim_end_matches('/'), id).as_str(),
+        if let Ok(string) = fpm::utils::http_get_str(dbg!(format!(
+            "{}/{}/index.ftd",
+            base.trim_end_matches('/'),
+            id
         )
+        .as_str()))
         .await
         {
-            let base = root.join(".packages").join(package.name.as_str());
+            let base = root.join(".packages").join(package.name.as_str()).join(id);
+            dbg!("base 1", &base);
             tokio::fs::create_dir_all(&base).await?;
-            tokio::fs::File::create(base.join(format!("{}/index.ftd", id)))
+            let file_path = base.join("index.ftd");
+            dbg!("file_path 1", &file_path);
+            tokio::fs::File::create(&file_path)
                 .await?
                 .write_all(string.as_bytes())
                 .await?;
-            return Ok(format!(".packages/{}/{}/index.ftd", package.name, id));
+            return Ok(file_path.to_string());
         }
         if let Ok(string) =
             fpm::utils::http_get_str(format!("{}/{}.md", base.trim_end_matches('/'), id).as_str())
@@ -949,6 +957,9 @@ impl Config {
     ) -> fpm::Result<fpm::Package> {
         if self.package.name.eq(package.name.as_str()) {
             return Ok(self.package.clone());
+        }
+        if let Some(package) = self.all_packages.get(package.name.as_str()) {
+            return Ok(package.clone());
         }
         package
             .get_and_resolve(&self.get_root_for_package(package))

@@ -4,9 +4,13 @@ pub async fn parse<'a>(
     source: &str,
     lib: &'a fpm::Library,
     base_url: &str,
+    current_package: Option<&fpm::Package>,
 ) -> ftd::p1::Result<ftd::p2::Document> {
     let mut s = ftd::interpret(name, source)?;
-    let mut packages_under_process = vec![&lib.config.package];
+
+    let mut packages_under_process = vec![current_package
+        .map(|v| v.to_owned())
+        .unwrap_or(lib.config.package.clone())];
     let document;
     loop {
         match s {
@@ -27,13 +31,16 @@ pub async fn parse<'a>(
                 packages_under_process.truncate(st.document_stack.len());
                 let source = if module.eq("fpm/time") {
                     st.add_foreign_variable_prefix(module.as_str(), vec![module.to_string()]);
-                    packages_under_process.push(packages_under_process.last().ok_or_else(
-                        || ftd::p1::Error::ParseError {
-                            message: "The processing document stack is empty".to_string(),
-                            doc_id: "".to_string(),
-                            line_number: 0,
-                        },
-                    )?);
+                    packages_under_process.push(
+                        packages_under_process
+                            .last()
+                            .ok_or_else(|| ftd::p1::Error::ParseError {
+                                message: "The processing document stack is empty".to_string(),
+                                doc_id: "".to_string(),
+                                line_number: 0,
+                            })?
+                            .clone(),
+                    );
                     "".to_string()
                 } else if module.ends_with("assets") {
                     st.add_foreign_variable_prefix(
@@ -41,13 +48,16 @@ pub async fn parse<'a>(
                         vec![format!("{}#files", module)],
                     );
 
-                    packages_under_process.push(packages_under_process.last().ok_or_else(
-                        || ftd::p1::Error::ParseError {
-                            message: "The processing document stack is empty".to_string(),
-                            doc_id: "".to_string(),
-                            line_number: 0,
-                        },
-                    )?);
+                    packages_under_process.push(
+                        packages_under_process
+                            .last()
+                            .ok_or_else(|| ftd::p1::Error::ParseError {
+                                message: "The processing document stack is empty".to_string(),
+                                doc_id: "".to_string(),
+                                line_number: 0,
+                            })?
+                            .clone(),
+                    );
 
                     let current_package = packages_under_process.last().ok_or_else(|| {
                         ftd::p1::Error::ParseError {
@@ -72,7 +82,8 @@ pub async fn parse<'a>(
                         font_ftd
                     }
                 } else {
-                    lib.get_with_result(module.as_str(), &mut packages_under_process)?
+                    lib.get_with_result(module.as_str(), &mut packages_under_process)
+                        .await?
                 };
                 s = st.continue_after_import(module.as_str(), source.as_str())?;
             }

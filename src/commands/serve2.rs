@@ -39,6 +39,7 @@ async fn handle_ftd(config: &mut fpm::Config, path: std::path::PathBuf) -> actix
                 "/",
                 &Default::default(),
                 false,
+                Some(&dep_package),
             )
             .await
             {

@@ -66,6 +66,7 @@ async fn handle_ftd(config: &mut fpm::Config, path: std::path::PathBuf) -> actix
                 "/",
                 &asset_documents,
                 false,
+                None,
             )
             .await
             {

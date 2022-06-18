@@ -290,5 +290,5 @@ pub(crate) async fn http_get_str<T: reqwest::IntoUrl + std::fmt::Debug>(
             res.text()
         )));
     }
-    Ok(res.text()?)
+    dbg!(Ok(res.text()?))
 }

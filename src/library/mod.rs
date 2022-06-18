@@ -23,74 +23,82 @@ pub struct Library {
 
 impl Library {
     // TODO: async
-    pub fn get_with_result(
+    pub async fn get_with_result(
         &self,
         name: &str,
-        packages: &mut Vec<&fpm::Package>,
+        packages: &mut Vec<fpm::Package>,
     ) -> ftd::p1::Result<String> {
-        match self.get(name, packages) {
+        match self.get(name, packages).await {
             Some(v) => Ok(v),
             None => ftd::e2(format!("library not found: {}", name), "", 0),
         }
     }
 
-    pub fn get(&self, name: &str, packages: &mut Vec<&fpm::Package>) -> Option<String> {
+    pub async fn get(&self, name: &str, packages: &mut Vec<fpm::Package>) -> Option<String> {
         if name == "fpm" {
-            packages.push(packages.last()?);
+            packages.push(packages.last()?.clone());
             return Some(fpm_dot_ftd::get(self));
         }
         if name == "fpm-lib" {
-            packages.push(packages.last()?);
+            packages.push(packages.last()?.clone());
             return Some(fpm::fpm_lib_ftd().to_string());
         }
 
-        return get_for_package(name, packages, self);
+        return get_for_package(name, packages, self).await;
 
-        fn get_for_package(
+        async fn get_for_package(
             name: &str,
-            packages: &mut Vec<&fpm::Package>,
+            packages: &mut Vec<fpm::Package>,
             lib: &fpm::Library,
         ) -> Option<String> {
             let package = packages.last()?;
             if name.starts_with(package.name.as_str()) {
-                if let Some(r) = get_data_from_package(name, package, lib) {
-                    packages.push(packages.last()?);
+                if let Some(r) = get_data_from_package(name, package, lib).await {
+                    packages.push(packages.last()?.clone());
                     return Some(r);
                 }
             }
 
-            for (alias, package) in package.aliases() {
+            for (alias, package) in package.to_owned().aliases() {
                 if name.starts_with(alias) {
+                    let package = lib.config.resolve_package(package).await.ok()?;
                     if let Some(r) = get_data_from_package(
                         name.replacen(&alias, &package.name, 1).as_str(),
-                        package,
+                        &package,
                         lib,
-                    ) {
+                    )
+                    .await
+                    {
                         packages.push(package);
                         return Some(r);
                     }
                 }
             }
 
-            if let Some(translation_of) = package.translation_of.as_ref() {
-                let name = name.replacen(package.name.as_str(), translation_of.name.as_str(), 1);
-                if name.starts_with(translation_of.name.as_str()) {
-                    if let Some(r) = get_data_from_package(name.as_str(), translation_of, lib) {
-                        packages.push(packages.last()?);
-                        return Some(r);
-                    }
-                }
+            let translation_of = match package.translation_of.as_ref() {
+                Some(translation_of) => translation_of.to_owned(),
+                None => return None,
+            };
 
-                for (alias, package) in translation_of.aliases() {
-                    if name.starts_with(alias) {
-                        if let Some(r) = get_data_from_package(
-                            name.replacen(&alias, &package.name, 1).as_str(),
-                            package,
-                            lib,
-                        ) {
-                            packages.push(package);
-                            return Some(r);
-                        }
+            let name = name.replacen(package.name.as_str(), translation_of.name.as_str(), 1);
+            if name.starts_with(translation_of.name.as_str()) {
+                if let Some(r) = get_data_from_package(name.as_str(), &translation_of, lib).await {
+                    packages.push(packages.last()?.clone());
+                    return Some(r);
+                }
+            }
+
+            for (alias, package) in translation_of.aliases() {
+                if name.starts_with(alias) {
+                    if let Some(r) = get_data_from_package(
+                        name.replacen(&alias, &package.name, 1).as_str(),
+                        package,
+                        lib,
+                    )
+                    .await
+                    {
+                        packages.push(package.clone());
+                        return Some(r);
                     }
                 }
             }
@@ -112,12 +120,16 @@ impl Library {
             None
         }
 
-        fn get_data_from_package(
+        async fn get_data_from_package(
             name: &str,
             package: &fpm::Package,
             lib: &Library,
         ) -> Option<String> {
             let path = lib.config.get_root_for_package(package);
+            dbg!("get_data_from_package", &package);
+            fpm::Config::download_required_file(&lib.config.root, name, package)
+                .await
+                .ok()?;
             // Explicit check for the current package.
             if name.starts_with(&package.name.as_str()) {
                 let new_name = name.replacen(&package.name.as_str(), "", 1);

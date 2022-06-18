@@ -26,7 +26,7 @@ async fn main() -> fpm::Result<()> {
         .expect("Thread spawn error");
     }
 
-    let mut config = fpm::Config::read(None).await?;
+    let mut config = fpm::Config::read2(None).await?;
 
     if matches.subcommand_matches("update").is_some() {
         fpm::update(&config).await?;
