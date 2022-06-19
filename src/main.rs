@@ -21,7 +21,7 @@ async fn main() -> fpm::Result<()> {
         let bind = mark.value_of("bind").unwrap_or("127.0.0.1").to_string();
         let port = port
             .parse()
-            .expect(format!("provided port {} is wrong", port).as_str());
+            .unwrap_or_else(|_| panic!("provided port {} is wrong", port));
         tokio::task::spawn_blocking(move || {
             fpm::serve(bind.as_str(), port).expect("http service error");
         })
