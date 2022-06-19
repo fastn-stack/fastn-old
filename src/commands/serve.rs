@@ -159,18 +159,18 @@ pub async fn serve(bind_address: &str, port: Option<u16>) -> std::io::Result<()>
     }
 
     fn get_available_port(port: Option<u16>, bind_address: &str) -> Option<std::net::TcpListener> {
-        let port_available =
+        let available_listener =
             |port: u16, bind_address: &str| std::net::TcpListener::bind((bind_address, port));
 
         if let Some(port) = port {
-            return match port_available(port, bind_address) {
+            return match available_listener(port, bind_address) {
                 Ok(l) => Some(l),
                 Err(_) => None,
             };
         }
 
         for x in 8000..9000 {
-            match port_available(x, bind_address) {
+            match available_listener(x, bind_address) {
                 Ok(l) => return Some(l),
                 Err(_) => continue,
             }
