@@ -38,7 +38,7 @@ pub(crate) use config::Package;
 pub(crate) use dependency::Dependency;
 pub(crate) use file::{get_file, paths_to_files, Document, File, Static};
 pub(crate) use font::Font;
-pub(crate) use library::{FPMLibrary, Library};
+pub(crate) use library::{FPMLibrary, Library, Library2};
 pub use render::render;
 pub(crate) use snapshot::Snapshot;
 pub(crate) use tracker::Track;

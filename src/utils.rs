@@ -276,7 +276,7 @@ pub(crate) async fn construct_url_and_get_str(url: &str) -> fpm::Result<String> 
     .await
 }
 
-pub(crate) async fn construct_url_and_get_bytes(url: &str) -> fpm::Result<Vec<u8>> {
+pub(crate) async fn construct_url_and_get(url: &str) -> fpm::Result<Vec<u8>> {
     construct_url_and_return_response(
         url.to_string(),
         |f| async move { http_get(f.as_str()).await },
@@ -289,6 +289,7 @@ where
     F: FnOnce(String) -> T + Copy,
     T: futures::Future<Output = std::result::Result<D, fpm::Error>> + Send + 'static,
 {
+    dbg!(&url);
     if url[1..].contains("://") || url.starts_with("//") {
         f(url).await
     } else if let Ok(response) = f(format!("https://{}", url)).await {

@@ -7,18 +7,6 @@ async fn handle_ftd(config: &mut fpm::Config, path: std::path::PathBuf) -> actix
         }
     };
 
-    let dep_package = if let Ok(dep) = config
-        .resolve_package(find_dep_package(config, &config.package, path))
-        .await
-    {
-        dep
-    } else {
-        println!("handle_ftd: Cannot resolve package");
-        return actix_web::HttpResponse::InternalServerError().body("".as_bytes());
-    };
-
-    config.add_package(&dep_package);
-
     let f = match config.get_file_and_package_by_id(path).await {
         Ok(f) => f,
         Err(e) => {
@@ -30,19 +18,7 @@ async fn handle_ftd(config: &mut fpm::Config, path: std::path::PathBuf) -> actix
     config.current_document = Some(f.get_id());
     return match f {
         fpm::File::Ftd(main_document) => {
-            return match fpm::commands::build::process_ftd(
-                config,
-                &main_document,
-                None,
-                None,
-                Default::default(),
-                "/",
-                &Default::default(),
-                false,
-                Some(&dep_package),
-            )
-            .await
-            {
+            return match fpm::package_doc::read_ftd(config, &main_document, "/").await {
                 Ok(r) => actix_web::HttpResponse::Ok().body(r),
                 Err(e) => actix_web::HttpResponse::InternalServerError().body(e.to_string()),
             };

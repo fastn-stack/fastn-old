@@ -526,14 +526,10 @@ impl Config {
             .replace("/index.html", "/")
             .replace("index.html", "/");
 
-        if let Ok((name, _)) = package.fs_fetch_by_id(id.as_str(), None).await {
-            return Ok(format!("{}{}", add_packages, name));
-        }
-
         Ok(format!(
             "{}{}",
             add_packages,
-            package.http_download_by_id(id.as_str(), None).await?.0
+            package.resolve_by_id(id.as_str(), None).await?.0
         ))
     }
 
@@ -774,10 +770,10 @@ impl Config {
     }
 
     async fn get_root_path(directory: &camino::Utf8PathBuf) -> fpm::Result<camino::Utf8PathBuf> {
-        if let Some(fpm_ftd_root) = find_root_for_file(&directory, "FPM.ftd") {
+        if let Some(fpm_ftd_root) = find_root_for_file(directory, "FPM.ftd") {
             return Ok(fpm_ftd_root);
         }
-        let fpm_manifest_path = match find_root_for_file(&directory, "FPM.manifest.ftd") {
+        let fpm_manifest_path = match find_root_for_file(directory, "FPM.manifest.ftd") {
             Some(fpm_manifest_path) => fpm_manifest_path,
             None => {
                 return Err(fpm::Error::UsageError {
@@ -1683,22 +1679,7 @@ impl Package {
     }
 
     pub(crate) async fn get_fpm(&self) -> fpm::Result<String> {
-        if let Ok(response) =
-            fpm::utils::http_get_str(format!("https://{}/FPM.ftd", self.name).as_str()).await
-        {
-            return Ok(response);
-        }
-        if let Ok(response) =
-            fpm::utils::http_get_str(format!("http://{}/FPM.ftd", self.name).as_str()).await
-        {
-            return Ok(response);
-        }
-        Err(fpm::Error::UsageError {
-            message: format!(
-                "Unable to find the FPM.ftd for the dependency package: {}",
-                self.name
-            ),
-        })
+        fpm::utils::construct_url_and_get_str(format!("{}/FPM.ftd", self.name).as_str()).await
     }
 
     pub(crate) async fn resolve(&mut self, fpm_path: &camino::Utf8PathBuf) -> fpm::Result<()> {
