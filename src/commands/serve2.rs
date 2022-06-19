@@ -19,7 +19,7 @@ async fn handle_ftd(config: &mut fpm::Config, path: std::path::PathBuf) -> actix
 
     config.add_package(&dep_package);
 
-    let f = match config.get_file_by_id2(path, &dep_package).await {
+    let f = match config.get_file_and_package_by_id(path).await {
         Ok(f) => f,
         Err(e) => {
             println!("new_path: {}, Error: {:?}", path, e);

@@ -269,9 +269,38 @@ pub(crate) fn url_regex() -> regex::Regex {
     ).unwrap()
 }
 
-pub(crate) async fn http_get_str<T: reqwest::IntoUrl + std::fmt::Debug>(
+pub(crate) async fn construct_url_and_get_str(url: &str) -> fpm::Result<String> {
+    construct_url_and_return_response(url.to_string(), |f| async move {
+        http_get_str(f.as_str()).await
+    })
+    .await
+}
+
+pub(crate) async fn construct_url_and_get_bytes(url: &str) -> fpm::Result<Vec<u8>> {
+    construct_url_and_return_response(
+        url.to_string(),
+        |f| async move { http_get(f.as_str()).await },
+    )
+    .await
+}
+
+pub(crate) async fn construct_url_and_return_response<T, F, D>(url: String, f: F) -> fpm::Result<D>
+where
+    F: FnOnce(String) -> T + Copy,
+    T: futures::Future<Output = std::result::Result<D, fpm::Error>> + Send + 'static,
+{
+    if url[1..].contains("://") || url.starts_with("//") {
+        f(url).await
+    } else if let Ok(response) = f(format!("https://{}", url)).await {
+        Ok(response)
+    } else {
+        f(format!("http://{}", url)).await
+    }
+}
+
+pub(crate) async fn http_get<T: reqwest::IntoUrl + std::fmt::Debug>(
     url: T,
-) -> fpm::Result<String> {
+) -> fpm::Result<Vec<u8>> {
     let mut headers = reqwest::header::HeaderMap::new();
     headers.insert(
         reqwest::header::USER_AGENT,
@@ -290,5 +319,22 @@ pub(crate) async fn http_get_str<T: reqwest::IntoUrl + std::fmt::Debug>(
             res.text()
         )));
     }
-    dbg!(Ok(res.text()?))
+    let mut buf: Vec<u8> = vec![];
+    res.copy_to(&mut buf)?;
+    Ok(buf)
+}
+
+pub(crate) async fn http_get_str<T: reqwest::IntoUrl + std::fmt::Debug>(
+    url: T,
+) -> fpm::Result<String> {
+    let url_f = format!("{:?}", url);
+    match http_get(url).await {
+        Ok(bytes) => String::from_utf8(bytes).map_err(|e| fpm::Error::UsageError {
+            message: format!(
+                "Cannot convert the response to string: URL: {:?}, ERROR: {}",
+                url_f, e
+            ),
+        }),
+        Err(e) => Err(e),
+    }
 }

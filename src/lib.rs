@@ -17,6 +17,7 @@ mod file;
 mod font;
 mod i18n;
 mod library;
+mod package_doc;
 mod render;
 mod sitemap;
 mod snapshot;

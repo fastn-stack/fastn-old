@@ -496,74 +496,69 @@ impl Config {
             });
     }
 
-    pub(crate) async fn get_file_by_id2(
-        &self,
-        id: &str,
-        package: &fpm::Package,
-    ) -> fpm::Result<fpm::File> {
-        let file_name = fpm::Config::get_file_name2(&self.root, id, package).await?;
-        return fpm::get_file(
+    pub(crate) async fn get_file_and_package_by_id(&mut self, id: &str) -> fpm::Result<fpm::File> {
+        let file_name = self.get_file_path_and_resolve(id).await?;
+        let package = self.find_package_by_id(id, &self.package)?.1;
+        fpm::get_file(
             package.name.to_string(),
-            &self.root.join(file_name),
+            dbg!(&self.root.join(file_name)),
             &self.get_root_for_package(package),
         )
-        .await;
+        .await
     }
 
-    pub(crate) async fn get_file_name2(
-        root: &camino::Utf8PathBuf,
-        id: &str,
-        package: &fpm::Package,
-    ) -> fpm::Result<String> {
+    pub(crate) async fn get_file_path_and_resolve(&mut self, id: &str) -> fpm::Result<String> {
+        let (package_name, package) = self.find_package_by_id(id, &self.package)?;
+        let package = self.resolve_package(package).await?;
+        self.add_package(&package);
         let mut id = id.to_string();
         let mut add_packages = "".to_string();
         if let Some(new_id) = id.strip_prefix("-/") {
             id = new_id.to_string();
-            add_packages = ".packages/".to_string()
+            add_packages = format!(".packages/{}/", package.name)
         }
-        let mut id = id
+        let id = id
             .split_once("-/")
             .map(|(id, _)| id)
             .unwrap_or_else(|| id.as_str())
             .trim()
+            .trim_start_matches(package_name.as_str())
             .replace("/index.html", "/")
             .replace("index.html", "/");
-        if id.eq("/") {
-            if root.join(format!("{}index.ftd", add_packages)).exists() {
-                return Ok(format!("{}index.ftd", add_packages));
-            }
-            if root.join(format!("{}README.md", add_packages)).exists() {
-                return Ok(format!("{}README.md", add_packages));
-            }
-            return Err(fpm::Error::UsageError {
-                message: "File not found".to_string(),
-            });
+
+        if let Ok((name, _)) = package.fs_fetch_by_id(id.as_str(), None).await {
+            return Ok(format!("{}{}", add_packages, name));
         }
-        id = id.trim_matches('/').to_string();
-        if root.join(format!("{}{}.ftd", add_packages, id)).exists() {
-            return Ok(format!("{}{}.ftd", add_packages, id));
-        }
-        if root
-            .join(format!("{}{}/index.ftd", add_packages, id))
-            .exists()
-        {
-            return Ok(format!("{}{}/index.ftd", add_packages, id));
-        }
-        if root.join(format!("{}{}.md", add_packages, id)).exists() {
-            return Ok(format!("{}{}.md", add_packages, id));
-        }
-        if root
-            .join(format!("{}{}/README.md", add_packages, id))
-            .exists()
-        {
-            return Ok(format!("{}{}/README.md", add_packages, id));
-        }
-        if !add_packages.is_empty() {
-            return fpm::Config::download_required_file(root, id.as_str(), package).await;
-        }
-        Err(fpm::Error::UsageError {
-            message: "File not found".to_string(),
-        })
+
+        Ok(format!(
+            "{}{}",
+            add_packages,
+            package.http_download_by_id(id.as_str(), None).await?.0
+        ))
+    }
+
+    /// Return (package name or alias, package)
+    fn find_package_by_id<'a>(
+        &'a self,
+        id: &'a str,
+        current_package: &'a fpm::Package,
+    ) -> fpm::Result<(String, &'a fpm::Package)> {
+        let id = if let Some(id) = id.strip_prefix("-/") {
+            id
+        } else {
+            return Ok((self.package.name.to_string(), &self.package));
+        };
+        Ok(current_package
+            .aliases()
+            .iter()
+            .find_map(|(alias, d)| {
+                if id.starts_with(alias) {
+                    Some((alias.to_string(), d.to_owned()))
+                } else {
+                    None
+                }
+            })
+            .unwrap_or((self.package.name.to_string(), &self.package)))
     }
 
     pub(crate) async fn download_required_file(
