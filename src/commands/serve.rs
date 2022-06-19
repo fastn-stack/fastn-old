@@ -144,7 +144,7 @@ async fn serve_static(req: actix_web::HttpRequest) -> actix_web::HttpResponse {
 }
 
 #[actix_web::main]
-pub async fn serve(bind_address: &str, port: u16) -> std::io::Result<()> {
+pub async fn serve(bind_address: &str, port: Option<u16>) -> std::io::Result<()> {
     if cfg!(feature = "controller") {
         // fpm-controller base path and ec2 instance id (hardcoded for now)
         let fpm_controller: String = std::env::var("FPM_CONTROLLER")
@@ -158,34 +158,54 @@ pub async fn serve(bind_address: &str, port: u16) -> std::io::Result<()> {
         }
     }
 
-    fn get_available_port(port: u16, bind_address: &str) -> Option<u16> {
-        let port_available = |port: u16, bind_address: &str| {
-            std::net::TcpListener::bind((bind_address, port)).is_ok()
-        };
+    fn get_available_port(port: Option<u16>, bind_address: &str) -> Option<std::net::TcpListener> {
+        let port_available =
+            |port: u16, bind_address: &str| std::net::TcpListener::bind((bind_address, port));
 
-        if port_available(port, bind_address) {
-            return Some(port);
+        if let Some(port) = port {
+            return match port_available(port, bind_address) {
+                Ok(l) => Some(l),
+                Err(_) => None,
+            };
         }
-        (8000..9000).find(|p| port_available(*p, bind_address))
+
+        for x in 8000..9000 {
+            match port_available(x, bind_address) {
+                Ok(l) => return Some(l),
+                Err(_) => continue,
+            }
+        }
+        None
     }
 
-    let port = match get_available_port(port, bind_address) {
-        Some(port) => port,
+    let tcp_listener = match get_available_port(port, bind_address) {
+        Some(listener) => listener,
         None => {
             eprintln!(
-                "No port available for binding with address: {} between {} to {}",
-                bind_address, 8000, 9000
+                "{}",
+                port.map(|x| format!(
+                    r#"provided port {} is not available, 
+You can try without providing port, it will automatically pick unused port"#,
+                    x
+                ))
+                .unwrap_or_else(|| {
+                    "Tried picking port between port 8000 to 9000, not available -:(".to_string()
+                })
             );
             return Ok(());
         }
     };
 
     println!("### Server Started ###");
-    println!("Go to: http://{}:{}", bind_address, port);
+    println!(
+        "Go to: http://{}:{}",
+        bind_address,
+        tcp_listener.local_addr()?.port()
+    );
     actix_web::HttpServer::new(|| {
         actix_web::App::new().route("/{path:.*}", actix_web::web::get().to(serve_static))
     })
-    .bind(format!("{}:{}", bind_address, port))?
+    .listen(tcp_listener)?
     .run()
     .await
 }
