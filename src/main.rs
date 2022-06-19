@@ -20,7 +20,7 @@ async fn main() -> fpm::Result<()> {
             .to_string();
         let bind = mark.value_of("bind").unwrap_or("127.0.0.1").to_string();
         tokio::task::spawn_blocking(move || {
-            fpm::serve(bind.as_str(), port.as_str()).expect("http service error");
+            fpm::serve(bind.as_str(), port.parse().unwrap()).expect("http service error");
         })
         .await
         .expect("Thread spawn error");

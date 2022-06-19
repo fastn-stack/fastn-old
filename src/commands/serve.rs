@@ -144,7 +144,7 @@ async fn serve_static(req: actix_web::HttpRequest) -> actix_web::HttpResponse {
 }
 
 #[actix_web::main]
-pub async fn serve(bind_address: &str, port: &str) -> std::io::Result<()> {
+pub async fn serve(bind_address: &str, port: u16) -> std::io::Result<()> {
     if cfg!(feature = "controller") {
         // fpm-controller base path and ec2 instance id (hardcoded for now)
         let fpm_controller: String = std::env::var("FPM_CONTROLLER")
@@ -157,6 +157,28 @@ pub async fn serve(bind_address: &str, port: &str) -> std::io::Result<()> {
             Err(e) => panic!("Error resolving dependencies using controller!!: {:?}", e),
         }
     }
+
+    fn get_available_port(port: u16, bind_address: &str) -> Option<u16> {
+        let port_available = |port: u16, bind_address: &str| {
+            std::net::TcpListener::bind((bind_address, port)).is_ok()
+        };
+
+        if port_available(port, bind_address) {
+            return Some(port);
+        }
+        (8000..9000).find(|p| port_available(*p, bind_address))
+    }
+
+    let port = match get_available_port(port, bind_address) {
+        Some(port) => port,
+        None => {
+            eprintln!(
+                "No port available for binding with address: {} between {} to {}",
+                bind_address, 8000, 9000
+            );
+            return Ok(());
+        }
+    };
 
     println!("### Server Started ###");
     println!("Go to: http://{}:{}", bind_address, port);
