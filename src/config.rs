@@ -47,6 +47,7 @@ pub struct Config {
     /// translation packages, original package (of which the current package is translation)
     /// The key store the name of the package and value stores corresponding package data
     pub all_packages: std::collections::BTreeMap<String, fpm::Package>,
+    pub downloaded_assets: std::collections::BTreeMap<String, String>,
 }
 
 impl Config {
@@ -335,6 +336,7 @@ impl Config {
             sitemap: None,
             current_document: None,
             all_packages: Default::default(),
+            downloaded_assets: Default::default(),
         };
 
         let asset_documents = config.get_assets("/").await?;
@@ -920,6 +922,7 @@ impl Config {
             sitemap: None,
             current_document: None,
             all_packages: Default::default(),
+            downloaded_assets: Default::default(),
         };
 
         let asset_documents = config.get_assets("/").await?;

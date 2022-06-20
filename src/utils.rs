@@ -359,7 +359,7 @@ pub(crate) async fn write(
     tokio::fs::create_dir_all(root.join(&file_root)).await?;
 
     Ok(
-        tokio::fs::File::create(dbg!(root.join(file_root).join(file_name)))
+        tokio::fs::File::create(root.join(file_root).join(file_name))
             .await?
             .write_all(data)
             .await?,

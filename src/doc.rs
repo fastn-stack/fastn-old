@@ -120,7 +120,6 @@ pub async fn parse2<'a>(
     download_assets: bool,
 ) -> ftd::p1::Result<ftd::p2::Document> {
     let mut s = ftd::interpret(name, source)?;
-    let mut downloaded_assets: std::collections::HashMap<String, String> = Default::default();
 
     let document;
     loop {
@@ -187,7 +186,6 @@ pub async fn parse2<'a>(
                     lib,
                     base_url,
                     download_assets,
-                    &mut downloaded_assets,
                 )
                 .await?;
                 s = state.continue_after_variable(variable.as_str(), value)?
@@ -203,7 +201,6 @@ async fn resolve_foreign_variable2(
     lib: &mut fpm::Library2,
     base_url: &str,
     download_assets: bool,
-    downloaded_assets: &mut std::collections::HashMap<String, String>,
 ) -> ftd::p1::Result<ftd::Value> {
     let package = lib.get_current_package()?.to_owned();
     if let Ok(value) = resolve_ftd_foreign_variable(variable, doc_name) {
@@ -212,30 +209,16 @@ async fn resolve_foreign_variable2(
 
     if let Some((package_name, files)) = variable.split_once("/assets#files.") {
         if package.name.eq(package_name) {
-            if let Ok(value) = get_assets_value(
-                &package,
-                files,
-                lib,
-                base_url,
-                download_assets,
-                downloaded_assets,
-            )
-            .await
+            if let Ok(value) =
+                get_assets_value(&package, files, lib, base_url, download_assets).await
             {
                 return Ok(value);
             }
         }
         for (alias, package) in package.aliases() {
             if alias.eq(package_name) {
-                if let Ok(value) = get_assets_value(
-                    package,
-                    files,
-                    lib,
-                    base_url,
-                    download_assets,
-                    downloaded_assets,
-                )
-                .await
+                if let Ok(value) =
+                    get_assets_value(package, files, lib, base_url, download_assets).await
                 {
                     return Ok(value);
                 }
@@ -251,7 +234,6 @@ async fn resolve_foreign_variable2(
         lib: &mut fpm::Library2,
         base_url: &str,
         download_assets: bool, // true: in case of `fpm build`
-        downloaded_assets: &mut std::collections::HashMap<String, String>,
     ) -> ftd::p1::Result<ftd::Value> {
         lib.push_package_under_process(package).await?;
         let base_url = base_url.trim_end_matches('/');
@@ -291,8 +273,12 @@ async fn resolve_foreign_variable2(
 
                 let light_path = format!("{}.{}", file.replace('.', "/"), ext);
                 if download_assets
-                    && !downloaded_assets.contains_key(&format!("{}/{}", package.name, light_path))
+                    && !lib
+                        .config
+                        .downloaded_assets
+                        .contains_key(&format!("{}/{}", package.name, light_path))
                 {
+                    let start = std::time::Instant::now();
                     let light = package
                         .resolve_by_file_name(light_path.as_str(), None, false)
                         .await
@@ -312,9 +298,13 @@ async fn resolve_foreign_variable2(
                         doc_id: lib.document_id.to_string(),
                         line_number: 0,
                     })?;
-                    downloaded_assets.insert(
+                    lib.config.downloaded_assets.insert(
                         format!("{}/{}", package.name, light_path),
                         light_mode.to_string(),
+                    );
+                    fpm::utils::print_end(
+                        format!("Processed {}/{}", package.name.as_str(), light_path).as_str(),
+                        start,
                     );
                 }
 
@@ -338,8 +328,11 @@ async fn resolve_foreign_variable2(
 
                 let dark_path = format!("{}-dark.{}", file.replace('.', "/"), ext);
                 if download_assets && !file.ends_with("-dark") {
-                    if let Some(dark) =
-                        downloaded_assets.get(&format!("{}/{}", package.name, dark_path))
+                    let start = std::time::Instant::now();
+                    if let Some(dark) = lib
+                        .config
+                        .downloaded_assets
+                        .get(&format!("{}/{}", package.name, dark_path))
                     {
                         dark_mode = dark.to_string();
                     } else if let Ok(dark) = package
@@ -357,10 +350,14 @@ async fn resolve_foreign_variable2(
                             doc_id: lib.document_id.to_string(),
                             line_number: 0,
                         })?;
+                        fpm::utils::print_end(
+                            format!("Processed {}/{}", package.name.as_str(), dark_path).as_str(),
+                            start,
+                        );
                     } else {
                         dark_mode = light_mode.clone();
                     }
-                    downloaded_assets.insert(
+                    lib.config.downloaded_assets.insert(
                         format!("{}/{}", package.name, dark_path),
                         dark_mode.to_string(),
                     );

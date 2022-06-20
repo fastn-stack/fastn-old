@@ -321,6 +321,11 @@ pub(crate) async fn read_ftd(
         }
     };
 
+    config.all_packages.extend(lib.config.all_packages);
+    config
+        .downloaded_assets
+        .extend(lib.config.downloaded_assets);
+
     let doc_title = match &main_ftd_doc.title() {
         Some(x) => x.original.clone(),
         _ => main.id.as_str().to_string(),
