@@ -338,3 +338,30 @@ pub(crate) async fn http_get_str<T: reqwest::IntoUrl + std::fmt::Debug>(
         Err(e) => Err(e),
     }
 }
+
+pub(crate) async fn write(
+    root: &camino::Utf8PathBuf,
+    file_path: &str,
+    data: &[u8],
+) -> fpm::Result<()> {
+    use tokio::io::AsyncWriteExt;
+
+    if root.join(file_path).exists() {
+        return Ok(());
+    }
+
+    let (file_root, file_name) = if let Some((file_root, file_name)) = file_path.rsplit_once('/') {
+        (file_root.to_string(), file_name.to_string())
+    } else {
+        ("".to_string(), file_path.to_string())
+    };
+
+    tokio::fs::create_dir_all(root.join(&file_root)).await?;
+
+    Ok(
+        tokio::fs::File::create(dbg!(root.join(file_root).join(file_name)))
+            .await?
+            .write_all(data)
+            .await?,
+    )
+}

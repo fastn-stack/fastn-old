@@ -1,5 +1,3 @@
-use tokio::io::AsyncWriteExt;
-
 impl fpm::Package {
     pub(crate) async fn fs_fetch_by_file_name(
         &self,
@@ -89,20 +87,7 @@ impl fpm::Package {
         };
 
         let (file_path, data) = self.http_fetch_by_id(id).await?;
-
-        let (file_root, file_name) =
-            if let Some((file_root, file_name)) = file_path.rsplit_once('/') {
-                (file_root.to_string(), file_name.to_string())
-            } else {
-                ("".to_string(), file_path.to_string())
-            };
-
-        tokio::fs::create_dir_all(package_root.join(&file_root)).await?;
-
-        tokio::fs::File::create(package_root.join(file_root).join(file_name))
-            .await?
-            .write_all(data.as_slice())
-            .await?;
+        fpm::utils::write(&package_root, file_path.as_str(), data.as_slice()).await?;
 
         Ok((file_path, data))
     }
@@ -126,20 +111,7 @@ impl fpm::Package {
         };
 
         let data = self.http_fetch_by_file_name(file_path).await?;
-
-        let (file_root, file_name) =
-            if let Some((file_root, file_name)) = file_path.rsplit_once('/') {
-                (file_root.to_string(), file_name.to_string())
-            } else {
-                ("".to_string(), file_path.to_string())
-            };
-
-        tokio::fs::create_dir_all(package_root.join(&file_root)).await?;
-
-        tokio::fs::File::create(package_root.join(file_root).join(file_name))
-            .await?
-            .write_all(data.as_slice())
-            .await?;
+        fpm::utils::write(&package_root, file_path, data.as_slice()).await?;
 
         Ok(data)
     }
@@ -148,6 +120,7 @@ impl fpm::Package {
         &self,
         file_path: &str,
         package_root: Option<&camino::Utf8PathBuf>,
+        restore_default: bool,
     ) -> fpm::Result<Vec<u8>> {
         if let Ok(response) = self.fs_fetch_by_file_name(file_path, package_root).await {
             return Ok(response);
@@ -159,7 +132,16 @@ impl fpm::Package {
             return Ok(response);
         }
 
-        let file_path = match file_path.rsplit_once('.') {
+        if !restore_default {
+            return Err(fpm::Error::PackageError {
+                message: format!(
+                    "fs_fetch_by_id:: Corresponding file not found for id: {}. Package: {}",
+                    file_path, &self.name
+                ),
+            });
+        }
+
+        let new_file_path = match file_path.rsplit_once('.') {
             Some((remaining, ext))
                 if mime_guess::MimeGuess::from_ext(ext)
                     .first_or_octet_stream()
@@ -179,15 +161,37 @@ impl fpm::Package {
             }
         };
 
+        let root = if let Some(package_root) = package_root {
+            package_root.to_owned()
+        } else {
+            match self.fpm_path.as_ref() {
+                Some(path) if path.parent().is_some() => path.parent().unwrap().to_path_buf(),
+                _ => {
+                    return Err(fpm::Error::PackageError {
+                        message: format!("package root not found. Package: {}", &self.name),
+                    })
+                }
+            }
+        };
+
         if let Ok(response) = self
-            .fs_fetch_by_file_name(file_path.as_str(), package_root)
+            .fs_fetch_by_file_name(new_file_path.as_str(), package_root)
             .await
         {
+            tokio::fs::copy(root.join(new_file_path), root.join(file_path)).await?;
             return Ok(response);
         }
 
-        self.http_download_by_file_name(file_path.as_str(), package_root)
+        match self
+            .http_download_by_file_name(new_file_path.as_str(), package_root)
             .await
+        {
+            Ok(response) => {
+                tokio::fs::copy(root.join(new_file_path), root.join(file_path)).await?;
+                Ok(response)
+            }
+            Err(e) => Err(e),
+        }
     }
 
     pub(crate) async fn resolve_by_id(
@@ -223,12 +227,34 @@ impl fpm::Package {
             }
         };
 
+        let root = if let Some(package_root) = package_root {
+            package_root.to_owned()
+        } else {
+            match self.fpm_path.as_ref() {
+                Some(path) if path.parent().is_some() => path.parent().unwrap().to_path_buf(),
+                _ => {
+                    return Err(fpm::Error::PackageError {
+                        message: format!("package root not found. Package: {}", &self.name),
+                    })
+                }
+            }
+        };
+
         if let Ok(response) = self.fs_fetch_by_id(new_id.as_str(), package_root).await {
+            tokio::fs::copy(root.join(new_id), root.join(id)).await?;
             return Ok(response);
         }
 
-        self.http_download_by_id(new_id.as_str(), package_root)
+        match self
+            .http_download_by_id(new_id.as_str(), package_root)
             .await
+        {
+            Ok(response) => {
+                tokio::fs::copy(root.join(new_id), root.join(id)).await?;
+                Ok(response)
+            }
+            Err(e) => Err(e),
+        }
     }
 }
 
@@ -260,6 +286,7 @@ pub(crate) async fn read_ftd(
     config: &mut fpm::Config,
     main: &fpm::Document,
     base_url: &str,
+    download_assets: bool,
 ) -> fpm::Result<Vec<u8>> {
     let current_package = config
         .all_packages
@@ -282,6 +309,7 @@ pub(crate) async fn read_ftd(
             .as_str(),
         &mut lib,
         base_url,
+        download_assets,
     )
     .await
     {
@@ -309,4 +337,73 @@ pub(crate) async fn read_ftd(
     );
 
     Ok(file_content.into())
+}
+
+pub(crate) async fn process_ftd(
+    config: &mut fpm::Config,
+    main: &fpm::Document,
+    base_url: &str,
+) -> fpm::Result<Vec<u8>> {
+    if main.id.eq("FPM.ftd") {
+        std::fs::copy(
+            config.root.join(main.id.as_str()),
+            config.root.join(".build").join(main.id.as_str()),
+        )?;
+    }
+
+    let main = {
+        let mut main = main.to_owned();
+        if main.id.eq("FPM.ftd") {
+            main.id = "-.ftd".to_string();
+            let path = config.root.join("FPM").join("info.ftd");
+            main.content = if path.is_file() {
+                std::fs::read_to_string(path)?
+            } else {
+                let package_info_package = match config
+                    .package
+                    .get_dependency_for_interface(fpm::PACKAGE_INFO_INTERFACE)
+                    .or_else(|| {
+                        config
+                            .package
+                            .get_dependency_for_interface(fpm::PACKAGE_THEME_INTERFACE)
+                    }) {
+                    Some(dep) => dep.package.name.as_str(),
+                    None => fpm::PACKAGE_INFO_INTERFACE,
+                };
+                config.package.get_prefixed_body(
+                    format!(
+                        "-- import: {}/package-info as pi\n\n-- pi.package-info-page:",
+                        package_info_package
+                    )
+                    .as_str(),
+                    &main.id,
+                    true,
+                )
+            }
+        } else {
+            main.content = config
+                .package
+                .get_prefixed_body(main.content.as_str(), &main.id, true);
+        }
+        main
+    };
+
+    let file_rel_path = if main.id.contains("index.ftd") {
+        main.id.replace("index.ftd", "index.html")
+    } else {
+        main.id.replace(
+            ".ftd",
+            format!("{}index.html", std::path::MAIN_SEPARATOR).as_str(),
+        )
+    };
+
+    let response = read_ftd(config, &main, base_url, true).await?;
+    fpm::utils::write(
+        &config.build_dir(),
+        file_rel_path.as_str(),
+        response.as_slice(),
+    )
+    .await?;
+
+    Ok(response)
 }

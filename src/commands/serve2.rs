@@ -1,4 +1,7 @@
-async fn handle_ftd(config: &mut fpm::Config, path: std::path::PathBuf) -> actix_web::HttpResponse {
+async fn serve_files(
+    config: &mut fpm::Config,
+    path: std::path::PathBuf,
+) -> actix_web::HttpResponse {
     let path = match path.to_str() {
         Some(s) => s,
         None => {
@@ -18,7 +21,7 @@ async fn handle_ftd(config: &mut fpm::Config, path: std::path::PathBuf) -> actix
     config.current_document = Some(f.get_id());
     return match f {
         fpm::File::Ftd(main_document) => {
-            return match fpm::package_doc::read_ftd(config, &main_document, "/").await {
+            return match fpm::package_doc::read_ftd(config, &main_document, "/", false).await {
                 Ok(r) => actix_web::HttpResponse::Ok().body(r),
                 Err(e) => actix_web::HttpResponse::InternalServerError().body(e.to_string()),
             };
@@ -36,51 +39,44 @@ async fn handle_ftd(config: &mut fpm::Config, path: std::path::PathBuf) -> actix
             .body(image.content),
         _ => actix_web::HttpResponse::InternalServerError().body("".as_bytes()),
     };
-
-    fn find_dep_package<'a>(
-        config: &'a fpm::Config,
-        package: &'a fpm::Package,
-        file_path: &'a str,
-    ) -> &'a fpm::Package {
-        let file_path = if let Some(file_path) = file_path.strip_prefix("-/") {
-            file_path
-        } else {
-            return &config.package;
-        };
-        package
-            .dependencies
-            .iter()
-            .find(|d| file_path.starts_with(&d.package.name))
-            .map(|x| &x.package)
-            .unwrap_or(&config.package)
-    }
 }
 
-// async fn handle_dash(
-//     req: &actix_web::HttpRequest,
-//     config: &fpm::Config,
-//     path: std::path::PathBuf,
-// ) -> actix_web::HttpResponse {
-//     let new_path = match path.to_str() {
-//         Some(s) => s.replace("-/", ""),
-//         None => {
-//             println!("handle_dash: Not able to convert path");
-//             return actix_web::HttpResponse::InternalServerError().body("".as_bytes());
-//         }
-//     };
-//
-//     let file_path = if new_path.starts_with(&config.package.name) {
-//         std::path::PathBuf::new().join(
-//             new_path
-//                 .strip_prefix(&(config.package.name.to_string() + "/"))
-//                 .unwrap(),
-//         )
-//     } else {
-//         std::path::PathBuf::new().join(".packages").join(new_path)
-//     };
-//
-//     server_static_file(req, file_path).await
-// }
+/*async fn handle_dash(
+    req: &actix_web::HttpRequest,
+    config: &fpm::Config,
+    path: std::path::PathBuf,
+) -> actix_web::HttpResponse {
+    let new_path = match path.to_str() {
+        Some(s) => s.replace("-/", ""),
+        None => {
+            println!("handle_dash: Not able to convert path");
+            return actix_web::HttpResponse::InternalServerError().body("".as_bytes());
+        }
+    };
+
+    let file_path = if new_path.starts_with(&config.package.name) {
+        std::path::PathBuf::new().join(
+            new_path
+                .strip_prefix(&(config.package.name.to_string() + "/"))
+                .unwrap(),
+        )
+    } else {
+        std::path::PathBuf::new().join(".packages").join(new_path)
+    };
+
+    server_static_file(req, file_path).await
+}*/
+
+async fn server_fpm_file(config: &fpm::Config) -> actix_web::HttpResponse {
+    let response =
+        match tokio::fs::read(config.get_root_for_package(&config.package).join("FPM.ftd")).await {
+            Ok(res) => res,
+            Err(e) => return actix_web::HttpResponse::NotFound().body(e.to_string()),
+        };
+    actix_web::HttpResponse::Ok()
+        .content_type("application/octet-stream")
+        .body(response)
+}
 
 async fn server_static_file(
     req: &actix_web::HttpRequest,
@@ -105,10 +101,12 @@ async fn serve_static(req: actix_web::HttpRequest) -> actix_web::HttpResponse {
     } else*/
     if path.eq(&favicon) {
         server_static_file(&req, favicon).await
+    } else if path.eq(&std::path::PathBuf::new().join("FPM.ftd")) {
+        server_fpm_file(&config).await
     } else if path.eq(&std::path::PathBuf::new().join("")) {
-        handle_ftd(&mut config, path.join("/")).await
+        serve_files(&mut config, path.join("/")).await
     } else {
-        handle_ftd(&mut config, path).await
+        serve_files(&mut config, path).await
     }
 }
 

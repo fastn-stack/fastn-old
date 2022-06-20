@@ -42,7 +42,7 @@ async fn main() -> fpm::Result<()> {
         if build.is_present("verbose") {
             println!("{}", fpm::debug_env_vars());
         }
-        fpm::build(
+        fpm::build2(
             &mut config,
             build.value_of("file"),
             build.value_of("base").unwrap(), // unwrap okay because base is required
