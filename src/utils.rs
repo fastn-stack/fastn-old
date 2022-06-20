@@ -289,7 +289,6 @@ where
     F: FnOnce(String) -> T + Copy,
     T: futures::Future<Output = std::result::Result<D, fpm::Error>> + Send + 'static,
 {
-    dbg!(&url);
     if url[1..].contains("://") || url.starts_with("//") {
         f(url).await
     } else if let Ok(response) = f(format!("https://{}", url)).await {

@@ -126,7 +126,6 @@ impl Library {
             lib: &Library,
         ) -> Option<String> {
             let path = lib.config.get_root_for_package(package);
-            dbg!("get_data_from_package", &package);
             fpm::Config::download_required_file(&lib.config.root, name, package)
                 .await
                 .ok()?;
@@ -254,7 +253,7 @@ impl Library2 {
             return Some(fpm::fpm_lib_ftd().to_string());
         }
 
-        return get_for_package(name, self).await;
+        return get_for_package(format!("{}/", name.trim_end_matches('/')).as_str(), self).await;
 
         async fn get_for_package(name: &str, lib: &mut fpm::Library2) -> Option<String> {
             let package = lib.get_current_package().ok()?.to_owned();

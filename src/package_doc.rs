@@ -152,23 +152,91 @@ impl fpm::Package {
         if let Ok(response) = self.fs_fetch_by_file_name(file_path, package_root).await {
             return Ok(response);
         }
-        self.http_download_by_file_name(file_path, package_root)
+        if let Ok(response) = self
+            .http_download_by_file_name(file_path, package_root)
+            .await
+        {
+            return Ok(response);
+        }
+
+        let file_path = match file_path.rsplit_once('.') {
+            Some((remaining, ext))
+                if mime_guess::MimeGuess::from_ext(ext)
+                    .first_or_octet_stream()
+                    .to_string()
+                    .starts_with("image/")
+                    && remaining.ends_with("-dark") =>
+            {
+                format!("{}.{}", remaining.trim_end_matches("-dark"), ext)
+            }
+            _ => {
+                return Err(fpm::Error::PackageError {
+                    message: format!(
+                        "fs_fetch_by_id:: Corresponding file not found for id: {}. Package: {}",
+                        file_path, &self.name
+                    ),
+                })
+            }
+        };
+
+        dbg!("resolve_by_file_name::", &file_path);
+
+        if let Ok(response) = self
+            .fs_fetch_by_file_name(file_path.as_str(), package_root)
+            .await
+        {
+            return Ok(response);
+        }
+
+        self.http_download_by_file_name(file_path.as_str(), package_root)
             .await
     }
 
     pub(crate) async fn resolve_by_id(
         &self,
-        file_path: &str,
+        id: &str,
         package_root: Option<&camino::Utf8PathBuf>,
     ) -> fpm::Result<(String, Vec<u8>)> {
-        if let Ok(response) = self.fs_fetch_by_id(file_path, package_root).await {
+        if let Ok(response) = self.fs_fetch_by_id(id, package_root).await {
             return Ok(response);
         }
-        self.http_download_by_id(file_path, package_root).await
+
+        if let Ok(response) = self.http_download_by_id(id, package_root).await {
+            return Ok(response);
+        }
+
+        let new_id = match id.rsplit_once('.') {
+            Some((remaining, ext))
+                if mime_guess::MimeGuess::from_ext(ext)
+                    .first_or_octet_stream()
+                    .to_string()
+                    .starts_with("image/")
+                    && remaining.ends_with("-dark") =>
+            {
+                format!("{}.{}", remaining.trim_end_matches("-dark"), ext)
+            }
+            _ => {
+                return Err(fpm::Error::PackageError {
+                    message: format!(
+                        "fs_fetch_by_id:: Corresponding file not found for id: {}. Package: {}",
+                        id, &self.name
+                    ),
+                })
+            }
+        };
+
+        dbg!("resolve_by_id::", &new_id);
+        if let Ok(response) = self.fs_fetch_by_id(new_id.as_str(), package_root).await {
+            return Ok(response);
+        }
+
+        self.http_download_by_id(new_id.as_str(), package_root)
+            .await
     }
 }
 
 fn file_id_to_names(id: &str) -> Vec<String> {
+    let id = id.replace("/index.html", "/").replace("index.html", "/");
     if id.eq("/") {
         return vec![
             "index.ftd".to_string(),
@@ -176,14 +244,19 @@ fn file_id_to_names(id: &str) -> Vec<String> {
             "index.md".to_string(),
         ];
     }
+    let mut ids = vec![];
+    if !id.ends_with('/') {
+        ids.push(id.trim_matches('/').to_string());
+    }
     let id = id.trim_matches('/').to_string();
-    vec![
+    ids.extend([
         format!("{}.ftd", id),
         format!("{}/index.ftd", id),
         format!("{}.md", id),
         format!("{}/README.md", id),
         format!("{}/index.md", id),
-    ]
+    ]);
+    ids
 }
 
 pub(crate) async fn read_ftd(

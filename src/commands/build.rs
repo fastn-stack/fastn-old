@@ -478,6 +478,7 @@ pub(crate) async fn process_file(
                 process_static(
                     &fpm::Static {
                         id: main_doc.id.to_string(),
+                        content: vec![],
                         base_path: camino::Utf8PathBuf::from(main_doc.parent_path.as_str()),
                     },
                     &config.root,
@@ -655,6 +656,7 @@ pub(crate) async fn process_file(
             process_static(
                 &fpm::Static {
                     id: doc.id.to_string(),
+                    content: vec![],
                     base_path: camino::Utf8PathBuf::from(doc.parent_path.as_str()),
                 },
                 &config.root,
@@ -1115,8 +1117,6 @@ pub(crate) async fn process_ftd(
     ) -> fpm::Result<Vec<u8>> {
         use tokio::io::AsyncWriteExt;
 
-        dbg!("write_default", &current_package);
-
         let lib = fpm::Library {
             config: config.clone(),
             markdown: None,
@@ -1128,7 +1128,7 @@ pub(crate) async fn process_ftd(
 
         let main_ftd_doc = match fpm::doc::parse(
             main.id_with_package().as_str(),
-            dbg!(main.content.as_str()),
+            main.content.as_str(),
             &lib,
             base_url,
             current_package,

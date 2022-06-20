@@ -313,9 +313,7 @@ impl Config {
 
         fpm::utils::validate_base_url(&package)?;
 
-        dbg!("calling ensure");
         fpm::dependency::ensure(&root, &mut package).await?;
-        dbg!("after ensure");
         if package.import_auto_imports_from_original {
             if let Some(ref original_package) = *package.translation_of {
                 if !package.auto_import.is_empty() {
@@ -327,8 +325,6 @@ impl Config {
                 }
             }
         }
-
-        dbg!("&package", &package);
 
         let mut config = Config {
             package: package.clone(),
@@ -498,18 +494,18 @@ impl Config {
 
     pub(crate) async fn get_file_and_package_by_id(&mut self, id: &str) -> fpm::Result<fpm::File> {
         let file_name = self.get_file_path_and_resolve(id).await?;
-        let package = self.find_package_by_id(id, &self.package)?.1;
+        let package = self.find_package_by_id(id).await?.1;
         fpm::get_file(
             package.name.to_string(),
-            dbg!(&self.root.join(file_name)),
-            &self.get_root_for_package(package),
+            &self.root.join(file_name),
+            &self.get_root_for_package(&package),
         )
         .await
     }
 
     pub(crate) async fn get_file_path_and_resolve(&mut self, id: &str) -> fpm::Result<String> {
-        let (package_name, package) = self.find_package_by_id(id, &self.package)?;
-        let package = self.resolve_package(package).await?;
+        let (package_name, package) = self.find_package_by_id(id).await?;
+        let package = self.resolve_package(&package).await?;
         self.add_package(&package);
         let mut id = id.to_string();
         let mut add_packages = "".to_string();
@@ -522,39 +518,48 @@ impl Config {
             .map(|(id, _)| id)
             .unwrap_or_else(|| id.as_str())
             .trim()
-            .trim_start_matches(package_name.as_str())
-            .replace("/index.html", "/")
-            .replace("index.html", "/");
+            .trim_start_matches(package_name.as_str());
 
         Ok(format!(
             "{}{}",
             add_packages,
-            package.resolve_by_id(id.as_str(), None).await?.0
+            package.resolve_by_id(id, None).await?.0
         ))
     }
 
     /// Return (package name or alias, package)
-    fn find_package_by_id<'a>(
-        &'a self,
-        id: &'a str,
-        current_package: &'a fpm::Package,
-    ) -> fpm::Result<(String, &'a fpm::Package)> {
+    async fn find_package_by_id(&mut self, id: &str) -> fpm::Result<(String, fpm::Package)> {
         let id = if let Some(id) = id.strip_prefix("-/") {
             id
         } else {
-            return Ok((self.package.name.to_string(), &self.package));
+            return Ok((self.package.name.to_string(), self.package.to_owned()));
         };
-        Ok(current_package
-            .aliases()
-            .iter()
-            .find_map(|(alias, d)| {
-                if id.starts_with(alias) {
-                    Some((alias.to_string(), d.to_owned()))
-                } else {
-                    None
-                }
-            })
-            .unwrap_or((self.package.name.to_string(), &self.package)))
+
+        if let Some(package) = self.package.aliases().iter().find_map(|(alias, d)| {
+            if id.starts_with(alias) {
+                Some((alias.to_string(), (*d).to_owned()))
+            } else {
+                None
+            }
+        }) {
+            return Ok(package);
+        }
+
+        for (package_name, package) in self.all_packages.iter() {
+            if id.starts_with(package_name) {
+                return Ok((package_name.to_string(), package.to_owned()));
+            }
+        }
+
+        if let Some(package_root) = find_root_for_file(&self.packages_root.join(id), "FPM.ftd") {
+            let mut package = fpm::Package::new("unknown-package");
+            package.resolve(&package_root.join("FPM.ftd")).await?;
+            self.all_packages
+                .insert(package.name.to_string(), package.clone());
+            return Ok((package.name.to_string(), package));
+        }
+
+        Ok((self.package.name.to_string(), self.package.to_owned()))
     }
 
     pub(crate) async fn download_required_file(
@@ -563,8 +568,6 @@ impl Config {
         package: &fpm::Package,
     ) -> fpm::Result<String> {
         use tokio::io::AsyncWriteExt;
-
-        dbg!("download_required_file****", &package.name);
 
         let id = id.trim_start_matches(package.name.as_str());
 
@@ -608,10 +611,9 @@ impl Config {
         }
 
         let id = id.trim_matches('/').to_string();
-        if let Ok(string) = fpm::utils::http_get_str(
-            dbg!(format!("{}/{}.ftd", base.trim_end_matches('/'), id)).as_str(),
-        )
-        .await
+        if let Ok(string) =
+            fpm::utils::http_get_str(format!("{}/{}.ftd", base.trim_end_matches('/'), id).as_str())
+                .await
         {
             let (prefix, id) = match id.rsplit_once('/') {
                 Some((prefix, id)) => (format!("/{}", prefix), id.to_string()),
@@ -620,29 +622,22 @@ impl Config {
             let base = root
                 .join(".packages")
                 .join(format!("{}{}", package.name.as_str(), prefix));
-            dbg!("after http request", &base);
             tokio::fs::create_dir_all(&base).await?;
             let file_path = base.join(format!("{}.ftd", id));
-            dbg!(&file_path);
             tokio::fs::File::create(&file_path)
                 .await?
                 .write_all(string.as_bytes())
                 .await?;
             return Ok(file_path.to_string());
         }
-        if let Ok(string) = fpm::utils::http_get_str(dbg!(format!(
-            "{}/{}/index.ftd",
-            base.trim_end_matches('/'),
-            id
+        if let Ok(string) = fpm::utils::http_get_str(
+            format!("{}/{}/index.ftd", base.trim_end_matches('/'), id).as_str(),
         )
-        .as_str()))
         .await
         {
             let base = root.join(".packages").join(package.name.as_str()).join(id);
-            dbg!("base 1", &base);
             tokio::fs::create_dir_all(&base).await?;
             let file_path = base.join("index.ftd");
-            dbg!("file_path 1", &file_path);
             tokio::fs::File::create(&file_path)
                 .await?
                 .write_all(string.as_bytes())

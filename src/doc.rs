@@ -201,13 +201,13 @@ async fn resolve_foreign_variable2(
 
     if let Some((package_name, files)) = variable.split_once("/assets#files.") {
         if package.name.eq(package_name) {
-            if let Ok(value) = get_assets_value(&package, files, lib, doc_name, base_url).await {
+            if let Ok(value) = get_assets_value(&package, files, lib, base_url).await {
                 return Ok(value);
             }
         }
         for (alias, package) in package.aliases() {
             if alias.eq(package_name) {
-                if let Ok(value) = get_assets_value(package, files, lib, doc_name, base_url).await {
+                if let Ok(value) = get_assets_value(package, files, lib, base_url).await {
                     return Ok(value);
                 }
             }
@@ -220,7 +220,6 @@ async fn resolve_foreign_variable2(
         package: &fpm::Package,
         files: &str,
         lib: &mut fpm::Library2,
-        doc_name: &str,
         base_url: &str,
     ) -> ftd::p1::Result<ftd::Value> {
         lib.push_package_under_process(package).await?;
@@ -250,14 +249,7 @@ async fn resolve_foreign_variable2(
                 if mime_guess::MimeGuess::from_ext(ext)
                     .first_or_octet_stream()
                     .to_string()
-                    .starts_with("image/")
-                    && package
-                        .resolve_by_file_name(
-                            format!("{}.{}", file.replace('.', "/"), ext).as_str(),
-                            None,
-                        )
-                        .await
-                        .is_ok() =>
+                    .starts_with("image/") =>
             {
                 let light_mode = format!(
                     "{base_url}/-/{}/{}.{}",
@@ -271,32 +263,13 @@ async fn resolve_foreign_variable2(
                         source: ftd::TextSource::Header,
                     });
                 }
-                let dark_mode_path = format!("{}-dark.{}", file.replace('.', "/"), ext);
-                let dark_mode = if package
-                    .resolve_by_file_name(dark_mode_path.as_str(), None)
-                    .await
-                    .is_ok()
-                {
-                    format!(
-                        "{base_url}/-/{}/{}-dark.{}",
-                        package.name,
-                        file.replace('.', "/"),
-                        ext
-                    )
-                } else {
-                    let package_root = lib.config.get_root_for_package(package);
-                    tokio::fs::copy(
-                        package_root.join(format!("{}.{}", file.replace('.', "/"), ext)),
-                        dbg!(package_root.join(dark_mode_path)),
-                    )
-                    .await
-                    .map_err(|e| ftd::p1::Error::ParseError {
-                        message: e.to_string(),
-                        doc_id: lib.document_id.to_string(),
-                        line_number: 0,
-                    })?;
-                    light_mode.clone()
-                };
+
+                let dark_mode = format!(
+                    "{base_url}/-/{}/{}-dark.{}",
+                    package.name,
+                    file.replace('.', "/"),
+                    ext
+                );
 
                 if dark {
                     return Ok(ftd::Value::String {
@@ -329,31 +302,14 @@ async fn resolve_foreign_variable2(
                     .collect(),
                 })
             }
-            Some((file, ext))
-                if package
-                    .resolve_by_file_name(
-                        format!("{}.{}", file.replace('.', "/"), ext).as_str(),
-                        None,
-                    )
-                    .await
-                    .is_ok() =>
-            {
-                Ok(ftd::Value::String {
-                    text: format!("/-/{}/{}.{}", package.name, file.replace('.', "/"), ext),
-                    source: ftd::TextSource::Header,
-                })
-            }
-            None if package
-                .resolve_by_file_name(files.as_str(), None)
-                .await
-                .is_ok() =>
-            {
-                Ok(ftd::Value::String {
-                    text: format!("/-/{}/{}", package.name, files),
-                    source: ftd::TextSource::Header,
-                })
-            }
-            _ => ftd::e2(format!("{} not found 2", files).as_str(), doc_name, 0),
+            Some((file, ext)) => Ok(ftd::Value::String {
+                text: format!("/-/{}/{}.{}", package.name, file.replace('.', "/"), ext),
+                source: ftd::TextSource::Header,
+            }),
+            None => Ok(ftd::Value::String {
+                text: format!("/-/{}/{}", package.name, files),
+                source: ftd::TextSource::Header,
+            }),
         }
     }
 }

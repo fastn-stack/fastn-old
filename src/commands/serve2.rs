@@ -23,6 +23,9 @@ async fn handle_ftd(config: &mut fpm::Config, path: std::path::PathBuf) -> actix
                 Err(e) => actix_web::HttpResponse::InternalServerError().body(e.to_string()),
             };
         }
+        fpm::File::Image(image) => actix_web::HttpResponse::Ok()
+            .content_type("image/jpeg")
+            .body(image.content),
         _ => actix_web::HttpResponse::InternalServerError().body("".as_bytes()),
     };
 
