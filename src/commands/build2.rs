@@ -4,6 +4,7 @@ pub async fn build2(
     base_url: &str,
     ignore_failed: bool,
 ) -> fpm::Result<()> {
+    tokio::fs::create_dir_all(config.build_dir()).await?;
     let documents = get_documents_for_current_package(config).await?;
     for main in documents.values() {
         if file.is_some() && file != Some(main.get_id().as_str()) {
@@ -24,7 +25,7 @@ pub async fn build2(
                     (Ok(_), _) => (),
                     (_, true) => {
                         println!("Failed");
-                        return Ok(());
+                        continue;
                     }
                     (Err(e), _) => {
                         return Err(e);
@@ -38,7 +39,7 @@ pub async fn build2(
                     (Ok(r), _) => r,
                     (_, true) => {
                         println!("Failed");
-                        return Ok(());
+                        continue;
                     }
                     (e, _) => {
                         return e;
@@ -52,7 +53,7 @@ pub async fn build2(
                     (Ok(r), _) => r,
                     (_, true) => {
                         println!("Failed");
-                        return Ok(());
+                        continue;
                     }
                     (e, _) => {
                         return e;
@@ -75,7 +76,7 @@ pub async fn build2(
                     (Ok(r), _) => r,
                     (_, true) => {
                         println!("Failed");
-                        return Ok(());
+                        continue;
                     }
                     (e, _) => {
                         return e;
