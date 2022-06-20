@@ -306,20 +306,6 @@ impl Library2 {
             None
         }
 
-        fn get_file_from_location(base_path: &camino::Utf8PathBuf, name: &str) -> Option<String> {
-            let os_name = name
-                .trim_start_matches('/')
-                .trim_end_matches('/')
-                .replace("/", std::path::MAIN_SEPARATOR.to_string().as_str());
-            if let Ok(v) = std::fs::read_to_string(base_path.join(format!("{}.ftd", os_name))) {
-                return Some(v);
-            }
-            if let Ok(v) = std::fs::read_to_string(base_path.join(os_name).join("index.ftd")) {
-                return Some(v);
-            }
-            None
-        }
-
         async fn get_data_from_package(
             name: &str,
             package: &fpm::Package,
