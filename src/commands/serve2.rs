@@ -24,7 +24,15 @@ async fn handle_ftd(config: &mut fpm::Config, path: std::path::PathBuf) -> actix
             };
         }
         fpm::File::Image(image) => actix_web::HttpResponse::Ok()
-            .content_type("image/jpeg")
+            .content_type(
+                infer::get(image.content.as_slice())
+                    .map(|v| v.mime_type())
+                    .unwrap_or(if image.id.ends_with(".svg") {
+                        "image/svg+xml"
+                    } else {
+                        "image/jpeg"
+                    }),
+            )
             .body(image.content),
         _ => actix_web::HttpResponse::InternalServerError().body("".as_bytes()),
     };

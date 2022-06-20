@@ -179,8 +179,6 @@ impl fpm::Package {
             }
         };
 
-        dbg!("resolve_by_file_name::", &file_path);
-
         if let Ok(response) = self
             .fs_fetch_by_file_name(file_path.as_str(), package_root)
             .await
@@ -225,7 +223,6 @@ impl fpm::Package {
             }
         };
 
-        dbg!("resolve_by_id::", &new_id);
         if let Ok(response) = self.fs_fetch_by_id(new_id.as_str(), package_root).await {
             return Ok(response);
         }

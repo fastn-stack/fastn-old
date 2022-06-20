@@ -511,7 +511,9 @@ impl Config {
         let mut add_packages = "".to_string();
         if let Some(new_id) = id.strip_prefix("-/") {
             id = new_id.to_string();
-            add_packages = format!(".packages/{}/", package.name)
+            if !package.name.eq(self.package.name.as_str()) {
+                add_packages = format!(".packages/{}/", package.name);
+            }
         }
         let id = id
             .split_once("-/")
@@ -876,6 +878,7 @@ impl Config {
                     implements: Vec::new(),
                 });
             };
+            package.fpm_path = Some(root.join("FPM.ftd"));
 
             package.dependencies = deps;
 
