@@ -7,6 +7,7 @@ extern crate lazy_static;
 pub(crate) mod utils;
 
 // Temp comment
+mod apis;
 mod auto_import;
 mod commands;
 mod config;
