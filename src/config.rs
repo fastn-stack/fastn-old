@@ -497,12 +497,22 @@ impl Config {
     pub(crate) async fn get_file_and_package_by_id(&mut self, id: &str) -> fpm::Result<fpm::File> {
         let file_name = self.get_file_path_and_resolve(id).await?;
         let package = self.find_package_by_id(id).await?.1;
-        fpm::get_file(
+        let mut file = fpm::get_file(
             package.name.to_string(),
             &self.root.join(file_name),
             &self.get_root_for_package(&package),
         )
-        .await
+        .await?;
+        if id.contains("-/") {
+            let url = id.trim_end_matches("/index.html").trim_matches('/');
+            let extension = if matches!(file, fpm::File::Markdown(_)) {
+                "index.md".to_string()
+            } else {
+                "index.ftd".to_string()
+            };
+            file.set_id(format!("{}/{}", url, extension).as_str());
+        }
+        Ok(file)
     }
 
     pub(crate) async fn get_file_path_and_resolve(&mut self, id: &str) -> fpm::Result<String> {
@@ -512,17 +522,26 @@ impl Config {
         let mut id = id.to_string();
         let mut add_packages = "".to_string();
         if let Some(new_id) = id.strip_prefix("-/") {
-            id = new_id.to_string();
+            // Check if the id is alias for index.ftd. eg: `/-/bar/`
+            if new_id.starts_with(&package_name) || !package.name.eq(self.package.name.as_str()) {
+                id = new_id.to_string();
+            }
             if !package.name.eq(self.package.name.as_str()) {
                 add_packages = format!(".packages/{}/", package.name);
             }
         }
-        let id = id
-            .split_once("-/")
-            .map(|(id, _)| id)
-            .unwrap_or_else(|| id.as_str())
-            .trim()
-            .trim_start_matches(package_name.as_str());
+        let id = {
+            let mut id = id
+                .split_once("-/")
+                .map(|(id, _)| id)
+                .unwrap_or_else(|| id.as_str())
+                .trim()
+                .trim_start_matches(package_name.as_str());
+            if id.is_empty() {
+                id = "/";
+            }
+            id
+        };
 
         Ok(format!(
             "{}{}",
