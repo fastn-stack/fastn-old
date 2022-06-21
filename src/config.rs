@@ -341,16 +341,29 @@ impl Config {
 
         let asset_documents = config.get_assets("/").await?;
 
-        config.sitemap = match package.translation_of.as_ref() {
-            Some(translation) => translation,
-            None => &package,
-        }
-        .sitemap
-        .as_ref()
-        .map_or(Ok(None), |v| {
-            fpm::sitemap::Sitemap::parse(v.as_str(), &package, &config, &asset_documents, "/")
-                .map(Some)
-        })?;
+        config.sitemap = {
+            let sitemap = match package.translation_of.as_ref() {
+                Some(translation) => translation,
+                None => &package,
+            }
+            .sitemap
+            .as_ref();
+            let sitemap = match sitemap {
+                Some(data) => Some(
+                    fpm::sitemap::Sitemap::parse(
+                        data.as_str(),
+                        &package,
+                        &mut config,
+                        &asset_documents,
+                        "/",
+                        true,
+                    )
+                    .await?,
+                ),
+                None => None,
+            };
+            sitemap
+        };
 
         Ok(config)
     }
@@ -831,7 +844,7 @@ impl Config {
     }
 
     /// `read()` is the way to read a Config.
-    pub async fn read2(root: Option<String>) -> fpm::Result<fpm::Config> {
+    pub async fn read2(root: Option<String>, resolve_sitemap: bool) -> fpm::Result<fpm::Config> {
         let (root, original_directory) = match root {
             Some(r) => {
                 let root: camino::Utf8PathBuf = tokio::fs::canonicalize(r.as_str())
@@ -946,16 +959,29 @@ impl Config {
 
         let asset_documents = config.get_assets("/").await?;
 
-        config.sitemap = match package.translation_of.as_ref() {
-            Some(translation) => translation,
-            None => &package,
-        }
-        .sitemap
-        .as_ref()
-        .map_or(Ok(None), |v| {
-            fpm::sitemap::Sitemap::parse(v.as_str(), &package, &config, &asset_documents, "/")
-                .map(Some)
-        })?;
+        config.sitemap = {
+            let sitemap = match package.translation_of.as_ref() {
+                Some(translation) => translation,
+                None => &package,
+            }
+            .sitemap
+            .as_ref();
+            let sitemap = match sitemap {
+                Some(data) => Some(
+                    fpm::sitemap::Sitemap::parse(
+                        data.as_str(),
+                        &package,
+                        &mut config,
+                        &asset_documents,
+                        "/",
+                        resolve_sitemap,
+                    )
+                    .await?,
+                ),
+                None => None,
+            };
+            sitemap
+        };
 
         config.add_package(&package);
 
