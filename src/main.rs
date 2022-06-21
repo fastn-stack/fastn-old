@@ -28,6 +28,7 @@ async fn main() -> fpm::Result<()> {
         })
         .await
         .expect("Thread spawn error");
+        return Ok(());
     }
 
     let mut config = fpm::Config::read2(None, true).await?;
