@@ -656,7 +656,7 @@ impl Sitemap {
         ) -> fpm::Result<()> {
             if let Some(ref id) = subsection.id {
                 let (file_location, translation_file_location) = if let Ok(file_name) =
-                    config.get_file_path_and_resolve(&id).await
+                    config.get_file_path_and_resolve(id).await
                 {
                     (
                         Some(config.root.join(file_name.as_str())),
