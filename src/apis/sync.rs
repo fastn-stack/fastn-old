@@ -114,7 +114,7 @@ fn error<T: Into<String>>(
 pub async fn sync(
     req: actix_web::web::Json<SyncRequest>,
 ) -> actix_web::Result<actix_web::HttpResponse> {
-    return match sync_worker(req.0) {
+    return match sync_worker(req.0).await {
         Ok(data) => success(data),
         Err(err) => error(
             err.to_string(),
@@ -125,8 +125,105 @@ pub async fn sync(
     // success(r)
 }
 
-pub(crate) fn sync_worker(request: SyncRequest) -> fpm::Result<SyncResponse> {
+pub(crate) async fn sync_worker(request: SyncRequest) -> fpm::Result<SyncResponse> {
     dbg!(&request.files.iter().map(|x| x.id()).collect_vec());
+    // TODO: Need to call at once only
+    let config = fpm::Config::read2(None, false).await?;
+    let mut snapshots = fpm::snapshot::get_latest_snapshots(&config.root).await?;
+    let client_snapshots = fpm::snapshot::resolve_snapshots(&request.latest_ftd).await?;
+    // let latest_ftd = tokio::fs::read_to_string(config.history_dir().join(".latest.ftd")).await?;
+    let timestamp = fpm::timestamp_nanosecond();
+    let mut synced_files = vec![];
+    let mut dot_history = vec![];
+
+    for file in request.files.iter() {
+        match file {
+            SyncRequestFile::Add { path, content } => {
+                fpm::utils::write(&config.root, path, content).await?;
+                let snapshot_path =
+                    fpm::utils::history_path(path, config.root.as_str(), &timestamp);
+                tokio::fs::copy(config.root.join(path), snapshot_path).await?;
+                snapshots.insert(path.to_string(), timestamp);
+                dot_history.push(File {
+                    path: fpm::utils::snapshot_id(path, &timestamp),
+                    content: content.to_vec(),
+                });
+                // Create a new file
+                // Take snapshot
+                // Update version in latest.ftd
+            }
+            SyncRequestFile::Delete { path } => {
+                tokio::fs::remove_file(config.root.join(path)).await?;
+                snapshots.remove(path);
+            }
+            SyncRequestFile::Update { path, content } => {
+                let client_snapshot_timestamp =
+                    client_snapshots
+                        .get(path)
+                        .ok_or(fpm::Error::APIResponseError(format!(
+                            "path should be available in latest.ftd {}",
+                            path
+                        )))?;
+                // TODO: It may have been deleted
+                let snapshot_timestamp =
+                    snapshots
+                        .get(path)
+                        .ok_or(fpm::Error::APIResponseError(format!(
+                            "path should be available in latest.ftd {}",
+                            path
+                        )))?;
+
+                // No conflict case
+                if client_snapshot_timestamp.eq(snapshot_timestamp) {
+                    fpm::utils::update(&config.root, path, content).await?;
+                    let snapshot_path =
+                        fpm::utils::history_path(path, config.root.as_str(), &timestamp);
+                    tokio::fs::copy(config.root.join(path), snapshot_path).await?;
+                    snapshots.insert(path.to_string(), timestamp);
+                    dot_history.push(File {
+                        path: fpm::utils::snapshot_id(path, &timestamp),
+                        content: content.to_vec(),
+                    });
+                } else {
+                    // TODO: Need to handle static files like images, don't require merging
+                    let ancestor_path = fpm::utils::history_path(
+                        path,
+                        config.root.as_str(),
+                        &client_snapshot_timestamp,
+                    );
+                    let ancestor_content = tokio::fs::read_to_string(ancestor_path).await?;
+                    let ours_path =
+                        fpm::utils::history_path(path, config.root.as_str(), &snapshot_timestamp);
+                    let ours_content = tokio::fs::read_to_string(ours_path).await?;
+                    let theirs_content = String::from_utf8(content.clone())
+                        .map_err(|e| fpm::Error::APIResponseError(e.to_string()))?;
+
+                    match diffy::merge(&ancestor_content, &ours_content, &theirs_content) {
+                        Ok(data) => {
+                            fpm::utils::update(&config.root, path, data.as_bytes()).await?;
+                            let snapshot_path =
+                                fpm::utils::history_path(path, config.root.as_str(), &timestamp);
+                            tokio::fs::copy(config.root.join(path), snapshot_path).await?;
+                            snapshots.insert(path.to_string(), timestamp);
+                            dot_history.push(File {
+                                path: fpm::utils::snapshot_id(path, &timestamp),
+                                content: content.to_vec(),
+                            });
+                        }
+                        Err(data) => {
+                            // Return conflicted content
+                            synced_files.push(SyncResponseFile::Update {
+                                path: path.to_string(),
+                                status: SyncStatus::Conflict,
+                                content: data.as_bytes().to_vec(),
+                            })
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     let r = SyncResponse {
         files: vec![],
         dot_history: vec![],

@@ -37,7 +37,7 @@ pub async fn sync(config: &fpm::Config, files: Option<Vec<String>>) -> fpm::Resu
 
     // Tumhe nahi chalana hai mujhe to, koi aur chalaye to chalaye
     if false {
-        let timestamp = fpm::get_timestamp_nanosecond();
+        let timestamp = fpm::timestamp_nanosecond();
         let mut modified_files = vec![];
         let mut new_snapshots = vec![];
         for doc in documents {
