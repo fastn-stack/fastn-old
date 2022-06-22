@@ -4,21 +4,11 @@ struct SyncResponse {
 }
 
 #[derive(serde::Deserialize, std::fmt::Debug)]
-#[serde(tag = "type")]
+#[serde(tag = "action")]
 pub enum SyncFile {
-    Add {
-        path: String,
-        content: String,
-        version: String,
-    },
-    Update {
-        path: String,
-        content: String,
-        version: String,
-    },
-    Delete {
-        path: String,
-    },
+    Add { path: String, content: String },
+    Update { path: String, content: String },
+    Delete { path: String },
 }
 
 #[derive(serde::Deserialize, std::fmt::Debug)]
