@@ -1,10 +1,12 @@
-#[derive(serde::Serialize, std::fmt::Debug)]
+use itertools::Itertools;
+
+#[derive(serde::Serialize, serde::Deserialize, std::fmt::Debug)]
 pub enum SyncStatus {
     Conflict,
     NoConflict,
 }
 
-#[derive(serde::Serialize, std::fmt::Debug)]
+#[derive(serde::Serialize, serde::Deserialize, std::fmt::Debug)]
 #[serde(tag = "action")]
 pub enum SyncResponseFile {
     Add {
@@ -24,32 +26,42 @@ pub enum SyncResponseFile {
     },
 }
 
-#[derive(serde::Serialize, std::fmt::Debug)]
+#[derive(serde::Serialize, serde::Deserialize, std::fmt::Debug)]
 pub struct File {
     path: String,
     content: Vec<u8>,
 }
 
-#[derive(serde::Serialize, std::fmt::Debug)]
-struct SyncResponse {
+#[derive(serde::Serialize, serde::Deserialize, std::fmt::Debug)]
+pub struct SyncResponse {
     files: Vec<SyncResponseFile>,
     dot_history: Vec<File>,
-    latest_ftd: File,
+    latest_ftd: String,
 }
 
-#[derive(serde::Deserialize, std::fmt::Debug)]
+#[derive(serde::Deserialize, serde::Serialize, std::fmt::Debug)]
 #[serde(tag = "action")]
 pub enum SyncRequestFile {
     Add { path: String, content: Vec<u8> },
     Update { path: String, content: Vec<u8> },
-    Delete { path: String, content: Vec<u8> },
+    Delete { path: String },
 }
 
-#[derive(serde::Deserialize, std::fmt::Debug)]
+impl SyncRequestFile {
+    fn id(&self) -> String {
+        match self {
+            SyncRequestFile::Add { path, .. }
+            | SyncRequestFile::Update { path, .. }
+            | SyncRequestFile::Delete { path } => path.to_string(),
+        }
+    }
+}
+
+#[derive(serde::Deserialize, serde::Serialize, std::fmt::Debug)]
 pub struct SyncRequest {
-    package_name: String,
-    files: Vec<SyncRequestFile>,
-    latest_ftd: String,
+    pub package_name: String,
+    pub files: Vec<SyncRequestFile>,
+    pub latest_ftd: String,
 }
 
 fn success(data: impl serde::Serialize) -> actix_web::Result<actix_web::HttpResponse> {
@@ -94,8 +106,13 @@ fn error(
 pub async fn sync(
     files: actix_web::web::Json<SyncRequest>,
 ) -> actix_web::Result<actix_web::HttpResponse> {
-    println!("{:?}", files);
-    success("hello world")
+    dbg!(&files.files.iter().map(|x| x.id()).collect_vec());
+    let r = SyncResponse {
+        files: vec![],
+        dot_history: vec![],
+        latest_ftd: "".to_string(),
+    };
+    success(r)
 }
 
 // #[derive(Debug, std::fmt::Display)]
