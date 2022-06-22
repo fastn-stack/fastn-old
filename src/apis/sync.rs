@@ -1,6 +1,27 @@
-#[derive(serde::Serialize)]
-struct ApiResponse {
+#[derive(serde::Serialize, std::fmt::Debug)]
+struct SyncResponse {
     name: String,
+}
+
+#[derive(serde::Deserialize, std::fmt::Debug)]
+#[serde(tag = "type")]
+pub enum SyncMode {
+    Add,
+    Update,
+}
+
+#[derive(serde::Deserialize, std::fmt::Debug)]
+pub struct SyncFile {
+    mode: SyncMode,
+    path: String,
+    content: String,
+    version: String,
+}
+
+#[derive(serde::Deserialize, std::fmt::Debug)]
+pub struct SyncRequest {
+    package_name: String,
+    files: Vec<SyncFile>,
 }
 
 fn success(data: impl serde::Serialize) -> actix_web::Result<actix_web::HttpResponse> {
@@ -42,9 +63,21 @@ fn error(
         .body(serde_json::to_string(&resp)?))
 }
 
-pub(crate) fn sync() -> actix_web::Result<actix_web::HttpResponse> {
-    let t = ApiResponse {
+pub async fn sync(
+    files: actix_web::web::Json<SyncRequest>,
+) -> actix_web::Result<actix_web::HttpResponse> {
+    let t = SyncResponse {
         name: "".to_string(),
     };
+    println!("{:?}", files);
     success(t)
 }
+
+// #[derive(Debug, std::fmt::Display)]
+// struct ApiResponseError {
+//     message: String,
+//     success: bool,
+// }
+
+// TODO: Fir kabhi
+// impl actix_web::ResponseError for ApiResponseError {}
