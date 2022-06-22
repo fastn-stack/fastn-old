@@ -15,6 +15,9 @@ build = "build.rs"
 
 [features]
 controller = []
+remote = []
+local = []
+
 
 [dependencies]
 async-recursion = "0.3.2"

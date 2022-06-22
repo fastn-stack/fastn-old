@@ -95,7 +95,7 @@ pub async fn sync(
     files: actix_web::web::Json<SyncRequest>,
 ) -> actix_web::Result<actix_web::HttpResponse> {
     println!("{:?}", files);
-    success("")
+    success("hello world")
 }
 
 // #[derive(Debug, std::fmt::Display)]

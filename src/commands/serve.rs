@@ -207,11 +207,10 @@ You can try without providing port, it will automatically pick unused port"#,
     );
 
     let app = || {
-        if cfg!(feature = "local") {
-            actix_web::App::new().route("/{path:.*}", actix_web::web::get().to(serve_static))
+        if cfg!(feature = "remote") {
+            actix_web::App::new().route("/-/sync/", actix_web::web::post().to(crate::apis::sync))
         } else {
-            actix_web::App::new().route("/-/sync/", actix_web::web::get().to(crate::apis::sync))
-            // .route("/{path:.*}", actix_web::web::get().to(serve_static))
+            actix_web::App::new().route("/{path:.*}", actix_web::web::get().to(serve_static))
         }
     };
 

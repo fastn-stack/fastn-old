@@ -163,16 +163,22 @@ You can try without providing port, it will automatically pick unused port"#,
         }
     };
 
+    let app = || {
+        if cfg!(feature = "remote") {
+            actix_web::App::new().route("/-/sync/", actix_web::web::post().to(crate::apis::sync))
+        } else {
+            actix_web::App::new().route("/{path:.*}", actix_web::web::get().to(serve_static))
+        }
+    };
+
     println!("### Server Started ###");
     println!(
         "Go to: http://{}:{}",
         bind_address,
         tcp_listener.local_addr()?.port()
     );
-    actix_web::HttpServer::new(|| {
-        actix_web::App::new().route("/{path:.*}", actix_web::web::get().to(serve_static))
-    })
-    .listen(tcp_listener)?
-    .run()
-    .await
+    actix_web::HttpServer::new(app)
+        .listen(tcp_listener)?
+        .run()
+        .await
 }
