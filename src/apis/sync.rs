@@ -1,20 +1,54 @@
 #[derive(serde::Serialize, std::fmt::Debug)]
+pub enum SyncStatus {
+    Conflict,
+    NoConflict,
+}
+
+#[derive(serde::Serialize, std::fmt::Debug)]
+#[serde(tag = "action")]
+pub enum SyncResponseFile {
+    Add {
+        path: String,
+        status: SyncStatus,
+        content: Vec<u8>,
+    },
+    Update {
+        path: String,
+        status: SyncStatus,
+        content: Vec<u8>,
+    },
+    Delete {
+        path: String,
+        status: SyncStatus,
+        content: Vec<u8>,
+    },
+}
+
+#[derive(serde::Serialize, std::fmt::Debug)]
+pub struct File {
+    path: String,
+    content: Vec<u8>,
+}
+
+#[derive(serde::Serialize, std::fmt::Debug)]
 struct SyncResponse {
-    name: String,
+    files: Vec<SyncResponseFile>,
+    dot_history: Vec<File>,
+    latest_ftd: File,
 }
 
 #[derive(serde::Deserialize, std::fmt::Debug)]
 #[serde(tag = "action")]
-pub enum SyncFile {
-    Add { path: String, content: String },
-    Update { path: String, content: String },
-    Delete { path: String },
+pub enum SyncRequestFile {
+    Add { path: String, content: Vec<u8> },
+    Update { path: String, content: Vec<u8> },
+    Delete { path: String, content: Vec<u8> },
 }
 
 #[derive(serde::Deserialize, std::fmt::Debug)]
 pub struct SyncRequest {
     package_name: String,
-    files: Vec<SyncFile>,
+    files: Vec<SyncRequestFile>,
     latest_ftd: String,
 }
 
@@ -60,11 +94,8 @@ fn error(
 pub async fn sync(
     files: actix_web::web::Json<SyncRequest>,
 ) -> actix_web::Result<actix_web::HttpResponse> {
-    let t = SyncResponse {
-        name: "".to_string(),
-    };
     println!("{:?}", files);
-    success(t)
+    success("")
 }
 
 // #[derive(Debug, std::fmt::Display)]
