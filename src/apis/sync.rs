@@ -82,8 +82,8 @@ fn success(data: impl serde::Serialize) -> actix_web::Result<actix_web::HttpResp
         .body(data))
 }
 
-fn error(
-    message: &str,
+fn error<T: Into<String>>(
+    message: T,
     status: actix_web::http::StatusCode,
 ) -> actix_web::Result<actix_web::HttpResponse> {
     #[derive(serde::Serialize)]
@@ -93,7 +93,7 @@ fn error(
     }
 
     let resp = ErrorResponse {
-        message: message.to_string(),
+        message: message.into(),
         success: false,
     };
 
@@ -103,16 +103,36 @@ fn error(
         .body(serde_json::to_string(&resp)?))
 }
 
+/// Steps
+/// Read latest.ftd and create snapshot version
+/// Iterate over Added files, create them and update new version in latest.ftd
+/// Iterate over Deleted Files, If version are same remove it from remote otherwise send updated file
+/// Iterate over Update Files, get the base file according to client latest.ftd and apply three way merge,
+/// If no conflict merge it, update file on remote and send back new content as Updated
+/// If conflict occur, Then send back updated version in latest.ftd with conflicted content
+///
 pub async fn sync(
-    files: actix_web::web::Json<SyncRequest>,
+    req: actix_web::web::Json<SyncRequest>,
 ) -> actix_web::Result<actix_web::HttpResponse> {
-    dbg!(&files.files.iter().map(|x| x.id()).collect_vec());
+    return match sync_worker(req.0) {
+        Ok(data) => success(data),
+        Err(err) => error(
+            err.to_string(),
+            actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+        ),
+    };
+
+    // success(r)
+}
+
+pub(crate) fn sync_worker(request: SyncRequest) -> fpm::Result<SyncResponse> {
+    dbg!(&request.files.iter().map(|x| x.id()).collect_vec());
     let r = SyncResponse {
         files: vec![],
         dot_history: vec![],
         latest_ftd: "".to_string(),
     };
-    success(r)
+    Ok(r)
 }
 
 // #[derive(Debug, std::fmt::Display)]
