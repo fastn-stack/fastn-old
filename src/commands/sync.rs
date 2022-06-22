@@ -23,7 +23,7 @@ pub async fn sync(config: &fpm::Config, files: Option<Vec<String>>) -> fpm::Resu
 
     let latest_ftd = tokio::fs::read_to_string(config.history_dir().join(".latest.ftd"))
         .await
-        .unwrap_or("latest.ftd".to_string());
+        .unwrap_or_else(|_| "".to_string());
 
     let changed_files = get_changed_files(&documents, &snapshots).await?;
 
