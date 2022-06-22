@@ -5,23 +5,27 @@ struct SyncResponse {
 
 #[derive(serde::Deserialize, std::fmt::Debug)]
 #[serde(tag = "type")]
-pub enum SyncMode {
-    Add,
-    Update,
-}
-
-#[derive(serde::Deserialize, std::fmt::Debug)]
-pub struct SyncFile {
-    mode: SyncMode,
-    path: String,
-    content: String,
-    version: String,
+pub enum SyncFile {
+    Add {
+        path: String,
+        content: String,
+        version: String,
+    },
+    Update {
+        path: String,
+        content: String,
+        version: String,
+    },
+    Delete {
+        path: String,
+    },
 }
 
 #[derive(serde::Deserialize, std::fmt::Debug)]
 pub struct SyncRequest {
     package_name: String,
     files: Vec<SyncFile>,
+    latest_ftd: String,
 }
 
 fn success(data: impl serde::Serialize) -> actix_web::Result<actix_web::HttpResponse> {
