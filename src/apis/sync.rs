@@ -1,4 +1,3 @@
-use actix_web::web::to;
 use itertools::Itertools;
 
 #[derive(serde::Serialize, serde::Deserialize, std::fmt::Debug)]
@@ -179,22 +178,20 @@ pub(crate) async fn sync_worker(request: SyncRequest) -> fpm::Result<SyncRespons
             }
             SyncRequestFile::Update { path, content } => {
                 dbg!("Update", &file.id());
-                let client_snapshot_timestamp =
-                    client_snapshots
-                        .get(path)
-                        .ok_or(fpm::Error::APIResponseError(format!(
-                            "path should be available in latest.ftd {}",
-                            path
-                        )))?;
+                let client_snapshot_timestamp = client_snapshots.get(path).ok_or_else(|| {
+                    fpm::Error::APIResponseError(format!(
+                        "path should be available in latest.ftd {}",
+                        path
+                    ))
+                })?;
                 dbg!("Update", &path, &client_snapshot_timestamp);
                 // TODO: It may have been deleted
-                let snapshot_timestamp =
-                    snapshots
-                        .get(path)
-                        .ok_or(fpm::Error::APIResponseError(format!(
-                            "path should be available in latest.ftd {}",
-                            path
-                        )))?;
+                let snapshot_timestamp = snapshots.get(path).ok_or_else(|| {
+                    fpm::Error::APIResponseError(format!(
+                        "path should be available in latest.ftd {}",
+                        path
+                    ))
+                })?;
                 dbg!("Update", &path, &snapshot_timestamp);
                 // No conflict case
                 if client_snapshot_timestamp.eq(snapshot_timestamp) {
@@ -214,11 +211,11 @@ pub(crate) async fn sync_worker(request: SyncRequest) -> fpm::Result<SyncRespons
                     let ancestor_path = fpm::utils::history_path(
                         path,
                         config.root.as_str(),
-                        &client_snapshot_timestamp,
+                        client_snapshot_timestamp,
                     );
                     let ancestor_content = tokio::fs::read_to_string(ancestor_path).await?;
                     let ours_path =
-                        fpm::utils::history_path(path, config.root.as_str(), &snapshot_timestamp);
+                        fpm::utils::history_path(path, config.root.as_str(), snapshot_timestamp);
                     let ours_content = tokio::fs::read_to_string(ours_path).await?;
                     let theirs_content = String::from_utf8(content.clone())
                         .map_err(|e| fpm::Error::APIResponseError(e.to_string()))?;
@@ -252,18 +249,6 @@ pub(crate) async fn sync_worker(request: SyncRequest) -> fpm::Result<SyncRespons
         }
     }
 
-    /// Send back Updated files(Current Directory)
-    ///
-    /// Find all newly added files which are not in client latest.ftd
-    /// Find all the Update files at server, need to find out different snapshots in latest.ftd
-    /// Find deleted files, entry will not available in server's latest.ftd but will be available
-    /// client's latest.ftd
-    ///
-    /// Send back all new .history files
-    ///
-    /// find difference between client's latest.ftd and server's latest.ftd and send back those files
-    ///
-    /// Send latest.ftd file as well
     let r = SyncResponse {
         files: vec![],
         dot_history: vec![],
@@ -291,6 +276,19 @@ fn snapshot_diff(
     diff
 }
 
+/// Send back Updated files(Current Directory)
+///
+/// Find all newly added files which are not in client latest.ftd
+/// Find all the Update files at server, need to find out different snapshots in latest.ftd
+/// Find deleted files, entry will not available in server's latest.ftd but will be available
+/// client's latest.ftd
+///
+/// Send back all new .history files
+///
+/// find difference between client's latest.ftd and server's latest.ftd and send back those files
+///
+/// Send latest.ftd file as well
+
 async fn client_current_files(
     config: &fpm::Config,
     request: &SyncRequest,
@@ -298,7 +296,7 @@ async fn client_current_files(
     client_snapshot: &std::collections::BTreeMap<String, u128>,
     synced_files: &mut std::collections::HashMap<String, SyncResponseFile>,
 ) -> fpm::Result<()> {
-    /// Newly Added and Updated files
+    // Newly Added and Updated files
     let diff = snapshot_diff(server_snapshot, client_snapshot);
     for (path, timestamp) in diff.iter() {
         if !synced_files.contains_key(path) {
@@ -314,8 +312,8 @@ async fn client_current_files(
         }
     }
 
-    /// Deleted files
-    ///
+    // Deleted files
+
     let diff = client_snapshot
         .keys()
         .filter(|path| !server_snapshot.contains_key(path.as_str()));
