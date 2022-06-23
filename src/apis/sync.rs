@@ -1,3 +1,4 @@
+use fpm::Snapshot;
 use itertools::Itertools;
 
 #[derive(serde::Serialize, serde::Deserialize, std::fmt::Debug)]
@@ -28,15 +29,15 @@ pub enum SyncResponseFile {
 
 #[derive(serde::Serialize, serde::Deserialize, std::fmt::Debug)]
 pub struct File {
-    path: String,
-    content: Vec<u8>,
+    pub path: String,
+    pub content: Vec<u8>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, std::fmt::Debug)]
 pub struct SyncResponse {
-    files: Vec<SyncResponseFile>,
-    dot_history: Vec<File>,
-    latest_ftd: String,
+    pub files: Vec<SyncResponseFile>,
+    pub dot_history: Vec<File>,
+    pub latest_ftd: String,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, std::fmt::Debug)]
@@ -97,8 +98,6 @@ fn error<T: Into<String>>(
         success: false,
     };
 
-    dbg!(&resp);
-
     Ok(actix_web::HttpResponse::Ok()
         .content_type(actix_web::http::header::ContentType::json())
         .status(status)
@@ -126,59 +125,45 @@ pub async fn sync(
 }
 
 pub(crate) async fn sync_worker(request: SyncRequest) -> fpm::Result<SyncResponse> {
-    dbg!(&request.files.iter().map(|x| x.id()).collect_vec());
     // TODO: Need to call at once only
     let config = fpm::Config::read2(None, false).await?;
-    dbg!("config read success");
     let mut snapshots = fpm::snapshot::get_latest_snapshots(&config.root).await?;
-    dbg!("get latest snapshot");
     let client_snapshots = fpm::snapshot::resolve_snapshots(&request.latest_ftd).await?;
-    dbg!("get client snapshot");
     // let latest_ftd = tokio::fs::read_to_string(config.history_dir().join(".latest.ftd")).await?;
     let timestamp = fpm::timestamp_nanosecond();
     let mut synced_files = std::collections::HashMap::new();
-    dbg!("started loop");
     for file in request.files.iter() {
         match file {
             SyncRequestFile::Add { path, content } => {
                 // We need to check if, file is already available on server
-                dbg!("ADD", &file.id());
-                fpm::utils::write(&config.root, path, content).await?;
-
-                dbg!(&config.root.join(path).as_str());
+                fpm::utils::update(&config.root, path, content).await?;
 
                 let snapshot_path =
                     fpm::utils::history_path(path, config.root.as_str(), &timestamp);
-
-                dbg!(&snapshot_path);
 
                 if let Some((dir, _)) = snapshot_path.as_str().rsplit_once('/') {
                     tokio::fs::create_dir_all(dir).await?;
                 }
 
                 tokio::fs::copy(config.root.join(path), snapshot_path).await?;
-                dbg!("Copy Success to history");
                 snapshots.insert(path.to_string(), timestamp);
                 // Create a new file
                 // Take snapshot
                 // Update version in latest.ftd
             }
             SyncRequestFile::Delete { path } => {
-                dbg!("Delete", &file.id());
                 if config.root.join(path).exists() {
                     tokio::fs::remove_file(config.root.join(path)).await?;
                 }
                 snapshots.remove(path);
             }
             SyncRequestFile::Update { path, content } => {
-                dbg!("Update", &file.id());
                 let client_snapshot_timestamp = client_snapshots.get(path).ok_or_else(|| {
                     fpm::Error::APIResponseError(format!(
                         "path should be available in latest.ftd {}",
                         path
                     ))
                 })?;
-                dbg!("Update", &path, &client_snapshot_timestamp);
                 // TODO: It may have been deleted
                 let snapshot_timestamp = snapshots.get(path).ok_or_else(|| {
                     fpm::Error::APIResponseError(format!(
@@ -186,17 +171,14 @@ pub(crate) async fn sync_worker(request: SyncRequest) -> fpm::Result<SyncRespons
                         path
                     ))
                 })?;
-                dbg!("Update", &path, &snapshot_timestamp);
                 // No conflict case
                 if client_snapshot_timestamp.eq(snapshot_timestamp) {
-                    dbg!("Both version are equal");
                     fpm::utils::update(&config.root, path, content).await?;
                     let snapshot_path =
                         fpm::utils::history_path(path, config.root.as_str(), &timestamp);
                     tokio::fs::copy(config.root.join(path), snapshot_path).await?;
                     snapshots.insert(path.to_string(), timestamp);
                 } else {
-                    dbg!("Both version are not equal");
                     // TODO: Need to handle static files like images, don't require merging
                     let ancestor_path = fpm::utils::history_path(
                         path,
@@ -239,10 +221,24 @@ pub(crate) async fn sync_worker(request: SyncRequest) -> fpm::Result<SyncRespons
 
     let history_files = client_history_files(&config, &snapshots, &client_snapshots).await?;
 
+    fpm::snapshot::create_latest_snapshots(
+        &config,
+        &snapshots
+            .into_iter()
+            .map(|(filename, timestamp)| Snapshot {
+                filename,
+                timestamp,
+            })
+            .collect_vec(),
+    )
+    .await?;
+
+    let latest_ftd = tokio::fs::read_to_string(config.latest_ftd()).await?;
+
     let r = SyncResponse {
         files: synced_files.into_values().collect_vec(),
         dot_history: history_files,
-        latest_ftd: "".to_string(),
+        latest_ftd,
     };
     Ok(r)
 }
@@ -287,7 +283,7 @@ async fn client_current_files(
 ) -> fpm::Result<()> {
     // Newly Added and Updated files
     let diff = snapshot_diff(server_snapshot, client_snapshot);
-    for (path, timestamp) in diff.iter() {
+    for (path, _) in diff.iter() {
         if !synced_files.contains_key(path) {
             let content = tokio::fs::read(config.root.join(path)).await?;
             synced_files.insert(
@@ -310,13 +306,12 @@ async fn client_current_files(
     // If already in synced files need to handle that case
     for path in diff {
         if !synced_files.contains_key(path) {
-            let content = tokio::fs::read(config.root.join(path)).await?;
             synced_files.insert(
                 path.clone(),
                 SyncResponseFile::Delete {
                     path: path.clone(),
                     status: SyncStatus::NoConflict,
-                    content,
+                    content: vec![],
                 },
             );
         }
@@ -341,6 +336,7 @@ async fn client_history_files(
                 .to_str()
                 .unwrap()
                 .trim_start_matches(config.history_dir().as_str())
+                .trim_matches('/')
                 .to_string()
         })
         .collect::<Vec<String>>();

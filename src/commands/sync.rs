@@ -1,3 +1,5 @@
+use crate::apis::sync::SyncResponseFile;
+
 pub async fn sync(config: &fpm::Config, files: Option<Vec<String>>) -> fpm::Result<()> {
     // Read All the Document
     // Get all the updated, added and deleted files
@@ -26,14 +28,14 @@ pub async fn sync(config: &fpm::Config, files: Option<Vec<String>>) -> fpm::Resu
         .unwrap_or_else(|_| "".to_string());
 
     let changed_files = get_changed_files(&documents, &snapshots).await?;
-
     let request = fpm::apis::sync::SyncRequest {
         files: changed_files,
         package_name: config.package.name.to_string(),
         latest_ftd,
     };
-
     let response = send_to_fpm_serve(request).await?;
+    update_current_directory(config, &response.files).await?;
+    update_history(config, &response.dot_history, &response.latest_ftd).await?;
 
     // Tumhe nahi chalana hai mujhe to, koi aur chalaye to chalaye
     if false {
@@ -186,21 +188,60 @@ async fn write(
     ))
 }
 // fpm::apis::sync::SyncResponse
-async fn send_to_fpm_serve(data: fpm::apis::sync::SyncRequest) -> fpm::Result<()> {
+async fn send_to_fpm_serve(
+    data: fpm::apis::sync::SyncRequest,
+) -> fpm::Result<fpm::apis::sync::SyncResponse> {
+    #[derive(serde::Deserialize, std::fmt::Debug)]
+    struct Response {
+        data: fpm::apis::sync::SyncResponse,
+        success: bool,
+    }
+
     // println!("Data send {:#?}", data);
     let data = serde_json::to_string(&data)?;
-    dbg!(&data.as_bytes().len());
-    let response = reqwest::Client::new()
+    let mut response = reqwest::Client::new()
         .post("http://127.0.0.1:8000/-/sync/")
         .header(reqwest::header::CONTENT_TYPE, "application/json")
         .body(data)
         .send()?;
 
-    dbg!(response);
-
-    Ok(())
+    Ok(response.json::<Response>()?.data)
 }
 
 async fn handle_sync_response(response: fpm::apis::sync::SyncResponse) {
     println!("{:?}", response);
+}
+
+async fn update_current_directory(
+    config: &fpm::Config,
+    files: &[fpm::apis::sync::SyncResponseFile],
+) -> fpm::Result<()> {
+    for file in files {
+        match file {
+            SyncResponseFile::Add { path, content, .. } => {
+                fpm::utils::update(&config.root, path, content).await?;
+            }
+            SyncResponseFile::Update { path, content, .. } => {
+                fpm::utils::update(&config.root, path, content).await?;
+            }
+            SyncResponseFile::Delete { path, .. } => {
+                if config.root.join(path).exists() {
+                    tokio::fs::remove_file(config.root.join(path)).await?;
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+async fn update_history(
+    config: &fpm::Config,
+    files: &[fpm::apis::sync::File],
+    latest_ftd: &str,
+) -> fpm::Result<()> {
+    for file in files {
+        fpm::utils::update(&config.history_dir(), file.path.as_str(), &file.content).await?;
+    }
+    fpm::utils::update(&config.history_dir(), ".latest.ftd", latest_ftd.as_bytes()).await?;
+    Ok(())
 }
