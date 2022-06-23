@@ -137,8 +137,6 @@ pub(crate) async fn sync_worker(request: SyncRequest) -> fpm::Result<SyncRespons
     // let latest_ftd = tokio::fs::read_to_string(config.history_dir().join(".latest.ftd")).await?;
     let timestamp = fpm::timestamp_nanosecond();
     let mut synced_files = std::collections::HashMap::new();
-    let mut dot_history = vec![];
-
     dbg!("started loop");
     for file in request.files.iter() {
         match file {
@@ -161,10 +159,6 @@ pub(crate) async fn sync_worker(request: SyncRequest) -> fpm::Result<SyncRespons
                 tokio::fs::copy(config.root.join(path), snapshot_path).await?;
                 dbg!("Copy Success to history");
                 snapshots.insert(path.to_string(), timestamp);
-                dot_history.push(File {
-                    path: fpm::utils::snapshot_id(path, &timestamp),
-                    content: content.to_vec(),
-                });
                 // Create a new file
                 // Take snapshot
                 // Update version in latest.ftd
@@ -201,10 +195,6 @@ pub(crate) async fn sync_worker(request: SyncRequest) -> fpm::Result<SyncRespons
                         fpm::utils::history_path(path, config.root.as_str(), &timestamp);
                     tokio::fs::copy(config.root.join(path), snapshot_path).await?;
                     snapshots.insert(path.to_string(), timestamp);
-                    dot_history.push(File {
-                        path: fpm::utils::snapshot_id(path, &timestamp),
-                        content: content.to_vec(),
-                    });
                 } else {
                     dbg!("Both version are not equal");
                     // TODO: Need to handle static files like images, don't require merging
@@ -227,10 +217,6 @@ pub(crate) async fn sync_worker(request: SyncRequest) -> fpm::Result<SyncRespons
                                 fpm::utils::history_path(path, config.root.as_str(), &timestamp);
                             tokio::fs::copy(config.root.join(path), snapshot_path).await?;
                             snapshots.insert(path.to_string(), timestamp);
-                            dot_history.push(File {
-                                path: fpm::utils::snapshot_id(path, &timestamp),
-                                content: content.to_vec(),
-                            });
                         }
                         Err(data) => {
                             // Return conflicted content
@@ -249,9 +235,13 @@ pub(crate) async fn sync_worker(request: SyncRequest) -> fpm::Result<SyncRespons
         }
     }
 
+    client_current_files(&config, &snapshots, &client_snapshots, &mut synced_files).await?;
+
+    let history_files = client_history_files(&config, &snapshots, &client_snapshots).await?;
+
     let r = SyncResponse {
-        files: vec![],
-        dot_history: vec![],
+        files: synced_files.into_values().collect_vec(),
+        dot_history: history_files,
         latest_ftd: "".to_string(),
     };
     Ok(r)
@@ -264,7 +254,7 @@ fn snapshot_diff(
     let mut diff = std::collections::BTreeMap::new();
     for (snapshot_path, timestamp) in server_snapshot {
         match client_snapshot.get(snapshot_path) {
-            Some(client_timestamp) if client_timestamp.le(timestamp) => {
+            Some(client_timestamp) if client_timestamp.lt(timestamp) => {
                 diff.insert(snapshot_path.to_string(), *timestamp);
             }
             None => {
@@ -291,7 +281,6 @@ fn snapshot_diff(
 
 async fn client_current_files(
     config: &fpm::Config,
-    request: &SyncRequest,
     server_snapshot: &std::collections::BTreeMap<String, u128>,
     client_snapshot: &std::collections::BTreeMap<String, u128>,
     synced_files: &mut std::collections::HashMap<String, SyncResponseFile>,
@@ -336,8 +325,60 @@ async fn client_current_files(
     Ok(())
 }
 
-async fn client_history_files() -> fpm::Result<()> {
-    Ok(())
+async fn client_history_files(
+    config: &fpm::Config,
+    server_snapshot: &std::collections::BTreeMap<String, u128>,
+    client_snapshot: &std::collections::BTreeMap<String, u128>,
+) -> fpm::Result<Vec<File>> {
+    let diff = snapshot_diff(server_snapshot, client_snapshot);
+
+    let history = ignore::WalkBuilder::new(config.history_dir())
+        .build()
+        .into_iter()
+        .flatten()
+        .map(|x| {
+            x.into_path()
+                .to_str()
+                .unwrap()
+                .trim_start_matches(config.history_dir().as_str())
+                .to_string()
+        })
+        .collect::<Vec<String>>();
+
+    let mut dot_history = vec![];
+    for (path, timestamp) in diff.iter() {
+        let client_timestamp = client_snapshot.get(path);
+        let history_paths = get_all_timestamps(path, history.as_slice())?
+            .into_iter()
+            .filter(|x| client_timestamp.map(|c| x.0.gt(c)).unwrap_or(true))
+            .collect_vec();
+        for (_, path) in history_paths {
+            let content = tokio::fs::read(config.history_dir().join(&path)).await?;
+            dot_history.push(File { path, content });
+        }
+    }
+    Ok(dot_history)
+}
+
+fn get_all_timestamps(path: &str, history: &[String]) -> fpm::Result<Vec<(u128, String)>> {
+    let (path_prefix, ext) = if let Some((path_prefix, ext)) = path.rsplit_once('.') {
+        (format!("{}.", path_prefix), Some(ext))
+    } else {
+        (format!("{}.", path), None)
+    };
+    let mut timestamps = vec![];
+    for path in history.iter().filter_map(|p| p.strip_prefix(&path_prefix)) {
+        let (timestamp, extension) = if let Some((timestamp, extension)) = path.rsplit_once('.') {
+            (timestamp, Some(extension))
+        } else {
+            (path, None)
+        };
+        let timestamp = timestamp.parse::<u128>().unwrap();
+        if matches!(ext, extension) {
+            timestamps.push((timestamp, format!("{}{}", path_prefix, path)));
+        }
+    }
+    Ok(timestamps)
 }
 
 // #[derive(Debug, std::fmt::Display)]
