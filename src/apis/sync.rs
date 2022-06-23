@@ -1,3 +1,4 @@
+use actix_web::web::to;
 use itertools::Itertools;
 
 #[derive(serde::Serialize, serde::Deserialize, std::fmt::Debug)]
@@ -116,15 +117,13 @@ fn error<T: Into<String>>(
 pub async fn sync(
     req: actix_web::web::Json<SyncRequest>,
 ) -> actix_web::Result<actix_web::HttpResponse> {
-    return match sync_worker(req.0).await {
+    match sync_worker(req.0).await {
         Ok(data) => success(data),
         Err(err) => error(
             err.to_string(),
             actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
         ),
-    };
-
-    // success(r)
+    }
 }
 
 pub(crate) async fn sync_worker(request: SyncRequest) -> fpm::Result<SyncResponse> {
@@ -138,13 +137,14 @@ pub(crate) async fn sync_worker(request: SyncRequest) -> fpm::Result<SyncRespons
     dbg!("get client snapshot");
     // let latest_ftd = tokio::fs::read_to_string(config.history_dir().join(".latest.ftd")).await?;
     let timestamp = fpm::timestamp_nanosecond();
-    let mut synced_files = vec![];
+    let mut synced_files = std::collections::HashMap::new();
     let mut dot_history = vec![];
 
     dbg!("started loop");
     for file in request.files.iter() {
         match file {
             SyncRequestFile::Add { path, content } => {
+                // We need to check if, file is already available on server
                 dbg!("ADD", &file.id());
                 fpm::utils::write(&config.root, path, content).await?;
 
@@ -237,11 +237,14 @@ pub(crate) async fn sync_worker(request: SyncRequest) -> fpm::Result<SyncRespons
                         }
                         Err(data) => {
                             // Return conflicted content
-                            synced_files.push(SyncResponseFile::Update {
-                                path: path.to_string(),
-                                status: SyncStatus::Conflict,
-                                content: data.as_bytes().to_vec(),
-                            })
+                            synced_files.insert(
+                                path.to_string(),
+                                SyncResponseFile::Update {
+                                    path: path.to_string(),
+                                    status: SyncStatus::Conflict,
+                                    content: data.as_bytes().to_vec(),
+                                },
+                            );
                         }
                     }
                 }
@@ -249,12 +252,94 @@ pub(crate) async fn sync_worker(request: SyncRequest) -> fpm::Result<SyncRespons
         }
     }
 
+    /// Send back Updated files(Current Directory)
+    ///
+    /// Find all newly added files which are not in client latest.ftd
+    /// Find all the Update files at server, need to find out different snapshots in latest.ftd
+    /// Find deleted files, entry will not available in server's latest.ftd but will be available
+    /// client's latest.ftd
+    ///
+    /// Send back all new .history files
+    ///
+    /// find difference between client's latest.ftd and server's latest.ftd and send back those files
+    ///
+    /// Send latest.ftd file as well
     let r = SyncResponse {
         files: vec![],
         dot_history: vec![],
         latest_ftd: "".to_string(),
     };
     Ok(r)
+}
+
+fn snapshot_diff(
+    server_snapshot: &std::collections::BTreeMap<String, u128>,
+    client_snapshot: &std::collections::BTreeMap<String, u128>,
+) -> std::collections::BTreeMap<String, u128> {
+    let mut diff = std::collections::BTreeMap::new();
+    for (snapshot_path, timestamp) in server_snapshot {
+        match client_snapshot.get(snapshot_path) {
+            Some(client_timestamp) if client_timestamp.le(timestamp) => {
+                diff.insert(snapshot_path.to_string(), *timestamp);
+            }
+            None => {
+                diff.insert(snapshot_path.to_string(), *timestamp);
+            }
+            _ => {}
+        };
+    }
+    diff
+}
+
+async fn client_current_files(
+    config: &fpm::Config,
+    request: &SyncRequest,
+    server_snapshot: &std::collections::BTreeMap<String, u128>,
+    client_snapshot: &std::collections::BTreeMap<String, u128>,
+    synced_files: &mut std::collections::HashMap<String, SyncResponseFile>,
+) -> fpm::Result<()> {
+    /// Newly Added and Updated files
+    let diff = snapshot_diff(server_snapshot, client_snapshot);
+    for (path, timestamp) in diff.iter() {
+        if !synced_files.contains_key(path) {
+            let content = tokio::fs::read(config.root.join(path)).await?;
+            synced_files.insert(
+                path.clone(),
+                SyncResponseFile::Add {
+                    path: path.clone(),
+                    status: SyncStatus::NoConflict,
+                    content,
+                },
+            );
+        }
+    }
+
+    /// Deleted files
+    ///
+    let diff = client_snapshot
+        .keys()
+        .filter(|path| !server_snapshot.contains_key(path.as_str()));
+
+    // If already in synced files need to handle that case
+    for path in diff {
+        if !synced_files.contains_key(path) {
+            let content = tokio::fs::read(config.root.join(path)).await?;
+            synced_files.insert(
+                path.clone(),
+                SyncResponseFile::Delete {
+                    path: path.clone(),
+                    status: SyncStatus::NoConflict,
+                    content,
+                },
+            );
+        }
+    }
+
+    Ok(())
+}
+
+async fn client_history_files() -> fpm::Result<()> {
+    Ok(())
 }
 
 // #[derive(Debug, std::fmt::Display)]
