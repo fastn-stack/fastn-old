@@ -188,11 +188,14 @@ pub(crate) async fn sync_worker(request: SyncRequest) -> fpm::Result<SyncRespons
                     let ancestor_content = tokio::fs::read_to_string(ancestor_path).await?;
                     let ours_path =
                         fpm::utils::history_path(path, config.root.as_str(), snapshot_timestamp);
-                    let ours_content = tokio::fs::read_to_string(ours_path).await?;
-                    let theirs_content = String::from_utf8(content.clone())
+                    let theirs_content = tokio::fs::read_to_string(ours_path).await?;
+                    let ours_content = String::from_utf8(content.clone())
                         .map_err(|e| fpm::Error::APIResponseError(e.to_string()))?;
 
-                    match diffy::merge(&ancestor_content, &ours_content, &theirs_content) {
+                    match diffy::MergeOptions::new()
+                        .set_conflict_style(diffy::ConflictStyle::Merge)
+                        .merge(&ancestor_content, &ours_content, &theirs_content)
+                    {
                         Ok(data) => {
                             fpm::utils::update(&config.root, path, data.as_bytes()).await?;
                             let snapshot_path =
