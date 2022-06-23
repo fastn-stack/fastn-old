@@ -86,7 +86,7 @@ fn error<T: Into<String>>(
     message: T,
     status: actix_web::http::StatusCode,
 ) -> actix_web::Result<actix_web::HttpResponse> {
-    #[derive(serde::Serialize)]
+    #[derive(serde::Serialize, Debug)]
     struct ErrorResponse {
         message: String,
         success: bool,
@@ -96,6 +96,8 @@ fn error<T: Into<String>>(
         message: message.into(),
         success: false,
     };
+
+    dbg!(&resp);
 
     Ok(actix_web::HttpResponse::Ok()
         .content_type(actix_web::http::header::ContentType::json())
@@ -129,20 +131,36 @@ pub(crate) async fn sync_worker(request: SyncRequest) -> fpm::Result<SyncRespons
     dbg!(&request.files.iter().map(|x| x.id()).collect_vec());
     // TODO: Need to call at once only
     let config = fpm::Config::read2(None, false).await?;
+    dbg!("config read success");
     let mut snapshots = fpm::snapshot::get_latest_snapshots(&config.root).await?;
+    dbg!("get latest snapshot");
     let client_snapshots = fpm::snapshot::resolve_snapshots(&request.latest_ftd).await?;
+    dbg!("get client snapshot");
     // let latest_ftd = tokio::fs::read_to_string(config.history_dir().join(".latest.ftd")).await?;
     let timestamp = fpm::timestamp_nanosecond();
     let mut synced_files = vec![];
     let mut dot_history = vec![];
 
+    dbg!("started loop");
     for file in request.files.iter() {
         match file {
             SyncRequestFile::Add { path, content } => {
+                dbg!("ADD", &file.id());
                 fpm::utils::write(&config.root, path, content).await?;
+
+                dbg!(&config.root.join(path).as_str());
+
                 let snapshot_path =
                     fpm::utils::history_path(path, config.root.as_str(), &timestamp);
+
+                dbg!(&snapshot_path);
+
+                if let Some((dir, _)) = snapshot_path.as_str().rsplit_once('/') {
+                    tokio::fs::create_dir_all(dir).await?;
+                }
+
                 tokio::fs::copy(config.root.join(path), snapshot_path).await?;
+                dbg!("Copy Success to history");
                 snapshots.insert(path.to_string(), timestamp);
                 dot_history.push(File {
                     path: fpm::utils::snapshot_id(path, &timestamp),
@@ -153,10 +171,14 @@ pub(crate) async fn sync_worker(request: SyncRequest) -> fpm::Result<SyncRespons
                 // Update version in latest.ftd
             }
             SyncRequestFile::Delete { path } => {
-                tokio::fs::remove_file(config.root.join(path)).await?;
+                dbg!("Delete", &file.id());
+                if config.root.join(path).exists() {
+                    tokio::fs::remove_file(config.root.join(path)).await?;
+                }
                 snapshots.remove(path);
             }
             SyncRequestFile::Update { path, content } => {
+                dbg!("Update", &file.id());
                 let client_snapshot_timestamp =
                     client_snapshots
                         .get(path)
@@ -164,6 +186,7 @@ pub(crate) async fn sync_worker(request: SyncRequest) -> fpm::Result<SyncRespons
                             "path should be available in latest.ftd {}",
                             path
                         )))?;
+                dbg!("Update", &path, &client_snapshot_timestamp);
                 // TODO: It may have been deleted
                 let snapshot_timestamp =
                     snapshots
@@ -172,9 +195,10 @@ pub(crate) async fn sync_worker(request: SyncRequest) -> fpm::Result<SyncRespons
                             "path should be available in latest.ftd {}",
                             path
                         )))?;
-
+                dbg!("Update", &path, &snapshot_timestamp);
                 // No conflict case
                 if client_snapshot_timestamp.eq(snapshot_timestamp) {
+                    dbg!("Both version are equal");
                     fpm::utils::update(&config.root, path, content).await?;
                     let snapshot_path =
                         fpm::utils::history_path(path, config.root.as_str(), &timestamp);
@@ -185,6 +209,7 @@ pub(crate) async fn sync_worker(request: SyncRequest) -> fpm::Result<SyncRespons
                         content: content.to_vec(),
                     });
                 } else {
+                    dbg!("Both version are not equal");
                     // TODO: Need to handle static files like images, don't require merging
                     let ancestor_path = fpm::utils::history_path(
                         path,
