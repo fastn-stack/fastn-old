@@ -14,19 +14,16 @@ pub enum SyncResponseFile {
         path: String,
         status: SyncStatus,
         content: Vec<u8>,
-        version: u128,
     },
     Update {
         path: String,
         status: SyncStatus,
         content: Vec<u8>,
-        version: u128,
     },
     Delete {
         path: String,
         status: SyncStatus,
         content: Vec<u8>,
-        version: u128,
     },
 }
 
@@ -201,7 +198,6 @@ pub(crate) async fn sync_worker(request: SyncRequest) -> fpm::Result<SyncRespons
                                     path: path.to_string(),
                                     status: SyncStatus::NoConflict,
                                     content: data.as_bytes().to_vec(),
-                                    version: timestamp,
                                 },
                             );
                         }
@@ -213,7 +209,6 @@ pub(crate) async fn sync_worker(request: SyncRequest) -> fpm::Result<SyncRespons
                                     path: path.to_string(),
                                     status: SyncStatus::Conflict,
                                     content: data.as_bytes().to_vec(),
-                                    version: *client_snapshot_timestamp,
                                 },
                             );
                         }
@@ -289,7 +284,7 @@ async fn client_current_files(
 ) -> fpm::Result<()> {
     // Newly Added and Updated files
     let diff = snapshot_diff(server_snapshot, client_snapshot);
-    for (path, timestamp) in diff.iter() {
+    for (path, _) in diff.iter() {
         if !synced_files.contains_key(path) {
             let content = tokio::fs::read(config.root.join(path)).await?;
             synced_files.insert(
@@ -298,7 +293,6 @@ async fn client_current_files(
                     path: path.clone(),
                     status: SyncStatus::NoConflict,
                     content,
-                    version: *timestamp,
                 },
             );
         }
@@ -311,7 +305,7 @@ async fn client_current_files(
         .filter(|(path, _)| !server_snapshot.contains_key(path.as_str()));
 
     // If already in synced files need to handle that case
-    for (path, timestamp) in diff {
+    for (path, _) in diff {
         if !synced_files.contains_key(path) {
             synced_files.insert(
                 path.clone(),
@@ -319,7 +313,6 @@ async fn client_current_files(
                     path: path.clone(),
                     status: SyncStatus::NoConflict,
                     content: vec![],
-                    version: *timestamp,
                 },
             );
         }

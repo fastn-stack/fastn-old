@@ -256,3 +256,14 @@ async fn update_history(
     fpm::utils::update(&config.history_dir(), ".latest.ftd", latest_ftd.as_bytes()).await?;
     Ok(())
 }
+
+// Steps
+// create .fpm/workspace.ftd
+// create .fpm/conflict directory
+// If conflict occur
+// - In file content will be with conflict markers
+// - In conflict/<file.ftd> will contain client's content
+// - In .fpm/workspace.ftd will have entry of index.ftd with data
+// - name: file_name
+// - base: last successful merge version from latest.ftd. from request
+// - conflicted_version
