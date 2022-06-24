@@ -192,8 +192,9 @@ async fn send_to_fpm_serve(
     data: fpm::apis::sync::SyncRequest,
 ) -> fpm::Result<fpm::apis::sync::SyncResponse> {
     #[derive(serde::Deserialize, std::fmt::Debug)]
-    struct Response {
-        data: fpm::apis::sync::SyncResponse,
+    struct ApiResponse {
+        message: Option<String>,
+        data: Option<fpm::apis::sync::SyncResponse>,
         success: bool,
     }
 
@@ -205,11 +206,21 @@ async fn send_to_fpm_serve(
         .body(data)
         .send()?;
 
-    Ok(response.json::<Response>()?.data)
-}
+    let response = response.json::<ApiResponse>()?;
+    if !response.success {
+        return Err(fpm::Error::APIResponseError(
+            response
+                .message
+                .unwrap_or_else(|| "Some Error occurred".to_string()),
+        ));
+    }
 
-async fn handle_sync_response(response: fpm::apis::sync::SyncResponse) {
-    println!("{:?}", response);
+    match response.data {
+        Some(data) => Ok(data),
+        None => Err(fpm::Error::APIResponseError(
+            "Unexpected API behaviour".to_string(),
+        )),
+    }
 }
 
 async fn update_current_directory(

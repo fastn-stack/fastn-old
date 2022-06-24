@@ -48,16 +48,6 @@ pub enum SyncRequestFile {
     Delete { path: String },
 }
 
-impl SyncRequestFile {
-    fn id(&self) -> String {
-        match self {
-            SyncRequestFile::Add { path, .. }
-            | SyncRequestFile::Update { path, .. }
-            | SyncRequestFile::Delete { path } => path.to_string(),
-        }
-    }
-}
-
 #[derive(serde::Deserialize, serde::Serialize, std::fmt::Debug)]
 pub struct SyncRequest {
     pub package_name: String,
@@ -345,7 +335,7 @@ async fn client_history_files(
         .collect::<Vec<String>>();
 
     let mut dot_history = vec![];
-    for (path, timestamp) in diff.iter() {
+    for (path, _) in diff.iter() {
         let client_timestamp = client_snapshot.get(path);
         let history_paths = get_all_timestamps(path, history.as_slice())?
             .into_iter()
@@ -373,7 +363,7 @@ fn get_all_timestamps(path: &str, history: &[String]) -> fpm::Result<Vec<(u128, 
             (path, None)
         };
         let timestamp = timestamp.parse::<u128>().unwrap();
-        if matches!(ext, extension) {
+        if ext.eq(&extension) {
             timestamps.push((timestamp, format!("{}{}", path_prefix, path)));
         }
     }
