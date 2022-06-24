@@ -1,7 +1,7 @@
 use fpm::Snapshot;
 use itertools::Itertools;
 
-#[derive(serde::Serialize, serde::Deserialize, std::fmt::Debug)]
+#[derive(serde::Serialize, serde::Deserialize, std::fmt::Debug, PartialEq)]
 pub enum SyncStatus {
     Conflict,
     NoConflict,

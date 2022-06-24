@@ -1,4 +1,5 @@
 use crate::apis::sync::SyncResponseFile;
+use itertools::Itertools;
 
 pub async fn sync(config: &fpm::Config, files: Option<Vec<String>>) -> fpm::Result<()> {
     // Read All the Document
@@ -33,9 +34,10 @@ pub async fn sync(config: &fpm::Config, files: Option<Vec<String>>) -> fpm::Resu
         package_name: config.package.name.to_string(),
         latest_ftd,
     };
-    let response = send_to_fpm_serve(request).await?;
+    let response = send_to_fpm_serve(&request).await?;
     update_current_directory(config, &response.files).await?;
     update_history(config, &response.dot_history, &response.latest_ftd).await?;
+    on_conflict(config, &response, &request).await?;
 
     // Tumhe nahi chalana hai mujhe to, koi aur chalaye to chalaye
     if false {
@@ -189,7 +191,7 @@ async fn write(
 }
 
 async fn send_to_fpm_serve(
-    data: fpm::apis::sync::SyncRequest,
+    data: &fpm::apis::sync::SyncRequest,
 ) -> fpm::Result<fpm::apis::sync::SyncResponse> {
     #[derive(serde::Deserialize, std::fmt::Debug)]
     struct ApiResponse {
@@ -265,5 +267,71 @@ async fn update_history(
 // - In conflict/<file.ftd> will contain client's content
 // - In .fpm/workspace.ftd will have entry of index.ftd with data
 // - name: file_name
-// - base: last successful merge version from latest.ftd. from request
-// - conflicted_version
+// - base: last successful merge version from request `latest.ftd`
+// - conflicted_version: from response `latest.ftd`
+// - workspace: ours/theirs/conflicted
+
+fn get_file_content<'a>(
+    file_path: &'a str,
+    files: &'a [fpm::apis::sync::SyncRequestFile],
+) -> Option<&'a Vec<u8>> {
+    for file in files {
+        match file {
+            fpm::apis::sync::SyncRequestFile::Add { path, content }
+            | fpm::apis::sync::SyncRequestFile::Update { path, content } => {
+                if file_path.eq(path) {
+                    return Some(content);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+async fn on_conflict(
+    config: &fpm::Config,
+    response: &fpm::apis::sync::SyncResponse,
+    request: &fpm::apis::sync::SyncRequest,
+) -> fpm::Result<()> {
+    let server_snapshot = fpm::snapshot::resolve_snapshots(&response.latest_ftd).await?;
+    let client_snapshot = fpm::snapshot::resolve_snapshots(&request.latest_ftd).await?;
+    let mut workspace = fpm::snapshot::get_workspace(config).await?;
+
+    fn error(msg: &str) -> fpm::Error {
+        fpm::Error::APIResponseError(msg.to_string())
+    }
+
+    for file in response.files.iter() {
+        match file {
+            SyncResponseFile::Update { path, status, .. }
+            | SyncResponseFile::Add { path, status, .. }
+            | SyncResponseFile::Delete { path, status, .. } => {
+                if fpm::apis::sync::SyncStatus::Conflict.eq(status) {
+                    let content = get_file_content(path, request.files.as_slice())
+                        .ok_or_else(|| error("File should be available in request file"))?;
+                    fpm::utils::update(&config.root.join(".fpm").join("conflicted"), path, content)
+                        .await?;
+                    workspace.insert(
+                        path.to_string(),
+                        fpm::snapshot::Workspace {
+                            filename: path.to_string(),
+                            base: *client_snapshot
+                                .get(path)
+                                .ok_or_else(|| error("File should be available in request file"))?,
+                            conflicted: *server_snapshot
+                                .get(path)
+                                .ok_or_else(|| error("File should be available in request file"))?,
+                            workspace: "conflicted".to_string(),
+                        },
+                    );
+                }
+            }
+        }
+    }
+
+    fpm::snapshot::create_workspace(config, workspace.into_values().collect_vec().as_slice())
+        .await?;
+
+    Ok(())
+}
