@@ -195,6 +195,15 @@ pub(crate) async fn sync_worker(request: SyncRequest) -> fpm::Result<SyncRespons
                                 fpm::utils::history_path(path, config.root.as_str(), &timestamp);
                             tokio::fs::copy(config.root.join(path), snapshot_path).await?;
                             snapshots.insert(path.to_string(), timestamp);
+                            synced_files.insert(
+                                path.to_string(),
+                                SyncResponseFile::Update {
+                                    path: path.to_string(),
+                                    status: SyncStatus::NoConflict,
+                                    content: data.as_bytes().to_vec(),
+                                    version: timestamp,
+                                },
+                            );
                         }
                         Err(data) => {
                             // Return conflicted content
