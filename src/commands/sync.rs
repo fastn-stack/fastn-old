@@ -28,7 +28,7 @@ pub async fn sync(config: &fpm::Config, files: Option<Vec<String>>) -> fpm::Resu
         .await
         .unwrap_or_else(|_| "".to_string());
 
-    let changed_files = get_changed_files(&documents, &snapshots).await?;
+    let changed_files = get_changed_files(config, &documents, &snapshots).await?;
     let request = fpm::apis::sync::SyncRequest {
         files: changed_files,
         package_name: config.package.name.to_string(),
@@ -39,7 +39,7 @@ pub async fn sync(config: &fpm::Config, files: Option<Vec<String>>) -> fpm::Resu
     update_history(config, &response.dot_history, &response.latest_ftd).await?;
     on_conflict(config, &response, &request).await?;
 
-    // Tumhe nahi chalana hai mujhe to, koi aur chalaye to chalaye
+    // Tumhe chalana hi nahi chahte hai hum, koi aur chalaye to chalaye
     if false {
         let timestamp = fpm::timestamp_nanosecond();
         let mut modified_files = vec![];
@@ -93,6 +93,7 @@ pub async fn sync(config: &fpm::Config, files: Option<Vec<String>>) -> fpm::Resu
 }
 
 async fn get_changed_files(
+    config: &fpm::Config,
     files: &[fpm::File],
     snapshots: &std::collections::BTreeMap<String, u128>,
 ) -> fpm::Result<Vec<fpm::apis::sync::SyncRequestFile>> {
@@ -102,8 +103,13 @@ async fn get_changed_files(
     // Get Added Files -> If files does not present in latest snapshot
     // Get Deleted Files -> If file present in latest.ftd and not present in files directory
 
+    let workspace = fpm::snapshot::get_workspace(config).await?;
     let mut changed_files = Vec::new();
     for document in files.iter() {
+        match workspace.get(&document.get_id()) {
+            Some(workspace) if workspace.is_conflicted() => continue,
+            _ => {}
+        }
         if let Some(timestamp) = snapshots.get(&document.get_id()) {
             let snapshot_file_path =
                 fpm::utils::history_path(&document.get_id(), &document.get_base_path(), timestamp);
@@ -310,8 +316,7 @@ async fn on_conflict(
                 if fpm::apis::sync::SyncStatus::Conflict.eq(status) {
                     let content = get_file_content(path, request.files.as_slice())
                         .ok_or_else(|| error("File should be available in request file"))?;
-                    fpm::utils::update(&config.root.join(".fpm").join("conflicted"), path, content)
-                        .await?;
+                    fpm::utils::update(&config.conflicted_dir(), path, content).await?;
                     workspace.insert(
                         path.to_string(),
                         fpm::snapshot::Workspace {

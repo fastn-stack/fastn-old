@@ -22,6 +22,7 @@ pub(crate) async fn resolve_snapshots(
         .collect())
 }
 
+// TODO: replace path with config
 pub(crate) async fn get_latest_snapshots(
     path: &camino::Utf8PathBuf,
 ) -> fpm::Result<std::collections::BTreeMap<String, u128>> {
@@ -66,6 +67,20 @@ pub struct Workspace {
     pub base: u128,
     pub conflicted: u128,
     pub workspace: String, // workspace type ours/theirs/conflicted
+}
+
+impl Workspace {
+    pub(crate) fn is_conflicted(&self) -> bool {
+        self.workspace.eq("conflicted")
+    }
+
+    pub(crate) fn set_abort(&mut self) {
+        self.workspace = "abort".to_string()
+    }
+
+    pub(crate) fn set_revert(&mut self) {
+        self.workspace = "revert".to_string()
+    }
 }
 
 pub(crate) async fn resolve_workspace(
