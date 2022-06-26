@@ -1,4 +1,5 @@
 use crate::apis::sync::SyncResponseFile;
+use fpm::Config;
 use itertools::Itertools;
 
 pub async fn sync(config: &fpm::Config, files: Option<Vec<String>>) -> fpm::Result<()> {
@@ -38,6 +39,7 @@ pub async fn sync(config: &fpm::Config, files: Option<Vec<String>>) -> fpm::Resu
     update_current_directory(config, &response.files).await?;
     update_history(config, &response.dot_history, &response.latest_ftd).await?;
     on_conflict(config, &response, &request).await?;
+    collect_garbage(config).await?;
 
     // Tumhe chalana hi nahi chahte hai hum, koi aur chalaye to chalaye
     if false {
@@ -338,5 +340,24 @@ async fn on_conflict(
     fpm::snapshot::create_workspace(config, workspace.into_values().collect_vec().as_slice())
         .await?;
 
+    Ok(())
+}
+
+async fn collect_garbage(config: &Config) -> fpm::Result<()> {
+    let mut workspaces = fpm::snapshot::get_workspace(config).await?;
+
+    let paths = workspaces
+        .iter()
+        .filter(|(_, workspace)| !workspace.is_conflicted())
+        .map(|(path, _)| path.to_string())
+        .collect_vec();
+
+    for path in paths {
+        tokio::fs::remove_file(config.conflicted_dir().join(&path)).await?;
+        workspaces.remove(&path);
+    }
+
+    fpm::snapshot::create_workspace(config, workspaces.into_values().collect_vec().as_slice())
+        .await?;
     Ok(())
 }
