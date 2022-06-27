@@ -142,10 +142,35 @@ pub(crate) async fn sync_worker(request: SyncRequest) -> fpm::Result<SyncRespons
                 // Update version in latest.ftd
             }
             SyncRequestFile::Delete { path } => {
-                if config.root.join(path).exists() {
-                    tokio::fs::remove_file(config.root.join(path)).await?;
+                // Case: Need to handle the where client says delete but serve says modified
+                // If the value of server's snapshot is greater than client snapshot
+                let remote_timestamp = snapshots
+                    .get(path.as_str())
+                    .ok_or_else(|| fpm::Error::APIResponseError("".to_string()))?;
+                let client_timestamp = client_snapshots
+                    .get(path.as_str())
+                    .ok_or_else(|| fpm::Error::APIResponseError("".to_string()))?;
+
+                let snapshot_path =
+                    fpm::utils::history_path(path, config.root.as_str(), &remote_timestamp);
+
+                let data = tokio::fs::read(snapshot_path).await?;
+
+                if remote_timestamp.gt(&client_timestamp) {
+                    synced_files.insert(
+                        path.to_string(),
+                        SyncResponseFile::Update {
+                            path: path.to_string(),
+                            status: SyncStatus::NoConflict,
+                            content: data,
+                        },
+                    );
+                } else {
+                    if config.root.join(path).exists() {
+                        tokio::fs::remove_file(config.root.join(path)).await?;
+                    }
+                    snapshots.remove(path);
                 }
-                snapshots.remove(path);
             }
             SyncRequestFile::Update { path, content } => {
                 let client_snapshot_timestamp = client_snapshots.get(path).ok_or_else(|| {
