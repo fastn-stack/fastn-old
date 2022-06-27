@@ -28,23 +28,18 @@ async fn serve_files(
         }
         fpm::File::Image(image) => {
             return actix_web::HttpResponse::Ok()
-                .content_type(
+                .content_type(if image.id.ends_with(".svg") {
+                    // infer is guessing wrong mime type in case of svg
+                    "image/svg+xml"
+                } else {
                     infer::get(image.content.as_slice())
                         .map(|v| v.mime_type())
-                        // infer is guessing wrong mime type in case of svg
-                        .map(|x| {
-                            if image.id.ends_with(".svg") {
-                                "image/svg+xml"
-                            } else {
-                                x
-                            }
-                        })
                         .unwrap_or(if image.id.ends_with(".svg") {
                             "image/svg+xml"
                         } else {
                             "image/jpeg"
-                        }),
-                )
+                        })
+                })
                 .body(image.content);
         }
         _ => actix_web::HttpResponse::InternalServerError().body("".as_bytes()),
