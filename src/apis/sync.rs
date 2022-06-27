@@ -152,11 +152,11 @@ pub(crate) async fn sync_worker(request: SyncRequest) -> fpm::Result<SyncRespons
                     .ok_or_else(|| fpm::Error::APIResponseError("".to_string()))?;
 
                 let snapshot_path =
-                    fpm::utils::history_path(path, config.root.as_str(), &remote_timestamp);
+                    fpm::utils::history_path(path, config.root.as_str(), remote_timestamp);
 
                 let data = tokio::fs::read(snapshot_path).await?;
 
-                if remote_timestamp.gt(&client_timestamp) {
+                if remote_timestamp.gt(client_timestamp) {
                     synced_files.insert(
                         path.to_string(),
                         SyncResponseFile::Update {
