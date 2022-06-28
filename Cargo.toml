@@ -13,11 +13,20 @@ repository = "https://github.com/FifthTry/fpm"
 homepage = "https://fpm.dev"
 build = "build.rs"
 
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+
 [features]
+default = ["http"]
 controller = []
 remote = []
-local = []
-
+wasm = [
+    "wasm-bindgen",
+    "console_error_panic_hook",
+    "wee_alloc",
+]
+http = ["actix-web", "actix-files"]
 
 [dependencies]
 async-recursion = "0.3.2"
@@ -53,8 +62,13 @@ itertools = "0.10.3"
 mime_guess = "2"
 infer = "0.8"
 semver = "1.0.7"
-actix-web = "4.1.0"
-actix-files = "0.6.0"
+actix-web = { version = "4.1.0", optional = true }
+actix-files = { version = "0.6.0", optional = true }
+
+# Dependencies related to wasm and fpm editor
+wasm-bindgen = { version="0.2.63", optional = true }
+console_error_panic_hook = { version = "0.1.6", optional = true }
+wee_alloc = { version = "0.4.5", optional = true }
 
 [dev-dependencies]
 fbt-lib = "0.1.18"

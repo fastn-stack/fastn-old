@@ -14,6 +14,7 @@ mod config;
 mod controller;
 mod dependency;
 mod doc;
+mod editor;
 mod file;
 mod font;
 mod i18n;
