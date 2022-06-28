@@ -344,7 +344,7 @@ async fn on_conflict(
                             conflicted: *server_snapshot
                                 .get(path)
                                 .ok_or_else(|| error("File should be available in request file"))?,
-                            workspace: "conflicted".to_string(),
+                            workspace: fpm::snapshot::WorkspaceType::Conflicted,
                         },
                     );
                 } else if fpm::apis::sync::SyncStatus::ClientEditedServerDelete.eq(status) {
@@ -361,7 +361,7 @@ async fn on_conflict(
                             conflicted: *client_snapshot
                                 .get(path)
                                 .ok_or_else(|| error("File should be available in request file"))?,
-                            workspace: "client_edited_server_delete".to_string(),
+                            workspace: fpm::snapshot::WorkspaceType::ClientEditedServerDelete,
                         },
                     );
                 } else if fpm::apis::sync::SyncStatus::ClientDeletedServerEdit.eq(status) {
@@ -377,7 +377,7 @@ async fn on_conflict(
                             conflicted: *server_snapshot
                                 .get(path)
                                 .ok_or_else(|| error("File should be available in request file"))?,
-                            workspace: "client_deleted_server_edit".to_string(),
+                            workspace: fpm::snapshot::WorkspaceType::ClientDeletedServerEdit,
                         },
                     );
                 }
