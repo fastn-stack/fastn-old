@@ -84,7 +84,7 @@ async fn all_status(
 
     let clean_file_status = print_file_status(&file_status);
     let clean_track_status = print_track_status(&track_status);
-    if clean_file_status && clean_track_status {
+    if !clean_file_status && clean_track_status {
         println!("Nothing to sync, clean working tree");
     }
     Ok(())
