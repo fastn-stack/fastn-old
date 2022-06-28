@@ -110,7 +110,7 @@ async fn get_changed_files(
     let mut changed_files = Vec::new();
     for document in files.iter() {
         match workspace.get(&document.get_id()) {
-            Some(workspace) if workspace.is_conflicted() => continue,
+            Some(workspace) if !workspace.is_resolved() => continue,
             _ => {}
         }
         if let Some(timestamp) = snapshots.get(&document.get_id()) {
@@ -316,7 +316,6 @@ async fn on_conflict(
     response: &fpm::apis::sync::SyncResponse,
     request: &fpm::apis::sync::SyncRequest,
 ) -> fpm::Result<()> {
-    let server_snapshot = fpm::snapshot::resolve_snapshots(&response.latest_ftd).await?;
     let client_snapshot = fpm::snapshot::resolve_snapshots(&request.latest_ftd).await?;
     let mut workspace = fpm::snapshot::get_workspace(config).await?;
 
@@ -330,6 +329,8 @@ async fn on_conflict(
             | SyncResponseFile::Add { path, status, .. }
             | SyncResponseFile::Delete { path, status, .. } => {
                 if fpm::apis::sync::SyncStatus::Conflict.eq(status) {
+                    let server_snapshot =
+                        fpm::snapshot::resolve_snapshots(&response.latest_ftd).await?;
                     let content = get_file_content(path, request.files.as_slice())
                         .ok_or_else(|| error("File should be available in request file"))?;
                     fpm::utils::update(&config.conflicted_dir(), path, content).await?;
@@ -344,6 +345,39 @@ async fn on_conflict(
                                 .get(path)
                                 .ok_or_else(|| error("File should be available in request file"))?,
                             workspace: "conflicted".to_string(),
+                        },
+                    );
+                } else if fpm::apis::sync::SyncStatus::ClientEditedServerDelete.eq(status) {
+                    let content = get_file_content(path, request.files.as_slice())
+                        .ok_or_else(|| error("File should be available in request file"))?;
+                    fpm::utils::update(&config.conflicted_dir(), path, content).await?;
+                    workspace.insert(
+                        path.to_string(),
+                        fpm::snapshot::Workspace {
+                            filename: path.to_string(),
+                            base: *client_snapshot
+                                .get(path)
+                                .ok_or_else(|| error("File should be available in request file"))?,
+                            conflicted: *client_snapshot
+                                .get(path)
+                                .ok_or_else(|| error("File should be available in request file"))?,
+                            workspace: "client_edited_server_delete".to_string(),
+                        },
+                    );
+                } else if fpm::apis::sync::SyncStatus::ClientDeletedServerEdit.eq(status) {
+                    let server_snapshot =
+                        fpm::snapshot::resolve_snapshots(&response.latest_ftd).await?;
+                    workspace.insert(
+                        path.to_string(),
+                        fpm::snapshot::Workspace {
+                            filename: path.to_string(),
+                            base: *client_snapshot
+                                .get(path)
+                                .ok_or_else(|| error("File should be available in request file"))?,
+                            conflicted: *server_snapshot
+                                .get(path)
+                                .ok_or_else(|| error("File should be available in request file"))?,
+                            workspace: "client_deleted_server_edit".to_string(),
                         },
                     );
                 }
@@ -362,7 +396,7 @@ async fn collect_garbage(config: &Config) -> fpm::Result<()> {
 
     let paths = workspaces
         .iter()
-        .filter(|(_, workspace)| !workspace.is_conflicted())
+        .filter(|(_, workspace)| workspace.is_resolved())
         .map(|(path, _)| path.to_string())
         .collect_vec();
 

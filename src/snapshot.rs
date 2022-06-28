@@ -70,12 +70,12 @@ pub struct Workspace {
 }
 
 impl Workspace {
-    pub(crate) fn is_conflicted(&self) -> bool {
-        self.workspace.eq("conflicted")
+    pub(crate) fn is_resolved(&self) -> bool {
+        ["abort-merge", "revert"].contains(&self.workspace.as_str())
     }
 
     pub(crate) fn set_abort(&mut self) {
-        self.workspace = "abort".to_string()
+        self.workspace = "abort-merge".to_string()
     }
 
     pub(crate) fn set_revert(&mut self) {
