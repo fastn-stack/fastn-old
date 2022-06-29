@@ -19,7 +19,7 @@ pub async fn build2(
             main.get_id()
         );
 
-        // No need to build static files when file is passed (no-static behaviour)
+        // No need to build static files when file is passed during fpm build (no-static behaviour)
         let no_static: bool = file.is_some();
 
         match main {
