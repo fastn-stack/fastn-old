@@ -29,7 +29,7 @@ pub fn processor_(
                 .replace(std::path::MAIN_SEPARATOR.to_string().as_str(), "/")
         })
         .collect_vec();
-    let tree = dbg!(construct_tree(dbg!(files).as_slice())?);
+    let tree = construct_tree(files.as_slice())?;
     Ok(doc.from_json(&tree, section)?)
 }
 
