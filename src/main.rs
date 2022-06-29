@@ -43,12 +43,15 @@ async fn main() -> fpm::Result<()> {
         if build.is_present("verbose") {
             println!("{}", fpm::debug_env_vars());
         }
+        // Build only non-static files when file or --no-static flag is passed
+        let no_static: bool = build.value_of("file").is_some() || build.is_present("no-static");
+
         fpm::build2(
             &mut config,
             build.value_of("file"),
             build.value_of("base").unwrap(), // unwrap okay because base is required
             build.is_present("ignore-failed"),
-            build.is_present("no-static"),
+            no_static,
         )
         .await?;
     }
