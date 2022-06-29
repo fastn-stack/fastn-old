@@ -195,7 +195,12 @@ You can try without providing port, it will automatically pick unused port"#,
                 )
                 .route("/{path:.*}", actix_web::web::get().to(serve_static))
         } else {
-            actix_web::App::new().route("/{path:.*}", actix_web::web::get().to(serve_static))
+            actix_web::App::new()
+                .route(
+                    "/-/view-src/{path:.*}",
+                    actix_web::web::get().to(fpm::apis::view_source),
+                )
+                .route("/{path:.*}", actix_web::web::get().to(serve_static))
         }
     };
 
