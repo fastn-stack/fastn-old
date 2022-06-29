@@ -3,6 +3,7 @@ pub async fn build2(
     file: Option<&str>,
     base_url: &str,
     ignore_failed: bool,
+    no_static: bool,
 ) -> fpm::Result<()> {
     tokio::fs::create_dir_all(config.build_dir()).await?;
     let documents = get_documents_for_current_package(config).await?;
@@ -12,6 +13,24 @@ pub async fn build2(
         }
         config.current_document = Some(main.get_id());
         let start = std::time::Instant::now();
+
+        // Ignoring static files if --no-static flag is used
+        if no_static {
+            match main {
+                fpm::File::Static(_) | fpm::File::Image(_) | fpm::File::Code(_) => {
+                    fpm::utils::print_end(
+                        format!("Ignored {}/{}", config.package.name.as_str(), main.get_id())
+                            .as_str(),
+                        start,
+                    );
+                    continue;
+                },
+                _ => {
+                    println!("Allowing file = {}/{}",config.package.name.as_str(), main.get_id())
+                },
+            }
+        }
+
         print!(
             "Processing {}/{} ... ",
             config.package.name.as_str(),

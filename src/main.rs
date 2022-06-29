@@ -48,6 +48,7 @@ async fn main() -> fpm::Result<()> {
             build.value_of("file"),
             build.value_of("base").unwrap(), // unwrap okay because base is required
             build.is_present("ignore-failed"),
+            build.is_present("no-static"),
         )
         .await?;
     }
@@ -170,6 +171,14 @@ fn app(authors: &'static str, version: &'static str) -> clap::App<'static, 'stat
                         .short("v")
                         .takes_value(false)
                         .required(false),
+                )
+                // --no-static flag to ignore building of static files
+                .arg( clap::Arg::with_name("no-static")
+                    .long("no-static")
+                    .short("ns")
+                    .takes_value(false)
+                    .required(false)
+                    .help("ignores static files while building")
                 )
                 .version(env!("CARGO_PKG_VERSION")),
         )
