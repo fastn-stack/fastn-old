@@ -18,11 +18,6 @@ pub async fn build2(
         if no_static {
             match main {
                 fpm::File::Static(_) | fpm::File::Image(_) | fpm::File::Code(_) => {
-                    fpm::utils::print_end(
-                        format!("Ignored {}/{}", config.package.name.as_str(), main.get_id())
-                            .as_str(),
-                        start,
-                    );
                     continue;
                 }
                 _ => {}

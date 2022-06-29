@@ -43,8 +43,8 @@ async fn main() -> fpm::Result<()> {
         if build.is_present("verbose") {
             println!("{}", fpm::debug_env_vars());
         }
-        // Build only non-static files when file or --no-static flag is passed
-        let no_static: bool = build.value_of("file").is_some() || build.is_present("no-static");
+        // Build only non-static files when file is passed
+        let no_static: bool = build.value_of("file").is_some();
 
         fpm::build2(
             &mut config,
@@ -174,14 +174,6 @@ fn app(authors: &'static str, version: &'static str) -> clap::App<'static, 'stat
                         .short("v")
                         .takes_value(false)
                         .required(false),
-                )
-                // --no-static flag to ignore building of static files
-                .arg( clap::Arg::with_name("no-static")
-                    .long("no-static")
-                    .short("ns")
-                    .takes_value(false)
-                    .required(false)
-                    .help("ignores static files while building")
                 )
                 .version(env!("CARGO_PKG_VERSION")),
         )

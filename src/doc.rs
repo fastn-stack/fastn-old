@@ -306,12 +306,6 @@ async fn resolve_foreign_variable2(
                         format!("Processed {}/{}", package.name.as_str(), light_path).as_str(),
                         start,
                     );
-                } else if !download_assets {
-                    let start = std::time::Instant::now();
-                    fpm::utils::print_end(
-                        format!("Ignored {}/{}", package.name.as_str(), light_path).as_str(),
-                        start,
-                    );
                 }
 
                 if light {
