@@ -25,13 +25,7 @@ pub async fn build2(
                     );
                     continue;
                 }
-                _ => {
-                    println!(
-                        "Allowing file = {}/{}",
-                        config.package.name.as_str(),
-                        main.get_id()
-                    )
-                }
+                _ => {}
             }
         }
 
@@ -43,7 +37,7 @@ pub async fn build2(
 
         match main {
             fpm::File::Ftd(doc) => {
-                let resp = fpm::package_doc::process_ftd(config, doc, base_url).await;
+                let resp = fpm::package_doc::process_ftd(config, doc, base_url, no_static).await;
                 match (resp, ignore_failed) {
                     (Ok(_), _) => (),
                     (_, true) => {
@@ -57,7 +51,7 @@ pub async fn build2(
             }
             fpm::File::Static(sa) => process_static(sa, &config.root, &config.package).await?,
             fpm::File::Markdown(doc) => {
-                let resp = process_markdown(config, doc, base_url).await;
+                let resp = process_markdown(config, doc, base_url, no_static).await;
                 match (resp, ignore_failed) {
                     (Ok(r), _) => r,
                     (_, true) => {
@@ -71,7 +65,7 @@ pub async fn build2(
             }
             fpm::File::Image(main_doc) => {
                 process_static(main_doc, &config.root, &config.package).await?;
-                let resp = process_image(config, main_doc, base_url).await;
+                let resp = process_image(config, main_doc, base_url, no_static).await;
                 match (resp, ignore_failed) {
                     (Ok(r), _) => r,
                     (_, true) => {
@@ -94,7 +88,7 @@ pub async fn build2(
                     &config.package,
                 )
                 .await?;
-                let resp = process_code(config, doc, base_url).await;
+                let resp = process_code(config, doc, base_url, no_static).await;
                 match (resp, ignore_failed) {
                     (Ok(r), _) => r,
                     (_, true) => {
@@ -204,10 +198,11 @@ async fn process_image(
     config: &mut fpm::Config,
     main: &fpm::Static,
     base_url: &str,
+    no_static: bool,
 ) -> fpm::Result<()> {
     let main = convert_to_ftd(config, main)?;
 
-    fpm::package_doc::process_ftd(config, &main, base_url).await?;
+    fpm::package_doc::process_ftd(config, &main, base_url, no_static).await?;
     return Ok(());
 
     fn convert_to_ftd(config: &fpm::Config, doc: &fpm::Static) -> fpm::Result<fpm::Document> {
@@ -228,6 +223,7 @@ async fn process_code(
     config: &mut fpm::Config,
     main: &fpm::Document,
     base_url: &str,
+    no_static: bool,
 ) -> fpm::Result<()> {
     let main = if let Some(main) = convert_to_ftd(config, main)? {
         main
@@ -235,7 +231,7 @@ async fn process_code(
         return Ok(());
     };
 
-    fpm::package_doc::process_ftd(config, &main, base_url).await?;
+    fpm::package_doc::process_ftd(config, &main, base_url, no_static).await?;
     return Ok(());
 
     fn convert_to_ftd(
@@ -266,13 +262,14 @@ async fn process_markdown(
     config: &mut fpm::Config,
     main: &fpm::Document,
     base_url: &str,
+    no_static: bool,
 ) -> fpm::Result<()> {
     let main = if let Some(main) = convert_md_to_ftd(config, main)? {
         main
     } else {
         return Ok(());
     };
-    fpm::package_doc::process_ftd(config, &main, base_url).await?;
+    fpm::package_doc::process_ftd(config, &main, base_url, no_static).await?;
     return Ok(());
 
     fn convert_md_to_ftd(
