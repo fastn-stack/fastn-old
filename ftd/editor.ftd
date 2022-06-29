@@ -30,7 +30,7 @@ height: fill
 background-color: $fpm.color.main.background.base
 color: $fpm.color.main.text-strong
 spacing: 20
-padding: 40
+padding: 20
 
 --- ftd.text: $path
 role: $fpm.type.heading-large

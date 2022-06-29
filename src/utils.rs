@@ -211,7 +211,7 @@ pub(crate) fn validate_base_url(package: &fpm::Package) -> fpm::Result<()> {
 }
 
 pub(crate) fn escape_ftd(file: &str) -> String {
-    file.split("\n")
+    file.split('\n')
         .map(|v| {
             if v.starts_with("-- ") || v.starts_with("--- ") {
                 format!("\\{}", v)
