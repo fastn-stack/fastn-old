@@ -24,10 +24,14 @@ pub async fn build2(
                         start,
                     );
                     continue;
-                },
+                }
                 _ => {
-                    println!("Allowing file = {}/{}",config.package.name.as_str(), main.get_id())
-                },
+                    println!(
+                        "Allowing file = {}/{}",
+                        config.package.name.as_str(),
+                        main.get_id()
+                    )
+                }
             }
         }
 
