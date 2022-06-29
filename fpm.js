@@ -25,7 +25,7 @@
         var name = event.key;
         var code = event.code;
         let url = window.location.href;
-        let source = document.baseURI.endsWith("/") ? "-/view_source/" : "/-/view_source/";
+        let source = document.baseURI.endsWith("/") ? "-/view-src/" : "/-/view-src/";
         let newurl = document.baseURI + source + url.replace(document.baseURI, "");
         if (name === '.') {
             console.log(`inside Key pressed ${name} \r\n Key code value: ${code} ${url} ${newurl}`);
