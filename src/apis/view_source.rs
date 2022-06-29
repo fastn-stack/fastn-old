@@ -20,7 +20,7 @@ pub(crate) async fn view_source(req: actix_web::HttpRequest) -> actix_web::HttpR
         Ok(body) => actix_web::HttpResponse::Ok().body(body),
         Err(e) => {
             println!("new_path: {}, Error: {:?}", path, e);
-            return actix_web::HttpResponse::InternalServerError().body(e.to_string());
+            actix_web::HttpResponse::InternalServerError().body(e.to_string())
         }
     }
 }
