@@ -360,6 +360,7 @@ pub(crate) async fn update(
     data: &[u8],
 ) -> fpm::Result<()> {
     use tokio::io::AsyncWriteExt;
+    dbg!(&root, &file_path);
 
     let (file_root, file_name) = if let Some((file_root, file_name)) = file_path.rsplit_once('/') {
         (file_root.to_string(), file_name.to_string())

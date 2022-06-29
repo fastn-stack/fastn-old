@@ -56,45 +56,6 @@ pub struct SyncRequest {
     pub latest_ftd: String,
 }
 
-fn success(data: impl serde::Serialize) -> actix_web::Result<actix_web::HttpResponse> {
-    #[derive(serde::Serialize)]
-    struct SuccessResponse<T: serde::Serialize> {
-        data: T,
-        success: bool,
-    }
-
-    let data = serde_json::to_string(&SuccessResponse {
-        data,
-        success: true,
-    })?;
-
-    Ok(actix_web::HttpResponse::Ok()
-        .content_type(actix_web::http::header::ContentType::json())
-        .status(actix_web::http::StatusCode::OK)
-        .body(data))
-}
-
-fn error<T: Into<String>>(
-    message: T,
-    status: actix_web::http::StatusCode,
-) -> actix_web::Result<actix_web::HttpResponse> {
-    #[derive(serde::Serialize, Debug)]
-    struct ErrorResponse {
-        message: String,
-        success: bool,
-    }
-
-    let resp = ErrorResponse {
-        message: message.into(),
-        success: false,
-    };
-
-    Ok(actix_web::HttpResponse::Ok()
-        .content_type(actix_web::http::header::ContentType::json())
-        .status(status)
-        .body(serde_json::to_string(&resp)?))
-}
-
 /// Steps
 /// Read latest.ftd and create snapshot version
 /// Iterate over Added files, create them and update new version in latest.ftd
@@ -107,8 +68,8 @@ pub async fn sync(
     req: actix_web::web::Json<SyncRequest>,
 ) -> actix_web::Result<actix_web::HttpResponse> {
     match sync_worker(req.0).await {
-        Ok(data) => success(data),
-        Err(err) => error(
+        Ok(data) => fpm::apis::success(data),
+        Err(err) => fpm::apis::error(
             err.to_string(),
             actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
         ),
@@ -119,6 +80,7 @@ pub(crate) async fn sync_worker(request: SyncRequest) -> fpm::Result<SyncRespons
     // TODO: Need to call at once only
     let config = fpm::Config::read2(None, false).await?;
     let mut snapshots = fpm::snapshot::get_latest_snapshots(&config.root).await?;
+    dbg!(&snapshots);
     let client_snapshots = fpm::snapshot::resolve_snapshots(&request.latest_ftd).await?;
     // let latest_ftd = tokio::fs::read_to_string(config.history_dir().join(".latest.ftd")).await?;
     let timestamp = fpm::timestamp_nanosecond();
@@ -270,7 +232,7 @@ pub(crate) async fn sync_worker(request: SyncRequest) -> fpm::Result<SyncRespons
 
     fpm::snapshot::create_latest_snapshots(
         &config,
-        &snapshots
+        &dbg!(snapshots)
             .into_iter()
             .map(|(filename, timestamp)| fpm::Snapshot {
                 filename,
