@@ -5,7 +5,7 @@ pub async fn revert(config: &fpm::Config, path: &str) -> fpm::Result<()> {
     if let Some(workspace) = workspaces.get_mut(path) {
         if workspace
             .workspace
-            .eq(&fpm::snapshot::WorkspaceType::ClientEditedServerDelete)
+            .eq(&fpm::snapshot::WorkspaceType::ClientEditedServerDeleted)
         {
             if config.root.join(path).exists() {
                 tokio::fs::remove_file(config.root.join(path)).await?;

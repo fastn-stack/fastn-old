@@ -115,11 +115,11 @@ async fn get_file_status(
                     _ => FileStatus::Conflicted,
                 }
             }
-            fpm::snapshot::WorkspaceType::ClientEditedServerDelete => {
-                FileStatus::ClientEditedServerDelete
+            fpm::snapshot::WorkspaceType::ClientEditedServerDeleted => {
+                FileStatus::ClientEditedServerDeleted
             }
-            fpm::snapshot::WorkspaceType::ClientDeletedServerEdit => {
-                FileStatus::ClientDeletedServerEdit
+            fpm::snapshot::WorkspaceType::ClientDeletedServerEdited => {
+                FileStatus::ClientDeletedServerEdited
             }
         });
     }
@@ -221,8 +221,8 @@ enum FileStatus {
     Untracked,
     Conflicted,
     Outdated,
-    ClientEditedServerDelete,
-    ClientDeletedServerEdit,
+    ClientEditedServerDeleted,
+    ClientDeletedServerEdited,
 }
 
 #[derive(Debug, PartialEq)]

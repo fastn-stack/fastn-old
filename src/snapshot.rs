@@ -65,8 +65,8 @@ pub enum WorkspaceType {
     AbortMerge,
     Revert,
     Conflicted,
-    ClientEditedServerDelete,
-    ClientDeletedServerEdit,
+    ClientEditedServerDeleted,
+    ClientDeletedServerEdited,
 }
 
 #[derive(serde::Deserialize, Debug)]

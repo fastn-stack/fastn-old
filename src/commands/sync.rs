@@ -248,11 +248,11 @@ async fn update_current_directory(
                 content,
                 status,
             } => {
-                if SyncStatus::ClientDeletedServerEdit.eq(status) {
+                if SyncStatus::ClientDeletedServerEdited.eq(status) {
                     println!("ClientDeletedServerEdit: {}", path);
                 }
-                if SyncStatus::ClientEditedServerDelete.eq(status) {
-                    println!("ClientEditedServerDelete: {}", path);
+                if SyncStatus::ClientEditedServerDeleted.eq(status) {
+                    println!("ClientEditedServerDeleted: {}", path);
                 }
                 if SyncStatus::Conflict.eq(status) {
                     println!("Conflict: {}", path);
@@ -347,7 +347,7 @@ async fn on_conflict(
                             workspace: fpm::snapshot::WorkspaceType::Conflicted,
                         },
                     );
-                } else if fpm::apis::sync::SyncStatus::ClientEditedServerDelete.eq(status) {
+                } else if fpm::apis::sync::SyncStatus::ClientEditedServerDeleted.eq(status) {
                     let content = get_file_content(path, request.files.as_slice())
                         .ok_or_else(|| error("File should be available in request file"))?;
                     fpm::utils::update(&config.conflicted_dir(), path, content).await?;
@@ -361,10 +361,10 @@ async fn on_conflict(
                             conflicted: *client_snapshot
                                 .get(path)
                                 .ok_or_else(|| error("File should be available in request file"))?,
-                            workspace: fpm::snapshot::WorkspaceType::ClientEditedServerDelete,
+                            workspace: fpm::snapshot::WorkspaceType::ClientEditedServerDeleted,
                         },
                     );
-                } else if fpm::apis::sync::SyncStatus::ClientDeletedServerEdit.eq(status) {
+                } else if fpm::apis::sync::SyncStatus::ClientDeletedServerEdited.eq(status) {
                     let server_snapshot =
                         fpm::snapshot::resolve_snapshots(&response.latest_ftd).await?;
                     workspace.insert(
@@ -377,7 +377,7 @@ async fn on_conflict(
                             conflicted: *server_snapshot
                                 .get(path)
                                 .ok_or_else(|| error("File should be available in request file"))?,
-                            workspace: fpm::snapshot::WorkspaceType::ClientDeletedServerEdit,
+                            workspace: fpm::snapshot::WorkspaceType::ClientDeletedServerEdited,
                         },
                     );
                 }
