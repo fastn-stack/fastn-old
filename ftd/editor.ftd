@@ -15,7 +15,7 @@ $always-include$: true
 -- string url: -/edit/
 
 
--- object obj:
+-- object edit-obj:
 function: post
 url: $url
 value: $source
@@ -36,6 +36,9 @@ padding: 20
 role: $fpm.type.heading-large
 align: center
 
+
+--- create:
+
 --- ftd.row:
 width: fill
 height: fill
@@ -53,8 +56,33 @@ placeholder: -- ft.h1: hello world
 value: $source
 border-width: 2
 $on-input$: $source=$VALUE
-$on-input$: message-host $obj
+$on-input$: message-host $edit-obj
 padding: 20
+
+
+
+
+-- optional string create-file-path:
+$always-include$: true
+
+
+-- object create-obj:
+function: post
+url: $url
+path: $create-file-path
+
+
+
+-- ftd.column create:
+width: fill
+
+--- ftd.input:
+placeholder: Enter file name
+$on-input$: $create-file-path=$VALUE
+
+
+--- ftd.text: Create
+$on-click$: message-host $create-obj
 
 
 
