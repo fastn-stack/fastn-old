@@ -40,12 +40,13 @@ fn construct_tree(files: &[String]) -> fpm::Result<Vec<fpm::sitemap::TocItemComp
             &mut tree,
             file,
             format!("-/view-src/{}", file.trim_start_matches('/')).as_str(),
+            file,
         );
     }
     Ok(tree)
 }
 
-fn insert(tree: &mut Vec<fpm::sitemap::TocItemCompat>, path: &str, url: &str) {
+fn insert(tree: &mut Vec<fpm::sitemap::TocItemCompat>, path: &str, url: &str, full_path: &str) {
     let (path, rest) = if let Some((path, rest)) = path.split_once('/') {
         (path, Some(rest))
     } else {
@@ -58,17 +59,18 @@ fn insert(tree: &mut Vec<fpm::sitemap::TocItemCompat>, path: &str, url: &str) {
     {
         node
     } else {
-        tree.push(fpm::sitemap::TocItemCompat::new(
-            None,
-            Some(path.to_string()),
-            false,
-            false,
-        ));
+        let full_path = rest
+            .map(|v| full_path.trim_end_matches(v))
+            .unwrap_or(full_path);
+        tree.push(
+            fpm::sitemap::TocItemCompat::new(None, Some(path.to_string()), false, false)
+                .add_path(full_path),
+        );
         tree.last_mut().unwrap()
     };
 
     if let Some(rest) = rest {
-        insert(&mut node.children, rest, url);
+        insert(&mut node.children, rest, url, full_path);
     } else {
         node.url = Some(url.to_string());
     }

@@ -3,6 +3,13 @@ pub struct EditRequest {
     pub url: String,
     pub value: Option<String>,
     pub path: String,
+    pub operation: Option<String>, // todo: convert it to enum
+}
+
+impl EditRequest {
+    pub(crate) fn is_delete(&self) -> bool {
+        matches!(self.operation.as_ref(), Some(v) if v.eq("delete"))
+    }
 }
 
 #[derive(serde::Serialize, serde::Deserialize, std::fmt::Debug)]
@@ -25,6 +32,20 @@ pub async fn edit(
 
 pub(crate) async fn edit_worker(request: EditRequest) -> fpm::Result<EditResponse> {
     let mut config = fpm::Config::read2(None, false).await?;
+
+    if request.is_delete() {
+        let path = config.root.join(&request.path);
+        if path.is_dir() {
+            tokio::fs::remove_dir_all(&path).await?;
+        } else if path.is_file() {
+            tokio::fs::remove_file(&path).await?;
+        }
+        return Ok(EditResponse {
+            path: request.path,
+            url: Some("-/view-src/".to_string()),
+        });
+    }
+
     let (file_name, url) = if let Ok(path) = config
         .get_file_path_and_resolve(request.path.as_str())
         .await
@@ -51,7 +72,7 @@ pub(crate) async fn edit_worker(request: EditRequest) -> fpm::Result<EditRespons
         file_name.as_str(),
         request
             .value
-            .unwrap_or("".to_string())
+            .unwrap_or_else(|| "".to_string())
             .into_bytes()
             .as_slice(),
     )
