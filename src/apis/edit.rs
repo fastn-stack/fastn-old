@@ -149,3 +149,22 @@ pub(crate) async fn edit_worker(request: EditRequest) -> fpm::Result<EditRespons
         url,
     })
 }
+
+pub async fn sync() -> actix_web::Result<actix_web::HttpResponse> {
+    let config = match fpm::Config::read2(None, false).await {
+        Ok(config) => config,
+        Err(err) => {
+            return fpm::apis::error(
+                err.to_string(),
+                actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+            )
+        }
+    };
+    match fpm::commands::sync::sync(&config, None).await {
+        Ok(data) => fpm::apis::success(data),
+        Err(err) => fpm::apis::error(
+            err.to_string(),
+            actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+        ),
+    }
+}

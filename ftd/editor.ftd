@@ -41,7 +41,8 @@ align: right
 spacing: 10
 
 --- sync:
---- view:
+
+/--- view:
 
 --- container: ftd.main
 
@@ -79,6 +80,10 @@ function: post
 url: $url
 path: $create-file-path
 
+-- object sync-obj:
+function: get
+url: /-/editor-sync/
+
 
 -- ftd.row sync:
 spacing: 10
@@ -88,7 +93,8 @@ padding: 10
 position: center
 border-radius: 8
 color: $fpm.color.main.cta-secondary.text
-background-color: $fpm.color.main.cta-primary.base
+background-color: $fpm.color.main.cta-secondary.base
+$on-click$: message-host $sync-obj
 
 
 -- ftd.row view:
@@ -99,7 +105,7 @@ padding: 10
 position: center
 border-radius: 8
 color: $fpm.color.main.cta-secondary.text
-background-color: $fpm.color.main.cta-primary.base
+background-color: $fpm.color.main.cta-secondary.base
 
 
 -- ftd.row create:
