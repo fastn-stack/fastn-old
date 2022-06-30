@@ -4,11 +4,16 @@ pub struct EditRequest {
     pub value: Option<String>,
     pub path: String,
     pub operation: Option<String>, // todo: convert it to enum
+    pub data: Option<String>,
 }
 
 impl EditRequest {
     pub(crate) fn is_delete(&self) -> bool {
         matches!(self.operation.as_ref(), Some(v) if v.eq("delete"))
+    }
+
+    pub(crate) fn is_rename(&self) -> bool {
+        matches!(self.operation.as_ref(), Some(v) if v.eq("rename"))
     }
 }
 
@@ -46,6 +51,34 @@ pub(crate) async fn edit_worker(request: EditRequest) -> fpm::Result<EditRespons
         });
     }
 
+    if request.is_rename() {
+        let rename = match request.data {
+            Some(v) if !v.is_empty() => v,
+            _ => {
+                return Err(fpm::Error::APIResponseError(
+                    "rename value should present".to_string(),
+                ));
+            }
+        };
+
+        let new_path = if let Some((p, _)) = request.path.trim_end_matches("/").rsplit_once("/") {
+            format!("{}/{}", p, rename)
+        } else {
+            rename
+        };
+
+        tokio::fs::rename(config.root.join(&request.path), config.root.join(new_path)).await?;
+
+        // TODO: redirect to renamed file, if folder so it will redirect to renamed folder with
+        // index.ftd, if index.ftd does not exists so it will redirected to main project index.ftd
+
+        return Ok(EditResponse {
+            path: request.path,
+            url: Some("-/view-src/".to_string()),
+        });
+    }
+
+    // Handle Modify and Add
     let (file_name, url) = if let Ok(path) = config
         .get_file_path_and_resolve(request.path.as_str())
         .await
