@@ -36,8 +36,8 @@ padding: 20
 role: $fpm.type.heading-large
 align: center
 
-
 --- create:
+align: right
 
 --- ftd.row:
 width: fill
@@ -73,16 +73,24 @@ path: $create-file-path
 
 
 
--- ftd.column create:
-width: fill
+-- ftd.row create:
+spacing: 10
 
 --- ftd.input:
 placeholder: Enter file name
 $on-input$: $create-file-path=$VALUE
+padding: 10
+align: center
+border-radius: 8
 
 
 --- ftd.text: Create
 $on-click$: message-host $create-obj
+color: $fpm.color.main.cta-primary.text
+background-color: $fpm.color.main.cta-primary.base
+padding: 10
+align: center
+border-radius: 8
 
 
 
