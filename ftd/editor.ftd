@@ -146,6 +146,9 @@ link: $toc.url
 --- ftd.text: $toc.title
 if: $toc.url is null
 
+--- ftd.text: $toc.number
+if: $toc.number is not null
+
 --- ftd.text: Delete
 if: $toc.path is not null
 $on-click$: $delete-file-path=$toc.path
@@ -167,3 +170,6 @@ $on-click$: message-host $rename-obj
 --- print-toc-item:
 $loop$: $toc.children as $obj
 toc: $obj
+
+
+-- editor:
