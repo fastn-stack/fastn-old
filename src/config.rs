@@ -1264,39 +1264,36 @@ impl Package {
     ///          will be mapped to
     ///     -- import full_path_of_res as res
     pub fn fix_imports_in_body(&self, body: &str, id: &str) -> ftd::p1::Result<String> {
-
         let mut new_body = String::new();
 
         let mut ln = 1;
-        for line in body.lines(){
-
+        for line in body.lines() {
             let line_string = line.trim();
             let mut final_line = line_string.to_string();
 
-            if line_string.starts_with("-- import") && !line_string.contains(" as "){
-
+            if line_string.starts_with("-- import") && !line_string.contains(" as ") {
                 // Import statement (All possible cases)
                 // [-- import: full_path] (pass this)
                 // [-- import: alias] -> convert this to -> [--import: full_path as alias]
                 // [-- import: full_path as alias] (pass this)
 
                 let import_tokens: Vec<&str> = line_string.split(':').collect();
-                if import_tokens.len() <= 1{
+                if import_tokens.len() <= 1 {
                     return Err(ftd::p1::Error::ParseError {
                         message: "Import content missing !!".to_string(),
                         doc_id: id.to_string(),
-                        line_number: ln
-                    })
+                        line_number: ln,
+                    });
                 }
 
                 let mut import_content = String::new();
                 import_content.push_str(import_tokens[1].trim());
 
-                for dependency in &self.dependencies{
-                    if let Some(dep_alias) = &dependency.alias
-                    {
-                        if dep_alias.as_str().eq(import_content.as_str()){
-                            import_content = format!("{} as {}",dependency.package.name, dep_alias);
+                for dependency in &self.dependencies {
+                    if let Some(dep_alias) = &dependency.alias {
+                        if dep_alias.as_str().eq(import_content.as_str()) {
+                            import_content =
+                                format!("{} as {}", dependency.package.name, dep_alias);
                         }
                     }
                 }
@@ -1311,7 +1308,7 @@ impl Package {
 
             new_body.push_str(&final_line);
             new_body.push('\n');
-            ln = ln + 1;
+            ln += 1;
         }
 
         Ok(new_body)
