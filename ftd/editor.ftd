@@ -36,6 +36,16 @@ padding: 20
 role: $fpm.type.heading-large
 align: center
 
+--- ftd.row:
+align: right
+spacing: 10
+
+--- sync:
+--- view:
+
+--- container: ftd.main
+
+
 --- create:
 align: right
 
@@ -60,8 +70,6 @@ $on-input$: message-host $edit-obj
 padding: 20
 
 
-
-
 -- optional string create-file-path:
 $always-include$: true
 
@@ -71,6 +79,27 @@ function: post
 url: $url
 path: $create-file-path
 
+
+-- ftd.row sync:
+spacing: 10
+
+--- ftd.text: Sync
+padding: 10
+position: center
+border-radius: 8
+color: $fpm.color.main.cta-secondary.text
+background-color: $fpm.color.main.cta-primary.base
+
+
+-- ftd.row view:
+spacing: 10
+
+--- ftd.text: View
+padding: 10
+position: center
+border-radius: 8
+color: $fpm.color.main.cta-secondary.text
+background-color: $fpm.color.main.cta-primary.base
 
 
 -- ftd.row create:
@@ -91,10 +120,6 @@ background-color: $fpm.color.main.cta-primary.base
 padding: 10
 align: center
 border-radius: 8
-
-
-
-
 
 
 -- optional string delete-file-path:
