@@ -393,6 +393,7 @@ pub(crate) async fn process_ftd(
                 )
             }
         } else {
+            main.content = current_package.fix_imports_in_body(main.content.as_str(), main.id.as_str())?;
             main.content = current_package.get_prefixed_body(main.content.as_str(), &main.id, true);
         }
         main
