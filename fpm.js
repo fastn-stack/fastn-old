@@ -22,13 +22,16 @@
     }
 
     document.addEventListener('keypress', (event) => {
-        var key = event.key;
+        let key = event.key;
         let url = window.location.href;
         let source = document.baseURI.endsWith("/") ? "-/view-src/" : "/-/view-src/";
-        let newurl = document.baseURI + source + url.replace(document.baseURI, "");
+        let new_url = document.baseURI + source + url.replace(document.baseURI, "");
+        if (url.includes("-/view-src/")) {
+            new_url = url.replace("-/view-src/", "");
+        }
         if (key === '.' &&
             ((event.target.nodeName !== "INPUT" && event.target.nodeName !== "TEXTAREA") || event.ctrlKey)) {
-                window.location.href = newurl;
+                window.location.href = new_url;
             }
         }, false);
 
