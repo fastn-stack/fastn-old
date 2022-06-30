@@ -8,7 +8,7 @@ pub struct EditRequest {
 #[derive(serde::Serialize, serde::Deserialize, std::fmt::Debug)]
 pub struct EditResponse {
     pub path: String,
-    pub refresh: bool,
+    pub url: Option<String>,
 }
 
 pub async fn edit(
@@ -25,15 +25,25 @@ pub async fn edit(
 
 pub(crate) async fn edit_worker(request: EditRequest) -> fpm::Result<EditResponse> {
     let mut config = fpm::Config::read2(None, false).await?;
-    let (file_name, refresh) = if let Ok(path) = config
+    let (file_name, url) = if let Ok(path) = config
         .get_file_path_and_resolve(request.path.as_str())
         .await
     {
-        (path, false)
+        (path, None)
     } else if request.path.ends_with('/') {
-        (format!("{}index.ftd", request.path), true)
+        let path = format!("{}index.ftd", request.path);
+        (
+            path.to_string(),
+            Some(format!("-/view-src/{}", path.trim_start_matches('/'))),
+        )
     } else {
-        (request.path.to_string(), true)
+        (
+            request.path.to_string(),
+            Some(format!(
+                "-/view-src/{}",
+                request.path.trim_start_matches('/')
+            )),
+        )
     };
 
     fpm::utils::update(
@@ -48,6 +58,6 @@ pub(crate) async fn edit_worker(request: EditRequest) -> fpm::Result<EditRespons
     .await?;
     Ok(EditResponse {
         path: request.path,
-        refresh,
+        url,
     })
 }
