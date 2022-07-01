@@ -56,7 +56,7 @@ async fn handle_create(req: CreateRequest) -> fpm::Result<CreateResponse> {
     Ok(CreateResponse {
         number: cr_number,
         files: std::array::IntoIter::new([(
-            config.cr_path(cr_number).join("-/about.ftd").to_string(),
+            format!("-/{}/-/about.ftd", cr_number),
             about_content.as_bytes().to_vec(),
         )])
         .collect(),
@@ -66,11 +66,28 @@ async fn handle_create(req: CreateRequest) -> fpm::Result<CreateResponse> {
 pub(crate) async fn client_create(
     req: actix_web::web::Json<CreateRequest>,
 ) -> actix_web::Result<actix_web::HttpResponse> {
-    match fpm::commands::create_cr::cr(req.0.title, req.0.description, req.0.cr_number).await {
-        Ok(data) => fpm::apis::success(data),
+    match client_create_(req.0).await {
+        Ok(cr_number) => {
+            #[derive(serde::Serialize)]
+            struct CreateCRResponse {
+                url: String,
+            }
+            fpm::apis::success(CreateCRResponse {
+                url: format!("-/view-src/-/{}/-/about/", cr_number),
+            })
+        }
         Err(err) => fpm::apis::error(
             err.to_string(),
             actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
         ),
     }
+}
+
+async fn client_create_(req: CreateRequest) -> fpm::Result<usize> {
+    let config = fpm::Config::read2(None, false).await?;
+    let response = fpm::commands::create_cr::cr(req.title, req.description, req.cr_number).await?;
+    for (file_path, content) in response.files {
+        fpm::utils::update(&config.root, file_path.as_str(), content.as_slice()).await?;
+    }
+    Ok(response.number)
 }
