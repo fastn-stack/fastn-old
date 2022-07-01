@@ -60,9 +60,9 @@ pub async fn increment(path: &str) -> fpm::Result<usize> {
 
 pub async fn create_or_inc(path: &str) -> fpm::Result<usize> {
     if std::path::Path::new(path).exists() {
-        create(path).await
-    } else {
         increment(path).await
+    } else {
+        create(path).await
     }
 }
 

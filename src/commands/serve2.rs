@@ -183,6 +183,7 @@ You can try without providing port, it will automatically pick unused port"#,
                     .app_data(json_cfg)
                     .route("/-/sync/", actix_web::web::post().to(fpm::apis::sync))
                     .route("/-/clone/", actix_web::web::get().to(fpm::apis::clone))
+                    .route("/-/cr/", actix_web::web::post().to(fpm::apis::cr::create))
             } else {
                 actix_web::App::new()
             }

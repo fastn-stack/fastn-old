@@ -57,6 +57,10 @@ impl Config {
         self.root.join(".build")
     }
 
+    pub fn cr_path(&self, cr_number: usize) -> camino::Utf8PathBuf {
+        self.root.join("-/").join(cr_number.to_string())
+    }
+
     /// history of a fpm package is stored in `.history` folder.
     ///
     /// Current design is wrong, we should move this helper to `fpm::Package` maybe.
