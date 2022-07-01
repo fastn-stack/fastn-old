@@ -1,5 +1,17 @@
 -- import: fpm
 
+
+
+-- editor:
+
+
+
+
+
+
+
+
+
 -- fpm.toc-item list fs:
 $processor$: package-tree
 
@@ -24,6 +36,20 @@ path: $path
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 -- ftd.column editor:
 width: fill
 height: fill
@@ -37,18 +63,26 @@ role: $fpm.type.heading-large
 align: center
 
 --- ftd.row:
+spacing: 10
+width: fill
+id: row-id
+spacing: space-between
+
+--- ftd.row:
 align: right
 spacing: 10
 
 --- sync:
 
-/--- view:
+--- view:
 
---- container: ftd.main
-
+--- container: row-id
 
 --- create:
 align: right
+
+--- container: ftd.main
+
 
 --- ftd.row:
 width: fill
@@ -71,14 +105,17 @@ $on-input$: message-host $edit-obj
 padding: 20
 
 
--- optional string create-file-path:
-$always-include$: true
 
 
--- object create-obj:
-function: post
-url: $url
-path: $create-file-path
+
+
+
+
+
+
+
+
+
 
 -- object sync-obj:
 function: get
@@ -97,6 +134,18 @@ background-color: $fpm.color.main.cta-secondary.base
 $on-click$: message-host $sync-obj
 
 
+
+
+
+
+
+
+-- object view-obj:
+function: redirect
+url: $path
+
+
+
 -- ftd.row view:
 spacing: 10
 
@@ -104,8 +153,37 @@ spacing: 10
 padding: 10
 position: center
 border-radius: 8
-color: $fpm.color.main.cta-secondary.text
-background-color: $fpm.color.main.cta-secondary.base
+color: $fpm.color.main.cta-tertiary.text
+background-color: $fpm.color.main.cta-tertiary.base
+$on-click$: message-host $view-obj
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+-- optional string create-file-path:
+$always-include$: true
+
+
+-- object create-obj:
+function: post
+url: $url
+path: $create-file-path
+
 
 
 -- ftd.row create:
@@ -128,6 +206,19 @@ align: center
 border-radius: 8
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
 -- optional string delete-file-path:
 $always-include$: true
 
@@ -137,6 +228,12 @@ function: post
 url: $url
 path: $delete-file-path
 operation: delete
+
+
+
+
+
+
 
 
 
@@ -155,52 +252,279 @@ operation: rename
 data: $new-name
 
 
+
+
+
+
+
+
+
 -- ftd.column print-toc:
 fpm.toc-item list toc:
 
 --- print-toc-item:
 $loop$: $toc as $obj
 toc: $obj
+is-first: true
+
+
+
+
+
+
+
 
 
 -- ftd.column print-toc-item:
 fpm.toc-item toc:
-margin-left: 20
+boolean is-first: false
+margin-left if not $is-first: 20
+boolean show-actions: false
+margin-bottom: 5
+boolean show: false
 
 --- ftd.row:
 spacing: 5
+$on-mouse-enter$: $show-actions = true
+$on-mouse-leave$: $show-actions = false
+$on-mouse-leave$: $show = false
 
---- ftd.text: $toc.title
-if: $toc.url is not null
+--- show-item: $toc.title
 link: $toc.url
+status: $toc.number
 
---- ftd.text: $toc.title
-if: $toc.url is null
-
---- ftd.text: $toc.number
-if: $toc.number is not null
+--- ftd.row:
+spacing: 5
+if: $show-actions
 
 --- ftd.text: Delete
+background-color: $red
+color: $fpm.color.main.text-strong
+padding: 2
 if: $toc.path is not null
 $on-click$: $delete-file-path=$toc.path
 $on-click$: message-host $delete-obj
+border-radius: 8
+
+--- ftd.text: Rename
+if: not $show
+$on-click$: $show = true
+color: $fpm.color.main.cta-secondary.text
+background-color: $fpm.color.main.cta-secondary.base
+padding: 2
+border-radius: 8
+
+--- ftd.row:
+if: $show
+spacing: 5
 
 --- ftd.input:
 placeholder: Enter new name
-if: $toc.path is not null
 $on-input$: $new-name=$VALUE
 $on-input$: $rename-file-path=$toc.path
+padding: 2
 
 --- ftd.text: Rename
 if: $rename-file-path == $toc.path
 $on-click$: message-host $rename-obj
-
+color: $fpm.color.main.cta-secondary.text
+background-color: $fpm.color.main.cta-secondary.base
+padding: 2
+border-radius: 8
 
 --- container: ftd.main
+
 
 --- print-toc-item:
 $loop$: $toc.children as $obj
 toc: $obj
 
 
--- editor:
+
+
+
+
+
+-- ftd.row show-item:
+caption title:
+optional string link:
+optional string status:
+
+
+--- ftd.row:
+spacing: 10
+if: $status == Untracked
+
+--- ftd.text: $title
+if: $link is not null
+link: $link
+
+--- ftd.text: $title
+if: $link is null
+
+
+--- container: ftd.main
+
+
+--- ftd.row:
+spacing: 10
+if: $status == Added
+color: $green
+
+--- ftd.text: $title
+if: $link is not null
+link: $link
+color: $green
+
+--- ftd.text: $title
+if: $link is null
+
+--- ftd.text: A
+
+--- container: ftd.main
+
+
+--- ftd.row:
+spacing: 10
+if: $status == Modified
+color: $purple
+
+--- ftd.text: $title
+if: $link is not null
+link: $link
+color: $purple
+
+--- ftd.text: $title
+if: $link is null
+
+--- ftd.text: M
+
+--- container: ftd.main
+
+
+--- ftd.row:
+spacing: 10
+if: $status == Deleted
+color: $red
+
+--- ftd.text: $title
+if: $link is not null
+link: $link
+color: $red
+
+--- ftd.text: $title
+if: $link is null
+
+--- ftd.text: D
+
+--- container: ftd.main
+
+
+--- ftd.row:
+spacing: 10
+if: $status == Conflicted
+color: $grey
+
+--- ftd.text: $title
+if: $link is not null
+link: $link
+color: $grey
+
+--- ftd.text: $title
+if: $link is null
+
+--- ftd.text: C
+
+--- container: ftd.main
+
+
+--- ftd.row:
+spacing: 10
+if: $status == Outdated
+color: $orange
+
+--- ftd.text: $title
+if: $link is not null
+link: $link
+color: $orange
+
+--- ftd.text: $title
+if: $link is null
+
+--- ftd.text: O
+
+--- container: ftd.main
+
+
+--- ftd.row:
+spacing: 10
+if: $status == ClientEditedServerDeleted
+color: $orange
+
+--- ftd.text: $title
+if: $link is not null
+link: $link
+color: $orange
+
+--- ftd.text: $title
+if: $link is null
+
+--- ftd.text: Cˆ
+
+--- container: ftd.main
+
+
+--- ftd.row:
+spacing: 10
+if: $status == ClientDeletedServerEdited
+color: $orange
+
+--- ftd.text: $title
+if: $link is not null
+link: $link
+color: $orange
+
+--- ftd.text: $title
+if: $link is null
+
+--- ftd.text: C˘
+
+--- container: ftd.main
+
+
+--- ftd.row:
+spacing: 10
+if: $status is null
+
+--- ftd.text: $title
+if: $link is not null
+link: $link
+
+--- ftd.text: $title
+if: $link is null
+
+
+
+
+
+
+
+-- ftd.color green:
+light: green
+dark: green
+
+-- ftd.color purple:
+light: purple
+dark: purple
+
+-- ftd.color red:
+light: red
+dark: red
+
+-- ftd.color grey:
+light: grey
+dark: grey
+
+-- ftd.color orange:
+light: orange
+dark: orange
