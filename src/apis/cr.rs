@@ -30,34 +30,32 @@ async fn handle_create(req: CreateRequest) -> fpm::Result<CreateResponse> {
     // return response
 
     let config = fpm::Config::read2(None, false).await?;
-    let cr_number = if let Some(cr_number) = req.cr_number {
-        cr_number
-    } else {
-        fpm::cache::create_or_inc(config.root.join(".cr").as_str()).await?
-    };
-    let about_content = {
-        let mut about_content = format!(
-            "-- import: fpm\n\n\n-- fpm.cr-about: {}",
-            req.title.unwrap_or_else(|| cr_number.to_string())
-        );
-        if let Some(description) = req.description {
-            about_content = format!("{}\n\n{}", about_content, description);
+    let cr_about = if let Some(cr_number) = req.cr_number {
+        let mut cr_about = fpm::cr::get_cr_about(&config, cr_number).await?;
+        if let Some(title) = req.title {
+            cr_about.title = title;
         }
-        about_content
+        if let Some(description) = req.description {
+            cr_about.description = Some(description);
+        }
+        cr_about
+    } else {
+        let cr_number = fpm::cache::create_or_inc(config.root.join(".cr").as_str()).await?;
+        fpm::cr::CRAbout {
+            title: req.title.unwrap_or_else(|| cr_number.to_string()),
+            description: req.description,
+            cr_number,
+        }
     };
-
-    fpm::utils::update(
-        &config.cr_path(cr_number),
-        "-/about.ftd",
-        about_content.as_bytes(),
-    )
-    .await?;
+    fpm::cr::create_cr_about(&config, &cr_about).await?;
 
     Ok(CreateResponse {
-        number: cr_number,
+        number: cr_about.cr_number,
         files: std::array::IntoIter::new([(
-            format!("-/{}/-/about.ftd", cr_number),
-            about_content.as_bytes().to_vec(),
+            format!("-/{}/-/about.ftd", cr_about.cr_number),
+            fpm::cr::generate_cr_about_content(&cr_about)
+                .as_bytes()
+                .to_vec(),
         )])
         .collect(),
     })

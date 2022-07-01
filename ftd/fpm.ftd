@@ -230,6 +230,7 @@ optional toc-item current-page:
 -- record cr-about-data:
 caption title:
 optional body description:
+integer cr-number:
 
 
 -- optional cr-about-data cr-about:

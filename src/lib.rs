@@ -13,6 +13,7 @@ mod cache;
 mod commands;
 mod config;
 mod controller;
+mod cr;
 mod dependency;
 mod doc;
 mod file;

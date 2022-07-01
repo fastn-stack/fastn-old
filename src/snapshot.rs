@@ -35,7 +35,7 @@ pub(crate) async fn get_latest_snapshots(
         return Ok(Default::default());
     }
 
-    let doc = std::fs::read_to_string(&latest_file_path)?;
+    let doc = tokio::fs::read_to_string(&latest_file_path).await?;
     resolve_snapshots(&doc).await
 }
 
