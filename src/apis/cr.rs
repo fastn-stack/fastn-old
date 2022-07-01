@@ -1,14 +1,14 @@
-#[derive(Debug, serde::Deserialize)]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub(crate) struct CreateRequest {
-    pub title: String,
+    pub title: Option<String>,
     pub description: Option<String>,
     pub cr_number: Option<usize>,
 }
 
-#[derive(Debug, serde::Serialize, Default)]
-struct CreateResponse {
-    number: usize,
-    files: std::collections::HashMap<String, Vec<u8>>, // about.ftd
+#[derive(Debug, serde::Serialize, serde::Deserialize, Default)]
+pub struct CreateResponse {
+    pub number: usize,
+    pub files: std::collections::HashMap<String, Vec<u8>>, // about.ftd
 }
 
 pub(crate) async fn create(
@@ -36,7 +36,10 @@ async fn handle_create(req: CreateRequest) -> fpm::Result<CreateResponse> {
         fpm::cache::create_or_inc(config.root.join(".cr").as_str()).await?
     };
     let about_content = {
-        let mut about_content = format!("-- import: fpm\n\n\n-- fpm.cr-about: {}", req.title);
+        let mut about_content = format!(
+            "-- import: fpm\n\n\n-- fpm.cr-about: {}",
+            req.title.unwrap_or_else(|| cr_number.to_string())
+        );
         if let Some(description) = req.description {
             about_content = format!("{}\n\n{}", about_content, description);
         }
@@ -58,4 +61,16 @@ async fn handle_create(req: CreateRequest) -> fpm::Result<CreateResponse> {
         )])
         .collect(),
     })
+}
+
+pub(crate) async fn client_create(
+    req: actix_web::web::Json<CreateRequest>,
+) -> actix_web::Result<actix_web::HttpResponse> {
+    match fpm::commands::create_cr::cr(req.0.title, req.0.description, req.0.cr_number).await {
+        Ok(data) => fpm::apis::success(data),
+        Err(err) => fpm::apis::error(
+            err.to_string(),
+            actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+        ),
+    }
 }
