@@ -115,21 +115,19 @@ async fn insert(
             workspaces,
         )
         .await?;
+    } else if let Ok(file) = fpm::get_file(
+        config.package.name.to_string(),
+        &config.root.join(full_path),
+        &config.root,
+    )
+    .await
+    {
+        let status = fpm::commands::status::get_file_status(&file, snapshots, workspaces).await?;
+        node.url = Some(url.to_string());
+        node.number = Some(format!("{:?}", status))
     } else {
-        if let Ok(file) = fpm::get_file(
-            config.package.name.to_string(),
-            &config.root.join(full_path),
-            &config.root,
-        )
-        .await
-        {
-            let status =
-                fpm::commands::status::get_file_status(&file, snapshots, workspaces).await?;
-            node.url = Some(url.to_string());
-            node.number = Some(format!("{:?}", status))
-        } else {
-            node.number = Some(format!("{:?}", fpm::commands::status::FileStatus::Deleted))
-        }
+        node.number = Some(format!("{:?}", fpm::commands::status::FileStatus::Deleted))
     }
+
     Ok(())
 }
