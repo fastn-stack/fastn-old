@@ -349,6 +349,7 @@ toc: $obj
 caption title:
 optional string link:
 optional string status:
+padding: 2
 
 
 --- ftd.row:
