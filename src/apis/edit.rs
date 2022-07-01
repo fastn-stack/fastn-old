@@ -1,3 +1,9 @@
+pub enum Operation {
+    Add,
+    Delete,
+    Modify,
+}
+
 #[derive(serde::Deserialize, serde::Serialize, std::fmt::Debug)]
 pub struct EditRequest {
     pub url: String,

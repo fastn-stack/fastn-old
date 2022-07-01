@@ -9,6 +9,7 @@ pub(crate) mod utils;
 // Temp comment
 mod apis;
 mod auto_import;
+mod cache;
 mod commands;
 mod config;
 mod controller;
@@ -16,6 +17,7 @@ mod dependency;
 mod doc;
 mod file;
 mod font;
+mod fs;
 mod i18n;
 mod library;
 mod package_doc;
@@ -433,6 +435,9 @@ pub enum Error {
 
     #[error("UTF8Error: {}", _0)]
     UTF8Error(#[from] std::string::FromUtf8Error),
+
+    #[error("ParseIntError: {}", _0)]
+    ParseIntError(#[from] std::num::ParseIntError),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
