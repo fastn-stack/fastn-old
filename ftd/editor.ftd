@@ -35,11 +35,12 @@ path: $path
 
 
 
+-- optional string diff:
+$always-include$: true
 
 
 
-
-
+-- boolean show-diff: false
 
 
 
@@ -76,10 +77,36 @@ spacing: 10
 
 --- view:
 
+--- ftd.text: Diff
+if: $diff is not null
+padding: 10
+position: center
+border-radius: 8
+color: $fpm.color.main.cta-secondary.text
+background-color: $fpm.color.main.cta-secondary.base
+$on-click$: toggle $show-diff
+
+
 --- container: row-id
 
 --- create:
 align: right
+
+--- container: ftd.main
+
+--- ftd.row:
+width: fill
+if: $show-diff
+
+--- ftd.code:
+padding: 10
+width: fill
+background-color: $2b303b
+if: $diff is not null
+lang: diff
+
+$diff
+
 
 --- container: ftd.main
 
@@ -580,3 +607,8 @@ dark: grey
 -- ftd.color orange:
 light: orange
 dark: orange
+
+-- ftd.color 2b303b:
+light: #2b303b
+dark: #2b303b
+
