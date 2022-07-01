@@ -161,7 +161,13 @@ pub async fn sync() -> actix_web::Result<actix_web::HttpResponse> {
         }
     };
     match fpm::commands::sync::sync(&config, None).await {
-        Ok(data) => fpm::apis::success(data),
+        Ok(_) => {
+            #[derive(serde::Serialize)]
+            struct SyncResponse {
+                reload: bool,
+            }
+            fpm::apis::success(SyncResponse { reload: true })
+        }
         Err(err) => fpm::apis::error(
             err.to_string(),
             actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
