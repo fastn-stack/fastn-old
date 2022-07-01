@@ -21,6 +21,7 @@ impl EditRequest {
 pub struct EditResponse {
     pub path: String,
     pub url: Option<String>,
+    pub reload: bool,
 }
 
 pub async fn edit(
@@ -47,7 +48,8 @@ pub(crate) async fn edit_worker(request: EditRequest) -> fpm::Result<EditRespons
         }
         return Ok(EditResponse {
             path: request.path,
-            url: Some("-/view-src/".to_string()),
+            url: None,
+            reload: true,
         });
     }
 
@@ -74,7 +76,8 @@ pub(crate) async fn edit_worker(request: EditRequest) -> fpm::Result<EditRespons
 
         return Ok(EditResponse {
             path: request.path,
-            url: Some("-/view-src/".to_string()),
+            url: None,
+            reload: true,
         });
     }
 
@@ -140,6 +143,7 @@ pub(crate) async fn edit_worker(request: EditRequest) -> fpm::Result<EditRespons
             return Ok(EditResponse {
                 path: request.path,
                 url: Some(format!("-/view-src/{}", file_name.trim_start_matches('/'))),
+                reload: false,
             });
         }
     }
@@ -147,6 +151,7 @@ pub(crate) async fn edit_worker(request: EditRequest) -> fpm::Result<EditRespons
     Ok(EditResponse {
         path: request.path,
         url,
+        reload: false,
     })
 }
 
