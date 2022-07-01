@@ -406,7 +406,7 @@ pub enum Error {
     #[error("IoError: {}", _0)]
     IoError(#[from] std::io::Error),
 
-    #[error("IoError: {}", _0)]
+    #[error("ZipError: {}", _0)]
     ZipError(#[from] zip::result::ZipError),
 
     #[error("SerdeJsonError: {}", _0)]
@@ -438,6 +438,9 @@ pub enum Error {
 
     #[error("ParseIntError: {}", _0)]
     ParseIntError(#[from] std::num::ParseIntError),
+
+    #[error("GenericError: {}", _0)]
+    GenericError(String),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
