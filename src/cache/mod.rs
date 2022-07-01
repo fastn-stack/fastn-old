@@ -21,3 +21,9 @@ async fn create(path: &str) -> fpm::Result<usize> {
     let value = tokio::fs::read_to_string(path).await?;
     Ok(value.parse()?)
 }
+
+async fn add(path: &str, value: usize) -> fpm::Result<usize> {
+    let old_value = get(path).await?;
+    tokio::fs::write(path, (old_value + value).to_string().as_bytes()).await?;
+    Ok(get(path).await?)
+}
