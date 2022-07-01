@@ -39,7 +39,7 @@ pub async fn create(path: &str) -> fpm::Result<usize> {
                 .await?;
             Ok(get_without_lock(path).await?)
         }
-        Err(e) => return Err(fpm::Error::GenericError(e.to_string())),
+        Err(e) => Err(fpm::Error::GenericError(e.to_string())),
     }
 }
 
@@ -50,7 +50,7 @@ pub async fn update_get(path: &str, value: usize) -> fpm::Result<usize> {
             tokio::fs::write(path, (old_value + value).to_string().as_bytes()).await?;
             Ok(get_without_lock(path).await?)
         }
-        Err(e) => return Err(fpm::Error::GenericError(e.to_string())),
+        Err(e) => Err(fpm::Error::GenericError(e.to_string())),
     }
 }
 
