@@ -44,13 +44,25 @@ pub async fn create(path: &str) -> fpm::Result<usize> {
 }
 
 pub async fn update_get(path: &str, value: usize) -> fpm::Result<usize> {
-    let old_value = get(path).await?;
     match LOCK.try_write() {
         Ok(_) => {
+            let old_value = get_without_lock(path).await?;
             tokio::fs::write(path, (old_value + value).to_string().as_bytes()).await?;
             Ok(get_without_lock(path).await?)
         }
         Err(e) => return Err(fpm::Error::GenericError(e.to_string())),
+    }
+}
+
+pub async fn increment(path: &str) -> fpm::Result<usize> {
+    update_get(path, 1).await
+}
+
+pub async fn create_or_inc(path: &str) -> fpm::Result<usize> {
+    if std::path::Path::new(path).exists() {
+        create(path).await
+    } else {
+        increment(path).await
     }
 }
 
