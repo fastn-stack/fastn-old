@@ -97,7 +97,7 @@ toc: $fs
 width: fill
 height: fill
 multiline: true
-placeholder: -- ft.h1: hello world
+placeholder: -- ftd.text: hello world
 value: $source
 border-width: 2
 $on-input$: $source=$VALUE
@@ -272,6 +272,7 @@ is-first: true
 
 
 
+-- boolean show-action-on-status: true
 
 
 
@@ -294,8 +295,11 @@ link: $toc.url
 status: $toc.number
 
 --- ftd.row:
-spacing: 5
 if: $show-actions
+
+--- ftd.row:
+spacing: 5
+if: $show-action-on-status
 
 --- ftd.text: Delete
 background-color: $red
@@ -407,6 +411,8 @@ if: $link is null
 spacing: 10
 if: $status == Deleted
 color: $red
+$on-mouse-enter$: $show-action-on-status = false
+$on-mouse-leave$: $show-action-on-status = true
 
 --- ftd.text: $title
 if: $link is not null

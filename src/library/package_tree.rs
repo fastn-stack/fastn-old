@@ -22,7 +22,18 @@ pub async fn processor_<'a>(
     let root = config.get_root_for_package(&config.package);
     let snapshots = fpm::snapshot::get_latest_snapshots(&config.root).await?;
     let workspaces = fpm::snapshot::get_workspace(config).await?;
-    let files = config
+    let all_files = config
+        .get_files(&config.package)
+        .await?
+        .into_iter()
+        .map(|v| v.get_id())
+        .collect_vec();
+    let deleted_files = snapshots
+        .keys()
+        .filter(|v| !all_files.contains(v))
+        .map(|v| v.to_string());
+
+    let mut files = config
         .get_all_file_paths(&config.package, true)?
         .into_iter()
         .filter(|v| v.is_file())
@@ -33,6 +44,8 @@ pub async fn processor_<'a>(
                 .replace(std::path::MAIN_SEPARATOR.to_string().as_str(), "/")
         })
         .collect_vec();
+    files.extend(deleted_files);
+
     let tree = construct_tree(config, files.as_slice(), &snapshots, &workspaces).await?;
     Ok(doc.from_json(&tree, section)?)
 }
@@ -103,15 +116,20 @@ async fn insert(
         )
         .await?;
     } else {
-        let file = fpm::get_file(
+        if let Ok(file) = fpm::get_file(
             config.package.name.to_string(),
             &config.root.join(full_path),
             &config.root,
         )
-        .await?;
-        let status = fpm::commands::status::get_file_status(&file, snapshots, workspaces).await?;
-        node.url = Some(url.to_string());
-        node.number = Some(format!("{:?}", status))
+        .await
+        {
+            let status =
+                fpm::commands::status::get_file_status(&file, snapshots, workspaces).await?;
+            node.url = Some(url.to_string());
+            node.number = Some(format!("{:?}", status))
+        } else {
+            node.number = Some(format!("{:?}", fpm::commands::status::FileStatus::Deleted))
+        }
     }
     Ok(())
 }
