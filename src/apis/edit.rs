@@ -174,3 +174,36 @@ pub async fn sync() -> actix_web::Result<actix_web::HttpResponse> {
         ),
     }
 }
+
+#[derive(serde::Deserialize, serde::Serialize, std::fmt::Debug)]
+pub struct RevertRequest {
+    pub path: String,
+}
+
+pub async fn revert(
+    req: actix_web::web::Json<RevertRequest>,
+) -> actix_web::Result<actix_web::HttpResponse> {
+    let config = match fpm::Config::read2(None, false).await {
+        Ok(config) => config,
+        Err(err) => {
+            return fpm::apis::error(
+                err.to_string(),
+                actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+            )
+        }
+    };
+
+    match fpm::commands::revert::revert(&config, req.0.path.as_str()).await {
+        Ok(_) => {
+            #[derive(serde::Serialize)]
+            struct RevertResponse {
+                reload: bool,
+            }
+            fpm::apis::success(RevertResponse { reload: true })
+        }
+        Err(err) => fpm::apis::error(
+            err.to_string(),
+            actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+        ),
+    }
+}
