@@ -19,8 +19,14 @@ pub async fn revert(config: &fpm::Config, path: &str) -> fpm::Result<()> {
     } else {
         let snapshots = fpm::snapshot::get_latest_snapshots(&config.root).await?;
         if let Some(timestamp) = snapshots.get(path) {
-            let revert_path = fpm::utils::history_path(path, config.root.as_str(), &timestamp);
-            tokio::fs::copy(revert_path, config.root.join(path)).await?;
+            let revert_path = fpm::utils::history_path(path, config.root.as_str(), timestamp);
+
+            fpm::utils::update(
+                &config.root,
+                path,
+                tokio::fs::read(revert_path).await?.as_slice(),
+            )
+            .await?;
         }
     }
 
