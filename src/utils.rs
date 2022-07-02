@@ -392,3 +392,23 @@ pub(crate) async fn update(
             .await?,
     )
 }
+
+pub(crate) fn get_cr_and_path_from_id(id: &str) -> Option<(usize, String)> {
+    if let Some(path) = id.strip_prefix("-/") {
+        if let Some((cr_number, path)) = path.split_once('/') {
+            if let Ok(cr_number) = cr_number.parse::<usize>() {
+                let path = if path.is_empty() {
+                    "/".to_string()
+                } else {
+                    path.to_string()
+                };
+                return Some((cr_number, path));
+            }
+        }
+    }
+    None
+}
+
+pub(crate) fn get_cr_special_ids() -> Vec<String> {
+    vec!["-/about".to_string(), "-/about.ftd".to_string()]
+}

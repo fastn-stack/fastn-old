@@ -49,8 +49,6 @@ $always-include$: true
 
 
 
-
-
 -- ftd.column editor:
 width: fill
 height: fill
@@ -58,6 +56,7 @@ background-color: $fpm.color.main.background.base
 color: $fpm.color.main.text-strong
 spacing: 20
 padding: 20
+
 
 --- ftd.text: $path
 role: $fpm.type.heading-large
@@ -85,7 +84,6 @@ border-radius: 8
 color: $fpm.color.main.cta-secondary.text
 background-color: $fpm.color.main.cta-secondary.base
 $on-click$: toggle $show-diff
-
 
 --- container: row-id
 
@@ -130,6 +128,64 @@ border-width: 2
 $on-input$: $source=$VALUE
 $on-input$: message-host $edit-obj
 padding: 20
+
+--- container: ftd.main
+
+--- create-cr:
+
+
+
+
+
+
+
+
+
+
+
+-- optional string create-cr-title:
+$always-include$: true
+
+-- optional string create-cr-description:
+$always-include$: true
+
+
+-- object create-cr-obj:
+function: post
+url: -/editor-cr/
+title: $create-cr-title
+description: $create-cr-description
+
+
+
+-- ftd.row create-cr:
+boolean show: false
+$on-mouse-enter$: $show = true
+$on-mouse-leave$: $show = false
+spacing: 20
+
+--- ftd.text: Create CR
+padding: 10
+border-radius: 8
+color: $fpm.color.main.cta-secondary.text
+background-color: $fpm.color.main.cta-secondary.base
+$on-click$: message-host $create-cr-obj
+
+--- ftd.input:
+placeholder: Enter CR title
+$on-input$: $create-cr-title=$VALUE
+padding: 10
+border-radius: 8
+if: $show
+
+--- ftd.input:
+multiline: true
+placeholder: Enter CR description
+$on-input$: $create-cr-description=$VALUE
+padding: 10
+border-radius: 8
+if: $show
+
 
 
 

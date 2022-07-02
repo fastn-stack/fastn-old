@@ -27,8 +27,24 @@ pub(crate) async fn view_source(req: actix_web::HttpRequest) -> actix_web::HttpR
 
 async fn handle_view_source(path: &str) -> fpm::Result<Vec<u8>> {
     let mut config = fpm::Config::read2(None, false).await?;
-    let file_name = config.get_file_path_and_resolve(path).await?;
-    let file = config.get_file_and_package_by_id(path).await?;
+
+    let mut path = path.to_string();
+    let mut cr_root = None;
+    let mut special_ids = vec![];
+    if let Some((cr_number, cr_path)) = fpm::utils::get_cr_and_path_from_id(&path) {
+        path = cr_path;
+        cr_root = Some(format!("-/{}", cr_number));
+        special_ids.extend(fpm::utils::get_cr_special_ids());
+    }
+
+    let file_name = config
+        .get_file_path_by_root(path.as_str(), cr_root.clone(), special_ids.as_slice())
+        .await?
+        .0;
+
+    let file = config
+        .get_file_and_package_by_root(&path, cr_root, special_ids.as_slice())
+        .await?;
     let editor_ftd = if config.root.join("e.ftd").exists() {
         tokio::fs::read_to_string(config.root.join("e.ftd")).await?
     } else {

@@ -517,13 +517,35 @@ impl Config {
             });
     }
 
-    pub(crate) async fn get_file_and_package_by_id(&mut self, id: &str) -> fpm::Result<fpm::File> {
-        let file_name = self.get_file_path_and_resolve(id).await?;
+    pub(crate) async fn get_file_and_package(&mut self, id: &str) -> fpm::Result<fpm::File> {
+        self.get_file_and_package_by_root(id, None, vec![].as_slice())
+            .await
+    }
+
+    pub(crate) async fn get_file_path_and_resolve(&mut self, id: &str) -> fpm::Result<String> {
+        Ok(self
+            .get_file_path_by_root(id, None, vec![].as_slice())
+            .await?
+            .0)
+    }
+
+    pub(crate) async fn get_file_and_package_by_root(
+        &mut self,
+        id: &str,
+        root: Option<String>,
+        special_ids: &[String],
+    ) -> fpm::Result<fpm::File> {
+        let (file_name, root) = self.get_file_path_by_root(id, root, special_ids).await?;
         let package = self.find_package_by_id(id).await?.1;
         let mut file = fpm::get_file(
             package.name.to_string(),
             &self.root.join(file_name),
-            &self.get_root_for_package(&package),
+            if let Some(root) = root {
+                self.get_root_for_package(&package).join(root)
+            } else {
+                self.get_root_for_package(&package)
+            }
+            .as_ref(),
         )
         .await?;
         if id.contains("-/") {
@@ -540,38 +562,73 @@ impl Config {
         Ok(file)
     }
 
-    pub(crate) async fn get_file_path_and_resolve(&mut self, id: &str) -> fpm::Result<String> {
+    /// If root is present and package is same as current package
+    /// It first try to find id inside the root (path relative to current package)
+    /// In case of failure, it checks it inside the current package
+    /// `special_ids` are those ids which need not to be formatted and should be taken as it is
+    pub(crate) async fn get_file_path_by_root(
+        &mut self,
+        id: &str,
+        root: Option<String>,
+        special_ids: &[String],
+    ) -> fpm::Result<(String, Option<String>)> {
+        // file_path: String, root: Option<String>
         let (package_name, package) = self.find_package_by_id(id).await?;
         let package = self.resolve_package(&package).await?;
         self.add_package(&package);
         let mut id = id.to_string();
         let mut add_packages = "".to_string();
-        if let Some(new_id) = id.strip_prefix("-/") {
-            // Check if the id is alias for index.ftd. eg: `/-/bar/`
-            if new_id.starts_with(&package_name) || !package.name.eq(self.package.name.as_str()) {
-                id = new_id.to_string();
+        if !special_ids.contains(&id.trim_matches('/').to_string()) {
+            if let Some(new_id) = id.strip_prefix("-/") {
+                // Check if the id is alias for index.ftd. eg: `/-/bar/`
+                if new_id.starts_with(&package_name) || !package.name.eq(self.package.name.as_str())
+                {
+                    id = new_id.to_string();
+                }
+                if !package.name.eq(self.package.name.as_str()) {
+                    add_packages = format!(".packages/{}/", package.name);
+                }
             }
-            if !package.name.eq(self.package.name.as_str()) {
-                add_packages = format!(".packages/{}/", package.name);
+            id = {
+                let mut id = id
+                    .split_once("-/")
+                    .map(|(id, _)| id)
+                    .unwrap_or_else(|| id.as_str())
+                    .trim()
+                    .trim_start_matches(package_name.as_str());
+                if id.is_empty() {
+                    id = "/";
+                }
+                id.to_string()
+            };
+        }
+
+        if let Some(root) = root {
+            if add_packages.is_empty() {
+                if let Ok((id, _)) = package
+                    .resolve_by_id(id.as_str(), Some(&self.root.join(&root)))
+                    .await
+                {
+                    return Ok((
+                        format!(
+                            "{}{}{}",
+                            add_packages,
+                            format!("{}/", root.trim_end_matches('/')),
+                            id
+                        ),
+                        Some(root),
+                    ));
+                }
             }
         }
-        let id = {
-            let mut id = id
-                .split_once("-/")
-                .map(|(id, _)| id)
-                .unwrap_or_else(|| id.as_str())
-                .trim()
-                .trim_start_matches(package_name.as_str());
-            if id.is_empty() {
-                id = "/";
-            }
-            id
-        };
 
-        Ok(format!(
-            "{}{}",
-            add_packages,
-            package.resolve_by_id(id, None).await?.0
+        Ok((
+            format!(
+                "{}{}",
+                add_packages,
+                package.resolve_by_id(id.as_str(), None).await?.0
+            ),
+            None,
         ))
     }
 
