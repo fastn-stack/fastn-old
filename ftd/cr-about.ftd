@@ -33,7 +33,7 @@ $processor$: cr-about
 -- object cra-obj:
 function: post
 url: -/editor-cr/
-cr-number: $cr-number
+cr-number: $cr-about.cr-number
 description: $cr-about.description
 title: $cr-about.title
 

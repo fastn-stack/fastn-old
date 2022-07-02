@@ -38,16 +38,6 @@ pub async fn cr_processor<'a>(
     let root = config.get_root_for_package(&config.package);
     let snapshots = fpm::snapshot::get_latest_snapshots(&config.root).await?;
     let workspaces = fpm::snapshot::get_workspace(config).await?;
-    let all_files = config
-        .get_files(&config.package)
-        .await?
-        .into_iter()
-        .map(|v| v.get_id())
-        .collect_vec();
-    let deleted_files = snapshots
-        .keys()
-        .filter(|v| !all_files.contains(v))
-        .map(|v| v.to_string());
 
     let mut files = config
         .get_all_file_paths(&config.package, true)?
@@ -60,16 +50,33 @@ pub async fn cr_processor<'a>(
                 .replace(std::path::MAIN_SEPARATOR.to_string().as_str(), "/")
         })
         .collect_vec();
-    files.extend(deleted_files);
 
-    files = files
-        .into_iter()
-        .filter(|v| !v.starts_with("-/"))
+    let cr_files = files
+        .iter()
+        .filter_map(|v| {
+            v.strip_prefix(format!("-/{}/", cr_number).as_str())
+                .map(|v| v.to_string())
+        })
+        .filter(|v| !fpm::cr::get_cr_special_ids().contains(v))
+        .map(|v| (v.to_string(), Some(format!("-/{}", cr_number))))
         .collect_vec();
 
-    files.sort();
+    files = files
+        .iter()
+        .filter(|v| !v.starts_with("-/"))
+        .map(|v| v.to_string())
+        .collect_vec();
 
-    let tree = construct_tree(config, files.as_slice(), &snapshots, &workspaces).await?;
+    let mut file_map = files
+        .into_iter()
+        .map(|v| (v, None))
+        .collect::<std::collections::BTreeMap<String, Option<String>>>();
+    file_map.extend(cr_files);
+
+    let mut file_map = file_map.into_iter().collect_vec();
+    file_map.sort();
+
+    let tree = construct_tree(config, file_map.as_slice(), &snapshots, &workspaces).await?;
     Ok(doc.from_json(&tree, section)?)
 }
 
@@ -112,23 +119,39 @@ pub async fn root_processor<'a>(
 
     files.sort();
 
-    let tree = construct_tree(config, files.as_slice(), &snapshots, &workspaces).await?;
+    let tree = construct_tree(
+        config,
+        files
+            .into_iter()
+            .map(|v| (v, None))
+            .collect_vec()
+            .as_slice(),
+        &snapshots,
+        &workspaces,
+    )
+    .await?;
     Ok(doc.from_json(&tree, section)?)
 }
 
 async fn construct_tree(
     config: &fpm::Config,
-    files: &[String],
+    files: &[(String, Option<String>)],
     snapshots: &std::collections::BTreeMap<String, u128>,
     workspaces: &std::collections::BTreeMap<String, fpm::snapshot::Workspace>,
 ) -> fpm::Result<Vec<fpm::sitemap::TocItemCompat>> {
     let mut tree = vec![];
-    for file in files {
+    for (file, root) in files {
+        let root = if let Some(root) = root {
+            format!("{}/", root.trim_matches('/'))
+        } else {
+            "".to_string()
+        };
+
         insert(
             config,
             &mut tree,
             file,
-            format!("-/view-src/{}", file.trim_start_matches('/')).as_str(),
+            format!("-/view-src/{}{}", root, file.trim_start_matches('/')).as_str(),
             file,
             snapshots,
             workspaces,
