@@ -30,7 +30,8 @@ async fn handle_cr_view(
     cr_number: usize,
     path: &str,
 ) -> fpm::Result<Vec<u8>> {
-    config.current_document = Some(format!("-/{}/{}", cr_number, path));
+    let cr_root = format!("-/{}", cr_number);
+    config.current_document = Some(format!("{}/{}", cr_root, path));
 
     if fpm::cr::is_about(path) {
         let cr_about_ftd = if config.root.join("cra.ftd").exists() {
@@ -48,20 +49,31 @@ async fn handle_cr_view(
         return fpm::package_doc::read_ftd(config, &main_document, "/", false).await;
     }
 
-    Ok(Default::default())
+    handle_editor_view(config, path, Some(cr_root)).await
 }
 
 async fn handle_view_source(path: &str) -> fpm::Result<Vec<u8>> {
     let mut config = fpm::Config::read2(None, false).await?;
 
-    let mut path = path.to_string();
     if let Some((cr_number, cr_path)) = fpm::cr::get_cr_and_path_from_id(&path) {
         return handle_cr_view(&mut config, cr_number, cr_path.as_str()).await;
     }
+    handle_editor_view(&mut config, path, None).await
+}
 
-    let file_name = config.get_file_path(path.as_str()).await?;
+async fn handle_editor_view(
+    config: &mut fpm::Config,
+    path: &str,
+    root: Option<String>,
+) -> fpm::Result<Vec<u8>> {
+    let file_name = config
+        .get_file_path_with_root(path, root.clone(), Default::default())
+        .await?
+        .0;
 
-    let file = config.get_file_by_id(&path).await?;
+    let file = config
+        .get_file_with_root(path, root, Default::default())
+        .await?;
     let editor_ftd = if config.root.join("e.ftd").exists() {
         tokio::fs::read_to_string(config.root.join("e.ftd")).await?
     } else {
@@ -84,7 +96,7 @@ async fn handle_view_source(path: &str) -> fpm::Result<Vec<u8>> {
                 parent_path: config.root.as_str().to_string(),
                 package_name: config.package.name.clone(),
             };
-            fpm::package_doc::read_ftd(&mut config, &main_document, "/", false).await
+            fpm::package_doc::read_ftd(config, &main_document, "/", false).await
         }
         fpm::File::Static(ref file) | fpm::File::Image(ref file) => Ok(file.content.to_owned()),
     }

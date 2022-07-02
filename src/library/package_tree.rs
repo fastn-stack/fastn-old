@@ -69,7 +69,7 @@ pub async fn cr_processor<'a>(
 
     let mut file_map = files
         .into_iter()
-        .map(|v| (v, None))
+        .map(|v| (v, Some(format!("-/{}", cr_number))))
         .collect::<std::collections::BTreeMap<String, Option<String>>>();
     file_map.extend(cr_files);
 

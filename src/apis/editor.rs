@@ -45,6 +45,10 @@ pub async fn edit(
 pub(crate) async fn edit_worker(request: EditRequest) -> fpm::Result<EditResponse> {
     let mut config = fpm::Config::read2(None, false).await?;
 
+    // if let Some((cr_number, cr_path)) = fpm::cr::get_cr_and_path_from_id(&request.path) {
+    //     return handle_cr_view(&mut config, cr_number, cr_path.as_str()).await;
+    // }
+
     if request.is_delete() {
         let path = config.root.join(&request.path);
         if path.is_dir() {
