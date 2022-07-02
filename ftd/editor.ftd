@@ -25,6 +25,7 @@ $always-include$: true
 
 
 -- string url: -/edit/
+$always-include$: true
 
 
 -- object edit-obj:
