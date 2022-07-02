@@ -19,6 +19,22 @@ pub async fn processor_<'a>(
     doc: &ftd::p2::TDoc<'a>,
     config: &fpm::Config,
 ) -> fpm::Result<ftd::Value> {
+    dbg!(&config.current_document);
+    if let Some(ref id) = config.current_document {
+        if let Some((cr_number, _)) = fpm::cr::get_cr_and_path_from_id(id) {
+            return cr_processor(section, doc, config, cr_number).await;
+        }
+    }
+    root_processor(section, doc, config).await
+}
+
+pub async fn cr_processor<'a>(
+    section: &ftd::p1::Section,
+    doc: &ftd::p2::TDoc<'a>,
+    config: &fpm::Config,
+    cr_number: usize,
+) -> fpm::Result<ftd::Value> {
+    dbg!(&cr_number);
     let root = config.get_root_for_package(&config.package);
     let snapshots = fpm::snapshot::get_latest_snapshots(&config.root).await?;
     let workspaces = fpm::snapshot::get_workspace(config).await?;
@@ -45,6 +61,56 @@ pub async fn processor_<'a>(
         })
         .collect_vec();
     files.extend(deleted_files);
+
+    files = files
+        .into_iter()
+        .filter(|v| !v.starts_with("-/"))
+        .collect_vec();
+
+    files.sort();
+
+    let tree = construct_tree(config, files.as_slice(), &snapshots, &workspaces).await?;
+    Ok(doc.from_json(&tree, section)?)
+}
+
+pub async fn root_processor<'a>(
+    section: &ftd::p1::Section,
+    doc: &ftd::p2::TDoc<'a>,
+    config: &fpm::Config,
+) -> fpm::Result<ftd::Value> {
+    let root = config.get_root_for_package(&config.package);
+    let snapshots = fpm::snapshot::get_latest_snapshots(&config.root).await?;
+    let workspaces = fpm::snapshot::get_workspace(config).await?;
+    let all_files = config
+        .get_files(&config.package)
+        .await?
+        .into_iter()
+        .map(|v| v.get_id())
+        .collect_vec();
+    let deleted_files = snapshots
+        .keys()
+        .filter(|v| !all_files.contains(v))
+        .map(|v| v.to_string());
+
+    let mut files = config
+        .get_all_file_paths(&config.package, true)?
+        .into_iter()
+        .filter(|v| v.is_file())
+        .map(|v| {
+            v.strip_prefix(&root)
+                .unwrap_or_else(|_| v.as_path())
+                .to_string()
+                .replace(std::path::MAIN_SEPARATOR.to_string().as_str(), "/")
+        })
+        .collect_vec();
+    files.extend(deleted_files);
+
+    files = files
+        .into_iter()
+        .filter(|v| !v.starts_with("-/"))
+        .collect_vec();
+
+    files.sort();
 
     let tree = construct_tree(config, files.as_slice(), &snapshots, &workspaces).await?;
     Ok(doc.from_json(&tree, section)?)

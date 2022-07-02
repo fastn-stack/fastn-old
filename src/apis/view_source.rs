@@ -25,26 +25,43 @@ pub(crate) async fn view_source(req: actix_web::HttpRequest) -> actix_web::HttpR
     }
 }
 
+async fn handle_cr_view(
+    config: &mut fpm::Config,
+    cr_number: usize,
+    path: &str,
+) -> fpm::Result<Vec<u8>> {
+    config.current_document = Some(format!("-/{}/{}", cr_number, path));
+
+    if fpm::cr::is_about(path) {
+        let cr_about_ftd = if config.root.join("cra.ftd").exists() {
+            tokio::fs::read_to_string(config.root.join("cra.ftd")).await?
+        } else {
+            fpm::cr_about_ftd().to_string()
+        };
+        let cr_about_content = format!("{}\n\n-- cr-number:\nvalue: {}\n", cr_about_ftd, cr_number);
+        let main_document = fpm::Document {
+            id: "cr-about.ftd".to_string(),
+            content: cr_about_content,
+            parent_path: config.root.as_str().to_string(),
+            package_name: config.package.name.clone(),
+        };
+        return fpm::package_doc::read_ftd(config, &main_document, "/", false).await;
+    }
+
+    Ok(Default::default())
+}
+
 async fn handle_view_source(path: &str) -> fpm::Result<Vec<u8>> {
     let mut config = fpm::Config::read2(None, false).await?;
 
     let mut path = path.to_string();
-    let mut cr_root = None;
-    let mut special_ids = vec![];
-    if let Some((cr_number, cr_path)) = fpm::utils::get_cr_and_path_from_id(&path) {
-        path = cr_path;
-        cr_root = Some(format!("-/{}", cr_number));
-        special_ids.extend(fpm::utils::get_cr_special_ids());
+    if let Some((cr_number, cr_path)) = fpm::cr::get_cr_and_path_from_id(&path) {
+        return handle_cr_view(&mut config, cr_number, cr_path.as_str()).await;
     }
 
-    let file_name = config
-        .get_file_path_by_root(path.as_str(), cr_root.clone(), special_ids.as_slice())
-        .await?
-        .0;
+    let file_name = config.get_file_path(path.as_str()).await?;
 
-    let file = config
-        .get_file_and_package_by_root(&path, cr_root, special_ids.as_slice())
-        .await?;
+    let file = config.get_file_by_id(&path).await?;
     let editor_ftd = if config.root.join("e.ftd").exists() {
         tokio::fs::read_to_string(config.root.join("e.ftd")).await?
     } else {

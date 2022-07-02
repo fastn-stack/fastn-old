@@ -501,41 +501,24 @@ impl Config {
             .collect::<Vec<camino::Utf8PathBuf>>())
     }
 
-    pub(crate) async fn get_file_by_id(
-        &self,
-        id: &str,
-        package: &fpm::Package,
-    ) -> fpm::Result<fpm::File> {
-        let file_name = fpm::Config::get_file_name(&self.root, id)?;
-        return self
-            .get_files(package)
-            .await?
-            .into_iter()
-            .find(|v| v.get_id().eq(file_name.as_str()))
-            .ok_or_else(|| fpm::Error::UsageError {
-                message: format!("No such file found: {}", id),
-            });
+    pub(crate) async fn get_file_by_id(&mut self, id: &str) -> fpm::Result<fpm::File> {
+        self.get_file_with_root(id, None, vec![].as_slice()).await
     }
 
-    pub(crate) async fn get_file_and_package(&mut self, id: &str) -> fpm::Result<fpm::File> {
-        self.get_file_and_package_by_root(id, None, vec![].as_slice())
-            .await
-    }
-
-    pub(crate) async fn get_file_path_and_resolve(&mut self, id: &str) -> fpm::Result<String> {
+    pub(crate) async fn get_file_path(&mut self, id: &str) -> fpm::Result<String> {
         Ok(self
-            .get_file_path_by_root(id, None, vec![].as_slice())
+            .get_file_path_with_root(id, None, vec![].as_slice())
             .await?
             .0)
     }
 
-    pub(crate) async fn get_file_and_package_by_root(
+    pub(crate) async fn get_file_with_root(
         &mut self,
         id: &str,
         root: Option<String>,
         special_ids: &[String],
     ) -> fpm::Result<fpm::File> {
-        let (file_name, root) = self.get_file_path_by_root(id, root, special_ids).await?;
+        let (file_name, root) = self.get_file_path_with_root(id, root, special_ids).await?;
         let package = self.find_package_by_id(id).await?.1;
         let mut file = fpm::get_file(
             package.name.to_string(),
@@ -566,7 +549,7 @@ impl Config {
     /// It first try to find id inside the root (path relative to current package)
     /// In case of failure, it checks it inside the current package
     /// `special_ids` are those ids which need not to be formatted and should be taken as it is
-    pub(crate) async fn get_file_path_by_root(
+    pub(crate) async fn get_file_path_with_root(
         &mut self,
         id: &str,
         root: Option<String>,

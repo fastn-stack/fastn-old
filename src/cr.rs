@@ -1,4 +1,4 @@
-#[derive(serde::Deserialize, Debug, Default)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Default)]
 pub struct CRAbout {
     pub title: String, // relative file name with respect to package root
     pub description: Option<String>,
@@ -60,4 +60,28 @@ pub(crate) fn generate_cr_about_content(cr_about: &fpm::cr::CRAbout) -> String {
         about_content = format!("{}\n\n{}", about_content, description);
     }
     about_content
+}
+
+pub(crate) fn get_cr_and_path_from_id(id: &str) -> Option<(usize, String)> {
+    if let Some(path) = id.strip_prefix("-/") {
+        if let Some((cr_number, path)) = path.split_once('/') {
+            if let Ok(cr_number) = cr_number.parse::<usize>() {
+                let path = if path.is_empty() {
+                    "/".to_string()
+                } else {
+                    path.to_string()
+                };
+                return Some((cr_number, path));
+            }
+        }
+    }
+    None
+}
+
+pub(crate) fn get_cr_special_ids() -> Vec<String> {
+    vec!["-/about".to_string(), "-/about.ftd".to_string()]
+}
+
+pub(crate) fn is_about(path: &str) -> bool {
+    ["-/about", "-/about.ftd"].contains(&path.trim_end_matches('/'))
 }

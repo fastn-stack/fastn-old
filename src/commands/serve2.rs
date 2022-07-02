@@ -10,7 +10,7 @@ async fn serve_files(
         }
     };
 
-    let f = match config.get_file_and_package(path).await {
+    let f = match config.get_file_by_id(path).await {
         Ok(f) => f,
         Err(e) => {
             println!("new_path: {}, Error: {:?}", path, e);

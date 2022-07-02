@@ -88,40 +88,38 @@ pub(crate) async fn edit_worker(request: EditRequest) -> fpm::Result<EditRespons
     }
 
     // Handle Modify and Add
-    let (file_name, url, before_update_status) = if let Ok(path) = config
-        .get_file_path_and_resolve(request.path.as_str())
-        .await
-    {
-        let snapshots = fpm::snapshot::get_latest_snapshots(&config.root).await?;
-        let workspaces = fpm::snapshot::get_workspace(&config).await?;
+    let (file_name, url, before_update_status) =
+        if let Ok(path) = config.get_file_path(request.path.as_str()).await {
+            let snapshots = fpm::snapshot::get_latest_snapshots(&config.root).await?;
+            let workspaces = fpm::snapshot::get_workspace(&config).await?;
 
-        let file = fpm::get_file(
-            config.package.name.to_string(),
-            &config.root.join(&path),
-            &config.root,
-        )
-        .await?;
-        let before_update_status =
-            fpm::commands::status::get_file_status(&file, &snapshots, &workspaces).await?;
+            let file = fpm::get_file(
+                config.package.name.to_string(),
+                &config.root.join(&path),
+                &config.root,
+            )
+            .await?;
+            let before_update_status =
+                fpm::commands::status::get_file_status(&file, &snapshots, &workspaces).await?;
 
-        (path.to_string(), None, Some(before_update_status))
-    } else if request.path.ends_with('/') {
-        let path = format!("{}index.ftd", request.path);
-        (
-            path.to_string(),
-            Some(format!("-/view-src/{}", path.trim_start_matches('/'))),
-            None,
-        )
-    } else {
-        (
-            request.path.to_string(),
-            Some(format!(
-                "-/view-src/{}",
-                request.path.trim_start_matches('/')
-            )),
-            None,
-        )
-    };
+            (path.to_string(), None, Some(before_update_status))
+        } else if request.path.ends_with('/') {
+            let path = format!("{}index.ftd", request.path);
+            (
+                path.to_string(),
+                Some(format!("-/view-src/{}", path.trim_start_matches('/'))),
+                None,
+            )
+        } else {
+            (
+                request.path.to_string(),
+                Some(format!(
+                    "-/view-src/{}",
+                    request.path.trim_start_matches('/')
+                )),
+                None,
+            )
+        };
 
     fpm::utils::update(
         &config.root,

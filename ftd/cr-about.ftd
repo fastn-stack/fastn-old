@@ -1,0 +1,447 @@
+-- import: fpm
+
+
+-- editor:
+
+
+
+
+-- optional string about-url:
+$always-include$: true
+
+-- optional string proposed-changes-url:
+$always-include$: true
+
+-- optional string history-url:
+$always-include$: true
+
+-- optional integer cr-number:
+$always-include$: true
+
+-- fpm.toc-item list fs:
+$processor$: package-tree
+
+-- fpm.cr-about-data cr-about:
+$processor$: cr-about
+
+-- string url: -/edit/
+
+
+
+
+
+
+
+
+-- ftd.row editor:
+width: fill
+height: fill
+background-color: $fpm.color.main.background.base
+color: $fpm.color.main.text-strong
+spacing: 20
+padding: 20
+
+
+--- print-toc:
+toc: $fs
+
+--- about-page:
+
+
+
+
+
+
+
+
+
+
+
+
+-- ftd.column about-page:
+width: fill
+height: fill
+
+
+--- ftd.text: $cr-about.title
+
+--- ftd.text: $cr-about.description
+if: $cr-about.description is not null
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+-- optional string delete-file-path:
+$always-include$: true
+
+
+-- object delete-obj:
+function: post
+url: $url
+path: $delete-file-path
+operation: delete
+
+
+
+
+
+-- optional string rename-file-path:
+$always-include$: true
+
+
+-- optional string new-name:
+$always-include$: true
+
+-- object rename-obj:
+function: post
+url: $url
+path: $rename-file-path
+operation: rename
+data: $new-name
+
+
+
+
+
+
+
+
+
+
+-- ftd.column print-toc:
+fpm.toc-item list toc:
+
+--- print-toc-item:
+$loop$: $toc as $obj
+toc: $obj
+is-first: true
+
+
+
+
+
+
+
+-- boolean show-action-on-status: true
+-- boolean show-revert: true
+
+
+-- optional string revert-file-path:
+$always-include$: true
+
+
+-- object revert-obj:
+function: post
+url: -/revert/
+path: $revert-file-path
+operation: delete
+
+
+
+
+
+
+
+-- ftd.column print-toc-item:
+fpm.toc-item toc:
+boolean is-first: false
+margin-left if not $is-first: 20
+boolean show-actions: false
+margin-bottom: 5
+boolean show: false
+
+--- ftd.row:
+spacing: 5
+$on-mouse-enter$: $show-actions = true
+$on-mouse-leave$: $show-actions = false
+$on-mouse-leave$: $show = false
+
+--- show-item: $toc.title
+link: $toc.url
+status: $toc.number
+
+--- ftd.row:
+spacing: 5
+if: $show-actions
+id: row-id
+
+--- ftd.row:
+spacing: 5
+if: $show-action-on-status
+
+--- ftd.text: Delete
+background-color: $red
+color: $fpm.color.main.text-strong
+padding: 2
+if: $toc.path is not null
+$on-click$: $delete-file-path=$toc.path
+$on-click$: message-host $delete-obj
+border-radius: 8
+
+--- ftd.text: Rename
+if: not $show
+$on-click$: $show = true
+color: $fpm.color.main.cta-secondary.text
+background-color: $fpm.color.main.cta-secondary.base
+padding: 2
+border-radius: 8
+
+--- ftd.row:
+if: $show
+spacing: 5
+
+--- ftd.input:
+placeholder: Enter new name
+$on-input$: $new-name=$VALUE
+$on-input$: $rename-file-path=$toc.path
+padding: 2
+
+--- ftd.text: Rename
+if: $rename-file-path == $toc.path
+$on-click$: message-host $rename-obj
+color: $fpm.color.main.cta-secondary.text
+background-color: $fpm.color.main.cta-secondary.base
+padding: 2
+border-radius: 8
+
+--- container: row-id
+
+--- ftd.text: Revert
+background-color: $red
+color: $fpm.color.main.text-strong
+padding: 2
+if: $show-revert
+$on-click$: $revert-file-path=$toc.path
+$on-click$: message-host $revert-obj
+border-radius: 8
+
+--- container: ftd.main
+
+
+--- print-toc-item:
+$loop$: $toc.children as $obj
+toc: $obj
+
+
+
+
+-- ftd.row show-item:
+caption title:
+optional string link:
+optional string status:
+padding: 2
+
+
+--- ftd.row:
+spacing: 10
+if: $status == Untracked
+$on-mouse-enter$: $show-action-on-status = true
+$on-mouse-enter$: $show-revert = false
+
+--- ftd.text: $title
+if: $link is not null
+link: $link
+
+--- ftd.text: $title
+if: $link is null
+
+
+--- container: ftd.main
+
+
+--- ftd.row:
+spacing: 10
+if: $status == Added
+color: $green
+$on-mouse-enter$: $show-action-on-status = true
+$on-mouse-enter$: $show-revert = false
+
+--- ftd.text: $title
+if: $link is not null
+link: $link
+color: $green
+
+--- ftd.text: $title
+if: $link is null
+
+--- ftd.text: A
+
+--- container: ftd.main
+
+
+--- ftd.row:
+spacing: 10
+if: $status == Modified
+$on-mouse-enter$: $show-action-on-status = true
+$on-mouse-enter$: $show-revert = true
+color: $purple
+
+--- ftd.text: $title
+if: $link is not null
+link: $link
+color: $purple
+
+--- ftd.text: $title
+if: $link is null
+
+--- ftd.text: M
+
+--- container: ftd.main
+
+
+--- ftd.row:
+spacing: 10
+if: $status == Deleted
+color: $red
+$on-mouse-enter$: $show-revert = true
+$on-mouse-enter$: $show-action-on-status = false
+
+--- ftd.text: $title
+if: $link is not null
+link: $link
+color: $red
+
+--- ftd.text: $title
+if: $link is null
+
+--- ftd.text: D
+
+--- container: ftd.main
+
+
+--- ftd.row:
+spacing: 10
+if: $status == Conflicted
+$on-mouse-enter$: $show-revert = true
+$on-mouse-enter$: $show-action-on-status = true
+color: $grey
+
+--- ftd.text: $title
+if: $link is not null
+link: $link
+color: $grey
+
+--- ftd.text: $title
+if: $link is null
+
+--- ftd.text: C
+
+--- container: ftd.main
+
+
+--- ftd.row:
+spacing: 10
+if: $status == Outdated
+$on-mouse-enter$: $show-revert = true
+$on-mouse-enter$: $show-action-on-status = true
+color: $orange
+
+--- ftd.text: $title
+if: $link is not null
+link: $link
+color: $orange
+
+--- ftd.text: $title
+if: $link is null
+
+--- ftd.text: O
+
+--- container: ftd.main
+
+
+--- ftd.row:
+spacing: 10
+if: $status == ClientEditedServerDeleted
+$on-mouse-enter$: $show-revert = true
+$on-mouse-enter$: $show-action-on-status = true
+color: $orange
+
+--- ftd.text: $title
+if: $link is not null
+link: $link
+color: $orange
+
+--- ftd.text: $title
+if: $link is null
+
+--- ftd.text: Cˆ
+
+--- container: ftd.main
+
+
+--- ftd.row:
+spacing: 10
+if: $status == ClientDeletedServerEdited
+$on-mouse-enter$: $show-revert = true
+$on-mouse-enter$: $show-action-on-status = true
+color: $orange
+
+--- ftd.text: $title
+if: $link is not null
+link: $link
+color: $orange
+
+--- ftd.text: $title
+if: $link is null
+
+--- ftd.text: C˘
+
+--- container: ftd.main
+
+
+--- ftd.row:
+spacing: 10
+if: $status is null
+$on-mouse-enter$: $show-revert = false
+$on-mouse-enter$: $show-action-on-status = true
+
+--- ftd.text: $title
+if: $link is not null
+link: $link
+
+--- ftd.text: $title
+if: $link is null
+
+
+
+
+
+
+
+-- ftd.color green:
+light: green
+dark: green
+
+-- ftd.color purple:
+light: purple
+dark: purple
+
+-- ftd.color red:
+light: red
+dark: red
+
+-- ftd.color grey:
+light: grey
+dark: grey
+
+-- ftd.color orange:
+light: orange
+dark: orange
+
+-- ftd.color 2b303b:
+light: #2b303b
+dark: #2b303b
+
+
