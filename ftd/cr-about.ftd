@@ -30,6 +30,18 @@ $processor$: cr-about
 
 
 
+-- object cra-obj:
+function: post
+url: -/editor-cr/
+cr-number: $cr-number
+description: $cr-about.description
+title: $cr-about.title
+
+
+
+
+
+
 
 
 
@@ -61,12 +73,35 @@ toc: $fs
 -- ftd.column about-page:
 width: fill
 height: fill
+spacing: 20
 
 
---- ftd.text: $cr-about.title
+--- ftd.input:
+width: fill
+value: $cr-about.title
+placeholder: Enter CR Title
+$on-input$: $cr-about.title = $VALUE
 
---- ftd.text: $cr-about.description
-if: $cr-about.description is not null
+
+--- ftd.input:
+width: fill
+height: percent 40
+value: $cr-about.description
+multiline: true
+placeholder: Enter CR description
+$on-input$: $cr-about.description = $VALUE
+
+
+--- ftd.text: Update About
+$on-click$: message-host $cra-obj
+color: $fpm.color.main.cta-primary.text
+background-color: $fpm.color.main.cta-primary.base
+padding: 10
+align: center
+border-radius: 8
+
+
+
 
 
 

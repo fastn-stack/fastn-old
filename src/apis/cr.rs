@@ -2,6 +2,7 @@
 pub(crate) struct CreateRequest {
     pub title: Option<String>,
     pub description: Option<String>,
+    #[serde(rename = "cr-number")]
     pub cr_number: Option<usize>,
 }
 
