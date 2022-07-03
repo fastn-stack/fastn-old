@@ -134,7 +134,7 @@ async fn handle_add_modify(
     root: Option<String>,
     value: Option<String>,
 ) -> fpm::Result<EditResponse> {
-    let (file_name, url, before_update_status) = if let Ok((path, _)) = config
+    let (file_name, url, before_update_status) = if let Ok((path, has_root)) = config
         .get_file_path_with_root(path, root.clone(), Default::default())
         .await
     {
@@ -144,7 +144,10 @@ async fn handle_add_modify(
         let file = fpm::get_file(
             config.package.name.to_string(),
             &config.root.join(&path),
-            &config.root,
+            &(match root {
+                Some(ref root) if has_root => config.root.join(root),
+                _ => config.root.clone(),
+            }),
         )
         .await?;
         let before_update_status =

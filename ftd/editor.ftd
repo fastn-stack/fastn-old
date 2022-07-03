@@ -318,6 +318,7 @@ function: post
 url: $url
 path: $delete-file-path
 operation: delete
+root: $root
 
 
 
@@ -340,6 +341,7 @@ url: $url
 path: $rename-file-path
 operation: rename
 data: $new-name
+root: $root
 
 
 

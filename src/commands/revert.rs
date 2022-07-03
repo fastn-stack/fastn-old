@@ -31,19 +31,17 @@ pub(crate) async fn revert_(
             tokio::fs::copy(revert_path, config.root.join(path)).await?;
         }
         workspace.set_revert();
-    } else {
-        if let Some(timestamp) = snapshots.get(path) {
-            let revert_path = fpm::utils::history_path(path, config.root.as_str(), timestamp);
+    } else if let Some(timestamp) = snapshots.get(path) {
+        let revert_path = fpm::utils::history_path(path, config.root.as_str(), timestamp);
 
-            fpm::utils::update(
-                &config.root,
-                path,
-                tokio::fs::read(revert_path).await?.as_slice(),
-            )
-            .await?;
-        } else {
-            tokio::fs::remove_file(&path).await?;
-        }
+        fpm::utils::update(
+            &config.root,
+            path,
+            tokio::fs::read(revert_path).await?.as_slice(),
+        )
+        .await?;
+    } else {
+        tokio::fs::remove_file(&path).await?;
     }
 
     Ok(())
