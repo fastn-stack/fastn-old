@@ -1,5 +1,10 @@
 use itertools::Itertools;
 
+pub enum PackageType {
+    CR(usize),
+    Current,
+}
+
 pub async fn processor<'a>(
     section: &ftd::p1::Section,
     doc: &ftd::p2::TDoc<'a>,
@@ -74,7 +79,14 @@ pub async fn cr_processor<'a>(
     let mut file_map = file_map.into_iter().collect_vec();
     file_map.sort();
 
-    let tree = construct_tree(config, file_map.as_slice(), &snapshots, &workspaces).await?;
+    let tree = construct_tree(
+        config,
+        file_map.as_slice(),
+        &snapshots,
+        &workspaces,
+        PackageType::CR(cr_number),
+    )
+    .await?;
     Ok(doc.from_json(&tree, section)?)
 }
 
@@ -126,6 +138,7 @@ pub async fn root_processor<'a>(
             .as_slice(),
         &snapshots,
         &workspaces,
+        PackageType::Current,
     )
     .await?;
     Ok(doc.from_json(&tree, section)?)
@@ -136,6 +149,7 @@ async fn construct_tree(
     files: &[(String, Option<String>)],
     snapshots: &std::collections::BTreeMap<String, u128>,
     workspaces: &std::collections::BTreeMap<String, fpm::snapshot::Workspace>,
+    package_type: PackageType,
 ) -> fpm::Result<Vec<fpm::cr::PackageTocItem>> {
     let mut tree = vec![];
     for (file, root) in files {
@@ -153,6 +167,7 @@ async fn construct_tree(
             file,
             snapshots,
             workspaces,
+            &package_type,
         )
         .await?;
     }
@@ -168,6 +183,7 @@ async fn insert(
     full_path: &str,
     snapshots: &std::collections::BTreeMap<String, u128>,
     workspaces: &std::collections::BTreeMap<String, fpm::snapshot::Workspace>,
+    package_type: &PackageType,
 ) -> fpm::Result<()> {
     let (path, rest) = if let Some((path, rest)) = path.split_once('/') {
         (path, Some(rest))
@@ -197,9 +213,59 @@ async fn insert(
             full_path,
             snapshots,
             workspaces,
+            package_type,
         )
         .await?;
-    } else if let Ok(file) = fpm::get_file(
+    } else {
+        set_status(
+            config,
+            node,
+            url,
+            full_path,
+            snapshots,
+            workspaces,
+            package_type,
+        )
+        .await?;
+    }
+
+    Ok(())
+}
+
+async fn set_status(
+    config: &fpm::Config,
+    node: &mut fpm::cr::PackageTocItem,
+    url: &str,
+    full_path: &str,
+    snapshots: &std::collections::BTreeMap<String, u128>,
+    workspaces: &std::collections::BTreeMap<String, fpm::snapshot::Workspace>,
+    package_type: &PackageType,
+) -> fpm::Result<()> {
+    if let PackageType::CR(cr_number) = package_type {
+        let cr_tracks = fpm::tracker::get_cr_track(config, *cr_number).await?;
+        let cr_delete = fpm::cr::get_cr_delete(config, *cr_number).await?;
+
+        if let Some(track) = cr_tracks.get(full_path) {
+            if track.other_timestamp.is_some() {
+                node.status = Some(format!("{:?}", fpm::commands::status::FileStatus::Modified));
+                node.url = Some(url.to_string());
+            } else {
+                node.status = Some(format!("{:?}", fpm::commands::status::FileStatus::Added));
+                node.url = Some(url.to_string());
+            }
+        } else if cr_delete.contains_key(full_path) {
+            node.status = Some(format!("{:?}", fpm::commands::status::FileStatus::Deleted));
+        } else {
+            node.url = Some(url.to_string());
+            node.status = Some(format!(
+                "{:?}",
+                fpm::commands::status::FileStatus::Untracked
+            ));
+        }
+        return Ok(());
+    }
+
+    if let Ok(file) = fpm::get_file(
         config.package.name.to_string(),
         &config.root.join(full_path),
         &config.root,
@@ -213,6 +279,5 @@ async fn insert(
     } else {
         node.status = Some(format!("{:?}", fpm::commands::status::FileStatus::Deleted))
     }
-
     Ok(())
 }
