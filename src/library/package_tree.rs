@@ -20,7 +20,7 @@ pub async fn processor_<'a>(
     config: &fpm::Config,
 ) -> fpm::Result<ftd::Value> {
     if let Some(ref id) = config.current_document {
-        if let Some((cr_number, _)) = fpm::cr::get_cr_and_path_from_id(id) {
+        if let Some((cr_number, _)) = fpm::cr::get_cr_and_path_from_id(id, &None) {
             return cr_processor(section, doc, config, cr_number).await;
         }
     }

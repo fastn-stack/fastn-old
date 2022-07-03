@@ -55,7 +55,7 @@ async fn handle_cr_view(
 async fn handle_view_source(path: &str) -> fpm::Result<Vec<u8>> {
     let mut config = fpm::Config::read2(None, false).await?;
 
-    if let Some((cr_number, cr_path)) = fpm::cr::get_cr_and_path_from_id(&path) {
+    if let Some((cr_number, cr_path)) = fpm::cr::get_cr_and_path_from_id(&path, &None) {
         return handle_cr_view(&mut config, cr_number, cr_path.as_str()).await;
     }
     handle_editor_view(&mut config, path, None).await
@@ -73,7 +73,7 @@ async fn handle_editor_view(
     let file_name_with_root = fpm::utils::path_with_root(file_name.as_str(), &root);
 
     let file = config
-        .get_file_with_root(path, root, Default::default())
+        .get_file_with_root(path, root.clone(), Default::default())
         .await?;
     let editor_ftd = if config.root.join("e.ftd").exists() {
         tokio::fs::read_to_string(config.root.join("e.ftd")).await?
@@ -85,9 +85,14 @@ async fn handle_editor_view(
         fpm::File::Ftd(_) | fpm::File::Markdown(_) | fpm::File::Code(_) => {
             let snapshots = fpm::snapshot::get_latest_snapshots(&config.root).await?;
             let mut editor_content = format!(
-                "{}\n\n-- source:\n$processor$: fetch-file\npath:{}\n\n-- path: {}\n\n",
+                "{}\n\n-- content:\n$processor$: fetch-file\npath:{}\n\n-- path: {}\n\n",
                 editor_ftd, file_name, file_name_with_root,
             );
+
+            if let Some(ref root) = root {
+                editor_content = format!("{}\n\n\n-- root: {}\n\n", editor_content, root);
+            }
+
             if let Ok(Some(diff)) = get_diff(&file, &snapshots).await {
                 editor_content = format!("{}\n\n\n-- diff:\n\n{}", editor_content, diff);
             }

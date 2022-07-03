@@ -16,11 +16,15 @@
 $processor$: package-tree
 
 
--- optional string source:
+-- optional string content:
 $always-include$: true
 
 
 -- optional string path:
+$always-include$: true
+
+
+-- optional string root:
 $always-include$: true
 
 
@@ -31,8 +35,9 @@ $always-include$: true
 -- object edit-obj:
 function: post
 url: $url
-value: $source
+value: $content
 path: $path
+root: $root
 
 
 
@@ -124,9 +129,9 @@ width: fill
 height: fill
 multiline: true
 placeholder: -- ftd.text: hello world
-value: $source
+value: $content
 border-width: 2
-$on-input$: $source=$VALUE
+$on-input$: $content=$VALUE
 $on-input$: message-host $edit-obj
 padding: 20
 
