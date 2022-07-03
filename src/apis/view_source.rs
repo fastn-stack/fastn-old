@@ -66,10 +66,16 @@ async fn handle_editor_view(
     path: &str,
     root: Option<String>,
 ) -> fpm::Result<Vec<u8>> {
-    let file_name = config
+    let (file_name, file_root) = config
         .get_file_path_with_root(path, root.clone(), Default::default())
-        .await?
-        .0;
+        .await?;
+
+    let file_name_with_root = match root {
+        Some(ref root) if file_root.is_none() => {
+            format!("{}/{}", root.trim_end_matches('/'), file_name)
+        }
+        _ => file_name.to_string(),
+    };
 
     let file = config
         .get_file_with_root(path, root, Default::default())
@@ -85,7 +91,7 @@ async fn handle_editor_view(
             let snapshots = fpm::snapshot::get_latest_snapshots(&config.root).await?;
             let mut editor_content = format!(
                 "{}\n\n-- source:\n$processor$: fetch-file\npath:{}\n\n-- path: {}\n\n",
-                editor_ftd, file_name, file_name,
+                editor_ftd, file_name, file_name_with_root,
             );
             if let Ok(Some(diff)) = get_diff(&file, &snapshots).await {
                 editor_content = format!("{}\n\n\n-- diff:\n\n{}", editor_content, diff);
