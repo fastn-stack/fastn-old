@@ -595,12 +595,7 @@ impl Config {
                     .await
                 {
                     return Ok((
-                        format!(
-                            "{}{}{}",
-                            add_packages,
-                            format!("{}/", root.trim_end_matches('/')),
-                            id
-                        ),
+                        format!("{}{}/{}", add_packages, root.trim_end_matches('/'), id),
                         true,
                     ));
                 }

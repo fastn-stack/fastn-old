@@ -4,7 +4,7 @@ pub async fn status(config: &fpm::Config, source: Option<&str>) -> fpm::Result<(
     let snapshots = fpm::snapshot::get_latest_snapshots(&config.root).await?;
     let workspaces = fpm::snapshot::get_workspace(config).await?;
     match source {
-        Some(source) => file_status(&config, source, &snapshots, &workspaces).await,
+        Some(source) => file_status(config, source, &snapshots, &workspaces).await,
         None => all_status(config, &snapshots, &workspaces).await,
     }
 }

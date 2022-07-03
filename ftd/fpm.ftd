@@ -77,7 +77,7 @@ caption filename:
 optional string package:
 optional string version:
 optional integer other-timestamp:
-integer self-timestamp:
+optional integer self-timestamp:
 optional integer last-merged-version:
 
 
@@ -234,5 +234,14 @@ integer cr-number:
 
 
 -- optional cr-about-data cr-about:
+
+
+
+-- record cr-delete-data:
+caption filename:
+integer timestamp:
+
+
+-- cr-delete-data list cr-delete:
 
 

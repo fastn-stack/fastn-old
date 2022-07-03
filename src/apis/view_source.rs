@@ -55,7 +55,7 @@ async fn handle_cr_view(
 async fn handle_view_source(path: &str) -> fpm::Result<Vec<u8>> {
     let mut config = fpm::Config::read2(None, false).await?;
 
-    if let Some((cr_number, cr_path)) = fpm::cr::get_cr_and_path_from_id(&path, &None) {
+    if let Some((cr_number, cr_path)) = fpm::cr::get_cr_and_path_from_id(path, &None) {
         return handle_cr_view(&mut config, cr_number, cr_path.as_str()).await;
     }
     handle_editor_view(&mut config, path, None).await

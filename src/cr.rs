@@ -97,3 +97,111 @@ pub(crate) fn get_cr_special_ids() -> Vec<String> {
 pub(crate) fn is_about(path: &str) -> bool {
     ["-/about", "-/about.ftd"].contains(&path.trim_end_matches('/'))
 }
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub enum Operation {
+    Add,
+    Delete,
+    Modify,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct Track {
+    #[serde(rename = "file-name")]
+    pub file_name: String,
+    #[serde(rename = "self-timestamp")]
+    pub self_timestamp: Option<u128>,
+    pub base: Option<u128>,
+    pub operation: Operation,
+}
+
+pub(crate) async fn add_cr_track(
+    config: &fpm::Config,
+    path: &str,
+    tracks: &mut std::collections::BTreeMap<String, fpm::Track>,
+) -> fpm::Result<()> {
+    let snapshot = fpm::snapshot::get_latest_snapshots(&config.root).await?;
+    let track = fpm::Track::new(path).set_other_timestamp(snapshot.get(path).map(|v| v.to_owned()));
+    tracks.insert(path.to_string(), track);
+    Ok(())
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, Default)]
+pub struct CRDelete {
+    pub filename: String,
+    pub timestamp: u128,
+}
+
+impl CRDelete {
+    pub fn new(filename: &str, timestamp: u128) -> fpm::cr::CRDelete {
+        fpm::cr::CRDelete {
+            filename: filename.to_string(),
+            timestamp,
+        }
+    }
+}
+
+pub(crate) async fn get_cr_delete(
+    config: &fpm::Config,
+    cr_number: usize,
+) -> fpm::Result<std::collections::BTreeMap<String, fpm::cr::CRDelete>> {
+    let cr_delete_path = config.cr_path(cr_number).join(".delete.ftd");
+    if !cr_delete_path.exists() {
+        // TODO: should we error out here?
+        return Ok(Default::default());
+    }
+
+    let doc = std::fs::read_to_string(&cr_delete_path)?;
+    resolve_cr_delete(&doc).await
+}
+
+pub(crate) async fn resolve_cr_delete(
+    content: &str,
+) -> fpm::Result<std::collections::BTreeMap<String, fpm::cr::CRDelete>> {
+    if content.trim().is_empty() {
+        return Err(fpm::Error::UsageError {
+            message: "Content is empty in cr about".to_string(),
+        });
+    }
+    let lib = fpm::FPMLibrary::default();
+    let b = match fpm::doc::parse_ftd(".delete.ftd", content, &lib) {
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!("failed to parse .latest.ftd: {:?}", &e);
+            todo!();
+        }
+    };
+    let mut deletes = std::collections::BTreeMap::new();
+    let delete_list: Vec<fpm::cr::CRDelete> = b.get("fpm#cr-delete")?;
+    for delete in delete_list {
+        deletes.insert(delete.filename.to_string(), delete);
+    }
+    Ok(deletes)
+}
+
+pub(crate) async fn create_cr_delete(
+    config: &fpm::Config,
+    cr_delete: &[CRDelete],
+    cr_number: usize,
+) -> fpm::Result<()> {
+    let delete_content = generate_cr_delete_content(cr_delete);
+    fpm::utils::update(
+        &config.cr_path(cr_number),
+        ".delete.ftd",
+        delete_content.as_bytes(),
+    )
+    .await?;
+    Ok(())
+}
+
+pub(crate) fn generate_cr_delete_content(cr_delete: &[CRDelete]) -> String {
+    let mut delete_content = "-- import: fpm".to_string();
+    for delete in cr_delete {
+        let delete_data = format!(
+            "-- fpm.cr-delete: {}\ntimestamp: {}\n\n",
+            delete.filename, delete.timestamp
+        );
+        delete_content = format!("{}\n\n\n{}", delete_content, delete_data);
+    }
+    delete_content
+}

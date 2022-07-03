@@ -56,7 +56,7 @@ pub async fn cr_processor<'a>(
                 .map(|v| v.to_string())
         })
         .filter(|v| !fpm::cr::get_cr_special_ids().contains(v))
-        .map(|v| (v.to_string(), Some(format!("-/{}", cr_number))))
+        .map(|v| (v, Some(format!("-/{}", cr_number))))
         .collect_vec();
 
     files = files
