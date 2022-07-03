@@ -10,7 +10,16 @@ async fn serve_files(
         }
     };
 
-    let f = match config.get_file_by_id(path).await {
+    let (root, path) = if let Some((root, path)) = fpm::cr::get_cr_and_path_from_id(path, &None) {
+        (Some(root.to_string()), path)
+    } else {
+        (None, path.to_string())
+    };
+
+    let f = match config
+        .get_file_with_root(path.as_str(), root, Default::default())
+        .await
+    {
         Ok(f) => f,
         Err(e) => {
             println!("new_path: {}, Error: {:?}", path, e);

@@ -39,7 +39,10 @@ async fn handle_cr_view(
         } else {
             fpm::cr_about_ftd().to_string()
         };
-        let cr_about_content = format!("{}\n\n-- cr-number:\nvalue: {}\n", cr_about_ftd, cr_number);
+        let cr_about_content = format!(
+            "{}\n\n-- cr-number:\nvalue: {}\n\n\n-- root: {}\n",
+            cr_about_ftd, cr_number, cr_root
+        );
         let main_document = fpm::Document {
             id: "cr-about.ftd".to_string(),
             content: cr_about_content,

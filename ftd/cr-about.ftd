@@ -25,6 +25,11 @@ $processor$: package-tree
 $processor$: cr-about
 
 -- string url: -/edit/
+$always-include$: true
+
+
+-- optional string root:
+$always-include$: true
 
 
 
@@ -127,6 +132,7 @@ function: post
 url: $url
 path: $delete-file-path
 operation: delete
+root: $root
 
 
 
@@ -145,6 +151,7 @@ url: $url
 path: $rename-file-path
 operation: rename
 data: $new-name
+root: $root
 
 
 
@@ -182,6 +189,7 @@ function: post
 url: -/revert/
 path: $revert-file-path
 operation: delete
+root: $root
 
 
 

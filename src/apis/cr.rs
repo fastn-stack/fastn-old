@@ -1,5 +1,4 @@
 use itertools::Itertools;
-use std::ops::Index;
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub(crate) struct CreateRequest {
