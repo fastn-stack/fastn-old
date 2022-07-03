@@ -136,7 +136,7 @@ async fn construct_tree(
     files: &[(String, Option<String>)],
     snapshots: &std::collections::BTreeMap<String, u128>,
     workspaces: &std::collections::BTreeMap<String, fpm::snapshot::Workspace>,
-) -> fpm::Result<Vec<fpm::sitemap::TocItemCompat>> {
+) -> fpm::Result<Vec<fpm::cr::PackageTocItem>> {
     let mut tree = vec![];
     for (file, root) in files {
         let root = if let Some(root) = root {
@@ -162,7 +162,7 @@ async fn construct_tree(
 #[async_recursion::async_recursion(?Send)]
 async fn insert(
     config: &fpm::Config,
-    tree: &mut Vec<fpm::sitemap::TocItemCompat>,
+    tree: &mut Vec<fpm::cr::PackageTocItem>,
     path: &str,
     url: &str,
     full_path: &str,
@@ -184,10 +184,7 @@ async fn insert(
         let full_path = rest
             .map(|v| full_path.trim_end_matches(v))
             .unwrap_or(full_path);
-        tree.push(
-            fpm::sitemap::TocItemCompat::new(None, Some(path.to_string()), false, false)
-                .add_path(full_path),
-        );
+        tree.push(fpm::cr::PackageTocItem::new(None, Some(path.to_string())).add_path(full_path));
         tree.last_mut().unwrap()
     };
 
@@ -212,9 +209,9 @@ async fn insert(
         let status =
             fpm::commands::status::get_file_status(config, &file, snapshots, workspaces).await?;
         node.url = Some(url.to_string());
-        node.number = Some(format!("{:?}", status))
+        node.status = Some(format!("{:?}", status))
     } else {
-        node.number = Some(format!("{:?}", fpm::commands::status::FileStatus::Deleted))
+        node.status = Some(format!("{:?}", fpm::commands::status::FileStatus::Deleted))
     }
 
     Ok(())

@@ -205,3 +205,32 @@ pub(crate) fn generate_cr_delete_content(cr_delete: &[CRDelete]) -> String {
     }
     delete_content
 }
+
+#[derive(Debug, Default, Clone, serde::Serialize)]
+pub struct PackageTocItem {
+    pub url: Option<String>,
+    pub status: Option<String>,
+    #[serde(rename = "status-with-last-sync")]
+    pub status_with_last_sync: Option<String>,
+    pub title: Option<String>,
+    pub path: Option<String>,
+    pub children: Vec<PackageTocItem>,
+}
+
+impl PackageTocItem {
+    pub(crate) fn new(url: Option<String>, title: Option<String>) -> PackageTocItem {
+        PackageTocItem {
+            url,
+            status: None,
+            status_with_last_sync: None,
+            title,
+            path: None,
+            children: vec![],
+        }
+    }
+
+    pub(crate) fn add_path(mut self, path: &str) -> Self {
+        self.path = Some(path.to_string());
+        self
+    }
+}

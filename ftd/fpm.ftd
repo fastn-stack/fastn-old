@@ -245,3 +245,12 @@ integer timestamp:
 -- cr-delete-data list cr-delete:
 
 
+-- record package-toc-item:
+optional string title:
+optional string url:
+optional string path:
+optional string status:
+optional string status-with-last-sync:
+package-toc-item list children:
+
+
