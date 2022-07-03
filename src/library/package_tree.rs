@@ -40,7 +40,7 @@ pub async fn cr_processor<'a>(
 ) -> fpm::Result<ftd::Value> {
     let root = config.get_root_for_package(&config.package);
     let snapshots = fpm::snapshot::get_latest_snapshots(&config.root).await?;
-    let workspaces = fpm::snapshot::get_workspace(config).await?;
+    let workspaces = fpm::snapshot::get_cr_workspace(config, cr_number).await?;
 
     let mut files = config
         .get_all_file_paths(&config.package, true)?
@@ -60,7 +60,7 @@ pub async fn cr_processor<'a>(
             v.strip_prefix(format!("-/{}/", cr_number).as_str())
                 .map(|v| v.to_string())
         })
-        .filter(|v| !fpm::cr::get_cr_special_ids().contains(v))
+        .filter(|v| !fpm::cr::get_cr_special_ids().contains(&v.trim_matches('/').to_string()))
         .map(|v| (v, Some(format!("-/{}", cr_number))))
         .collect_vec();
 
@@ -255,6 +255,18 @@ async fn set_status(
             }
         } else if cr_delete.contains_key(full_path) {
             node.status = Some(format!("{:?}", fpm::commands::status::FileStatus::Deleted));
+        } else if let Ok(file) = fpm::get_file(
+            config.package.name.to_string(),
+            &config.root.join(full_path),
+            &config.cr_path(*cr_number),
+        )
+        .await
+        {
+            let status =
+                fpm::commands::status::get_file_status(config, &file, snapshots, workspaces)
+                    .await?;
+            node.url = Some(url.to_string());
+            node.status = Some(format!("{:?}", status))
         } else {
             node.url = Some(url.to_string());
             node.status = Some(format!(

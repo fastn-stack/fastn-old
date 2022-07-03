@@ -1,3 +1,6 @@
+use itertools::Itertools;
+use std::ops::Index;
+
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub(crate) struct CreateRequest {
     pub title: Option<String>,
@@ -85,6 +88,73 @@ pub(crate) async fn client_create(
 async fn client_create_(req: CreateRequest) -> fpm::Result<usize> {
     let config = fpm::Config::read2(None, false).await?;
     let response = fpm::commands::create_cr::cr(req.title, req.description, req.cr_number).await?;
+    let snapshots = fpm::snapshot::get_latest_snapshots(&config.root).await?;
+    let mut workspaces = fpm::snapshot::get_workspace(&config).await?;
+    let file_status = fpm::commands::status::get_all_files_status(&config, &snapshots, &workspaces)
+        .await?
+        .0;
+
+    if config.fpm_dir().exists() {
+        fpm::utils::copy_dir_all(
+            config.fpm_dir(),
+            config.cr_path(response.number).join(".fpm"),
+        )
+        .await?;
+    }
+    let mut all_track: std::collections::BTreeMap<String, fpm::Track> = Default::default();
+    let mut all_deletes: std::collections::BTreeMap<String, fpm::cr::CRDelete> = Default::default();
+    for (path, status) in file_status {
+        match status {
+            fpm::commands::status::FileStatus::Modified
+            | fpm::commands::status::FileStatus::Added
+            | fpm::commands::status::FileStatus::Conflicted
+            | fpm::commands::status::FileStatus::Outdated
+            | fpm::commands::status::FileStatus::ClientEditedServerDeleted
+            | fpm::commands::status::FileStatus::ClientDeletedServerEdited => {
+                if !config.root.join(&path).exists() {
+                    continue;
+                }
+                let content = tokio::fs::read(config.root.join(&path)).await?;
+                fpm::utils::update(
+                    &config.cr_path(response.number),
+                    path.as_str(),
+                    content.as_slice(),
+                )
+                .await?;
+                let track = fpm::Track::new(&path)
+                    .set_other_timestamp(snapshots.get(&path).map(|v| v.to_owned()));
+                all_track.insert(path.to_string(), track);
+            }
+            fpm::commands::status::FileStatus::Deleted => {
+                let timestamp = if let Some(timestamp) = snapshots.get(&path) {
+                    timestamp
+                } else {
+                    continue;
+                };
+                all_deletes.insert(
+                    path.to_string(),
+                    fpm::cr::CRDelete::new(path.as_str(), *timestamp),
+                );
+            }
+            fpm::commands::status::FileStatus::Untracked => {}
+        }
+        fpm::commands::revert::revert_(&config, path.as_str(), &mut workspaces, &snapshots).await?;
+    }
+    fpm::cr::create_cr_delete(
+        &config,
+        all_deletes.into_values().collect_vec().as_slice(),
+        response.number,
+    )
+    .await?;
+    fpm::tracker::create_cr_track(
+        &config,
+        all_track.into_values().collect_vec().as_slice(),
+        response.number,
+    )
+    .await?;
+    if config.fpm_dir().exists() {
+        tokio::fs::remove_dir_all(config.fpm_dir()).await?;
+    }
     for (file_path, content) in response.files {
         fpm::utils::update(&config.root, file_path.as_str(), content.as_slice()).await?;
     }

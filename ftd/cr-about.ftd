@@ -18,7 +18,7 @@ $always-include$: true
 -- optional integer cr-number:
 $always-include$: true
 
--- fpm.toc-item list fs:
+-- fpm.package-toc-item list fs:
 $processor$: package-tree
 
 -- fpm.cr-about-data cr-about:
@@ -156,7 +156,7 @@ data: $new-name
 
 
 -- ftd.column print-toc:
-fpm.toc-item list toc:
+fpm.package-toc-item list toc:
 
 --- print-toc-item:
 $loop$: $toc as $obj
@@ -190,7 +190,7 @@ operation: delete
 
 
 -- ftd.column print-toc-item:
-fpm.toc-item toc:
+fpm.package-toc-item toc:
 boolean is-first: false
 margin-left if not $is-first: 20
 boolean show-actions: false
@@ -205,7 +205,7 @@ $on-mouse-leave$: $show = false
 
 --- show-item: $toc.title
 link: $toc.url
-status: $toc.number
+status: $toc.status
 
 --- ftd.row:
 spacing: 5

@@ -52,9 +52,29 @@ async fn all_status(
     snapshots: &std::collections::BTreeMap<String, u128>,
     workspaces: &std::collections::BTreeMap<String, fpm::snapshot::Workspace>,
 ) -> fpm::Result<()> {
+    let (file_status, track_status) = get_all_files_status(config, snapshots, workspaces).await?;
+    let clean_file_status = print_file_status(&file_status);
+    let clean_track_status = print_track_status(&track_status);
+    if !clean_file_status && clean_track_status {
+        println!("Nothing to sync, clean working tree");
+    }
+    Ok(())
+}
+
+pub(crate) async fn get_all_files_status(
+    config: &fpm::Config,
+    snapshots: &std::collections::BTreeMap<String, u128>,
+    workspaces: &std::collections::BTreeMap<String, fpm::snapshot::Workspace>,
+) -> fpm::Result<(
+    std::collections::BTreeMap<String, FileStatus>,
+    std::collections::BTreeMap<String, std::collections::BTreeMap<String, TrackStatus>>,
+)> {
     let mut file_status = std::collections::BTreeMap::new();
     let mut track_status = std::collections::BTreeMap::new();
     for doc in config.get_files(&config.package).await? {
+        if doc.get_id().starts_with("-/") {
+            continue;
+        }
         let status = get_file_status(config, &doc, snapshots, workspaces).await?;
         let track = get_track_status(&doc, snapshots, config.root.as_str())?;
         if !track.is_empty() {
@@ -73,13 +93,7 @@ async fn all_status(
             .into_iter()
             .map(|v| (v.to_string(), FileStatus::Deleted)),
     );
-
-    let clean_file_status = print_file_status(&file_status);
-    let clean_track_status = print_track_status(&track_status);
-    if !clean_file_status && clean_track_status {
-        println!("Nothing to sync, clean working tree");
-    }
-    Ok(())
+    Ok((file_status, track_status))
 }
 
 pub(crate) async fn get_file_status(
@@ -219,7 +233,7 @@ pub(crate) enum FileStatus {
 }
 
 #[derive(Debug, PartialEq)]
-enum TrackStatus {
+pub enum TrackStatus {
     UptoDate,
     NeverMarked,
     OutOfDate { seconds: u64 },
