@@ -66,16 +66,11 @@ async fn handle_editor_view(
     path: &str,
     root: Option<String>,
 ) -> fpm::Result<Vec<u8>> {
-    let (file_name, file_root) = config
+    let (file_name, _) = config
         .get_file_path_with_root(path, root.clone(), Default::default())
         .await?;
 
-    let file_name_with_root = match root {
-        Some(ref root) if file_root.is_none() => {
-            format!("{}/{}", root.trim_end_matches('/'), file_name)
-        }
-        _ => file_name.to_string(),
-    };
+    let file_name_with_root = fpm::utils::path_with_root(file_name.as_str(), &root);
 
     let file = config
         .get_file_with_root(path, root, Default::default())

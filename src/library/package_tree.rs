@@ -19,7 +19,6 @@ pub async fn processor_<'a>(
     doc: &ftd::p2::TDoc<'a>,
     config: &fpm::Config,
 ) -> fpm::Result<ftd::Value> {
-    dbg!(&config.current_document);
     if let Some(ref id) = config.current_document {
         if let Some((cr_number, _)) = fpm::cr::get_cr_and_path_from_id(id) {
             return cr_processor(section, doc, config, cr_number).await;
@@ -34,7 +33,6 @@ pub async fn cr_processor<'a>(
     config: &fpm::Config,
     cr_number: usize,
 ) -> fpm::Result<ftd::Value> {
-    dbg!(&cr_number);
     let root = config.get_root_for_package(&config.package);
     let snapshots = fpm::snapshot::get_latest_snapshots(&config.root).await?;
     let workspaces = fpm::snapshot::get_workspace(config).await?;
@@ -211,7 +209,8 @@ async fn insert(
     )
     .await
     {
-        let status = fpm::commands::status::get_file_status(&file, snapshots, workspaces).await?;
+        let status =
+            fpm::commands::status::get_file_status(config, &file, snapshots, workspaces).await?;
         node.url = Some(url.to_string());
         node.number = Some(format!("{:?}", status))
     } else {

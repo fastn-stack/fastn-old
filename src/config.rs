@@ -518,15 +518,16 @@ impl Config {
         root: Option<String>,
         special_ids: &[String],
     ) -> fpm::Result<fpm::File> {
-        let (file_name, root) = self.get_file_path_with_root(id, root, special_ids).await?;
+        let (file_name, has_root) = self
+            .get_file_path_with_root(id, root.clone(), special_ids)
+            .await?;
         let package = self.find_package_by_id(id).await?.1;
         let mut file = fpm::get_file(
             package.name.to_string(),
             &self.root.join(file_name),
-            if let Some(root) = root {
-                self.get_root_for_package(&package).join(root)
-            } else {
-                self.get_root_for_package(&package)
+            match root {
+                Some(root) if has_root => self.get_root_for_package(&package).join(root),
+                _ => self.get_root_for_package(&package),
             }
             .as_ref(),
         )
@@ -549,12 +550,13 @@ impl Config {
     /// It first try to find id inside the root (path relative to current package)
     /// In case of failure, it checks it inside the current package
     /// `special_ids` are those ids which need not to be formatted and should be taken as it is
+    /// returns the (path: String, path_has_root: Boolean)
     pub(crate) async fn get_file_path_with_root(
         &mut self,
         id: &str,
         root: Option<String>,
         special_ids: &[String],
-    ) -> fpm::Result<(String, Option<String>)> {
+    ) -> fpm::Result<(String, bool)> {
         // file_path: String, root: Option<String>
         let (package_name, package) = self.find_package_by_id(id).await?;
         let package = self.resolve_package(&package).await?;
@@ -599,7 +601,7 @@ impl Config {
                             format!("{}/", root.trim_end_matches('/')),
                             id
                         ),
-                        Some(root),
+                        true,
                     ));
                 }
             }
@@ -611,7 +613,7 @@ impl Config {
                 add_packages,
                 package.resolve_by_id(id.as_str(), None).await?.0
             ),
-            None,
+            false,
         ))
     }
 
