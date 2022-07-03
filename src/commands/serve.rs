@@ -119,7 +119,7 @@ async fn serve_static(req: actix_web::HttpRequest) -> actix_web::HttpResponse {
 }
 
 #[actix_web::main]
-pub async fn serve2(bind_address: &str, port: Option<u16>) -> std::io::Result<()> {
+pub async fn serve(bind_address: &str, port: Option<u16>) -> std::io::Result<()> {
     if cfg!(feature = "controller") {
         // fpm-controller base path and ec2 instance id (hardcoded for now)
         let fpm_controller: String = std::env::var("FPM_CONTROLLER")
