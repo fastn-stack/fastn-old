@@ -72,6 +72,10 @@ fn cr_about_ftd() -> &'static str {
     include_str!("../ftd/cr-about.ftd")
 }
 
+fn cr_create_ftd() -> &'static str {
+    include_str!("../ftd/cr-create.ftd")
+}
+
 fn design_ftd() -> &'static str {
     include_str!("../ftd/design.ftd")
 }

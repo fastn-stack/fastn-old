@@ -55,32 +55,6 @@ async fn serve_files(
     };
 }
 
-/*async fn handle_dash(
-    req: &actix_web::HttpRequest,
-    config: &fpm::Config,
-    path: std::path::PathBuf,
-) -> actix_web::HttpResponse {
-    let new_path = match path.to_str() {
-        Some(s) => s.replace("-/", ""),
-        None => {
-            println!("handle_dash: Not able to convert path");
-            return actix_web::HttpResponse::InternalServerError().body("".as_bytes());
-        }
-    };
-
-    let file_path = if new_path.starts_with(&config.package.name) {
-        std::path::PathBuf::new().join(
-            new_path
-                .strip_prefix(&(config.package.name.to_string() + "/"))
-                .unwrap(),
-        )
-    } else {
-        std::path::PathBuf::new().join(".packages").join(new_path)
-    };
-
-    server_static_file(req, file_path).await
-}*/
-
 async fn server_fpm_file(config: &fpm::Config) -> actix_web::HttpResponse {
     let response =
         match tokio::fs::read(config.get_root_for_package(&config.package).join("FPM.ftd")).await {

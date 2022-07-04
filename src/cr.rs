@@ -98,6 +98,10 @@ pub(crate) fn is_about(path: &str) -> bool {
     ["-/about", "-/about.ftd"].contains(&path.trim_end_matches('/'))
 }
 
+pub(crate) fn create_cr_page(path: &str) -> bool {
+    path.eq("-/create-cr")
+}
+
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub enum Operation {
     Add,

@@ -55,11 +55,30 @@ async fn handle_cr_view(
     handle_editor_view(config, path, Some(cr_root)).await
 }
 
+async fn handle_create_cr_view(config: &mut fpm::Config) -> fpm::Result<Vec<u8>> {
+    let cr_create_content = if config.root.join("crc.ftd").exists() {
+        tokio::fs::read_to_string(config.root.join("crc.ftd")).await?
+    } else {
+        fpm::cr_create_ftd().to_string()
+    };
+    let main_document = fpm::Document {
+        id: "cr-create.ftd".to_string(),
+        content: cr_create_content,
+        parent_path: config.root.as_str().to_string(),
+        package_name: config.package.name.clone(),
+    };
+    fpm::package_doc::read_ftd(config, &main_document, "/", false).await
+}
+
 async fn handle_view_source(path: &str) -> fpm::Result<Vec<u8>> {
     let mut config = fpm::Config::read2(None, false).await?;
 
     if let Some((cr_number, cr_path)) = fpm::cr::get_cr_and_path_from_id(path, &None) {
         return handle_cr_view(&mut config, cr_number, cr_path.as_str()).await;
+    }
+
+    if fpm::cr::create_cr_page(path) {
+        return handle_create_cr_view(&mut config).await;
     }
     handle_editor_view(&mut config, path, None).await
 }
