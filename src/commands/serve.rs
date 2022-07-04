@@ -11,7 +11,7 @@ async fn serve_files(
     };
 
     let (root, path) = if let Some((root, path)) = fpm::cr::get_cr_and_path_from_id(path, &None) {
-        (Some(root.to_string()), path)
+        (Some(format!("-/{}", root)), path)
     } else {
         (None, path.to_string())
     };
