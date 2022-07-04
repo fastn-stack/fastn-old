@@ -160,17 +160,12 @@ impl Library {
             .header
             .str(doc.name, section.line_number, "$processor$")?
         {
-            // "toc" => fpm::library::toc::processor(section, doc),
             "http" => fpm::library::http::processor(section, doc).await,
             "package-query" => fpm::library::sqlite::processor(section, doc, &self.config).await,
-            "toc" => fpm::library::toc::processor(section, doc, &self.config),
-            "include" => fpm::library::include::processor(section, doc, &self.config),
-            "get-data" => fpm::library::get_data::processor(section, doc, &self.config),
-            "sitemap" => fpm::library::sitemap::processor(section, doc, &self.config),
+            "fetch-file" => fpm::library::fetch_file::processor(section, doc, &self.config).await,
             "package-tree" => {
                 fpm::library::package_tree::processor(section, doc, &self.config).await
             }
-            "fetch-file" => fpm::library::fetch_file::processor(section, doc, &self.config).await,
             "get-version-data" => {
                 fpm::library::get_version_data::processor(
                     section,
@@ -181,8 +176,28 @@ impl Library {
                 )
                 .await
             }
-            t => unimplemented!("No such processor: {}", t),
+            _ => process_sync(&self.config, section, doc),
         }
+    }
+}
+
+pub fn process_sync<'a>(
+    config: &fpm::Config,
+    section: &ftd::p1::Section,
+    doc: &'a ftd::p2::TDoc<'a>,
+) -> ftd::p1::Result<ftd::Value> {
+    match section
+        .header
+        .str(doc.name, section.line_number, "$processor$")?
+    {
+        "toc" => fpm::library::toc::processor(section, doc, config),
+        "include" => fpm::library::include::processor(section, doc, config),
+        "get-data" => fpm::library::get_data::processor(section, doc, config),
+        "sitemap" => fpm::library::sitemap::processor(section, doc, config),
+        "package-query" => fpm::library::sqlite::processor_(section, doc, config),
+        "fetch-file" => fpm::library::fetch_file::processor_sync(section, doc, config),
+        "package-tree" => fpm::library::package_tree::processor_sync(section, doc, config),
+        t => unimplemented!("No such processor: {}", t),
     }
 }
 
