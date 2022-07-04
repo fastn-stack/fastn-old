@@ -399,3 +399,19 @@ pub(crate) fn path_with_root(path: &str, root: &Option<String>) -> String {
         _ => path.to_string(),
     }
 }
+
+pub(crate) fn get_all_file_paths_for_root(
+    root: &camino::Utf8PathBuf,
+    package: &fpm::Package,
+    ignore_history: bool,
+) -> fpm::Result<Vec<camino::Utf8PathBuf>> {
+    let mut ignore_paths = ignore::WalkBuilder::new(&root);
+    // ignore_paths.hidden(false); // Allow the linux hidden files to be evaluated
+    ignore_paths.overrides(fpm::file::package_ignores(package, &root, ignore_history)?);
+    Ok(ignore_paths
+        .build()
+        .into_iter()
+        .flatten()
+        .map(|x| camino::Utf8PathBuf::from_path_buf(x.into_path()).unwrap()) //todo: improve error message
+        .collect::<Vec<camino::Utf8PathBuf>>())
+}

@@ -490,15 +490,7 @@ impl Config {
         ignore_history: bool,
     ) -> fpm::Result<Vec<camino::Utf8PathBuf>> {
         let path = self.get_root_for_package(package);
-        let mut ignore_paths = ignore::WalkBuilder::new(&path);
-        // ignore_paths.hidden(false); // Allow the linux hidden files to be evaluated
-        ignore_paths.overrides(fpm::file::package_ignores(package, &path, ignore_history)?);
-        Ok(ignore_paths
-            .build()
-            .into_iter()
-            .flatten()
-            .map(|x| camino::Utf8PathBuf::from_path_buf(x.into_path()).unwrap()) //todo: improve error message
-            .collect::<Vec<camino::Utf8PathBuf>>())
+        fpm::utils::get_all_file_paths_for_root(&path, package, ignore_history)
     }
 
     pub(crate) async fn get_file_by_id(&mut self, id: &str) -> fpm::Result<fpm::File> {

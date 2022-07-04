@@ -42,33 +42,20 @@ pub async fn cr_processor<'a>(
     let snapshots = fpm::snapshot::get_latest_snapshots(&config.root).await?;
     let workspaces = fpm::snapshot::get_cr_workspace(config, cr_number).await?;
 
-    let mut files = config
-        .get_all_file_paths(&config.package, true)?
-        .into_iter()
-        .filter(|v| v.is_file())
-        .map(|v| {
-            v.strip_prefix(&root)
-                .unwrap_or_else(|_| v.as_path())
-                .to_string()
-                .replace(std::path::MAIN_SEPARATOR.to_string().as_str(), "/")
-        })
-        .collect_vec();
+    let mut files = snapshots.keys().map(|v| v.to_owned()).collect_vec();
 
-    let cr_files = files
-        .iter()
-        .filter_map(|v| {
-            v.strip_prefix(format!("-/{}/", cr_number).as_str())
-                .map(|v| v.to_string())
-        })
-        .filter(|v| !fpm::cr::get_cr_special_ids().contains(&v.trim_matches('/').to_string()))
-        .map(|v| (v, Some(format!("-/{}", cr_number))))
-        .collect_vec();
-
-    files = files
-        .iter()
-        .filter(|v| !v.starts_with("-/"))
-        .map(|v| v.to_string())
-        .collect_vec();
+    let cr_files =
+        fpm::utils::get_all_file_paths_for_root(&config.cr_path(cr_number), &config.package, true)?
+            .into_iter()
+            .filter(|v| v.is_file())
+            .map(|v| {
+                v.strip_prefix(&config.cr_path(cr_number))
+                    .unwrap_or_else(|_| v.as_path())
+                    .to_string()
+                    .replace(std::path::MAIN_SEPARATOR.to_string().as_str(), "/")
+            })
+            .filter(|v| !fpm::cr::get_cr_special_ids().contains(&v.trim_matches('/').to_string()))
+            .map(|v| (v, Some(format!("-/{}", cr_number))));
 
     let mut file_map = files
         .into_iter()
