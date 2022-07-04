@@ -256,6 +256,10 @@ async fn handle_cr_edit(
             .await?;
         }
 
+        if config.cr_path(cr_number).join(cr_path).exists() {
+            tokio::fs::remove_file(config.cr_path(cr_number).join(cr_path)).await?;
+        }
+
         return Ok(EditResponse {
             path: request.path.to_string(),
             url: None,
