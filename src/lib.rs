@@ -68,6 +68,10 @@ fn editor_ftd() -> &'static str {
     include_str!("../ftd/editor.ftd")
 }
 
+fn cr_editor_ftd() -> &'static str {
+    include_str!("../ftd/cr-editor.ftd")
+}
+
 fn cr_about_ftd() -> &'static str {
     include_str!("../ftd/cr-about.ftd")
 }

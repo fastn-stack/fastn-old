@@ -52,7 +52,12 @@ async fn handle_cr_view(
         return fpm::package_doc::read_ftd(config, &main_document, "/", false).await;
     }
 
-    handle_editor_view(config, path, Some(cr_root)).await
+    let editor_ftd = if config.root.join("cre.ftd").exists() {
+        tokio::fs::read_to_string(config.root.join("cre.ftd")).await?
+    } else {
+        fpm::cr_editor_ftd().to_string()
+    };
+    handle_editor_view(config, path, Some(cr_root), editor_ftd).await
 }
 
 async fn handle_create_cr_view(config: &mut fpm::Config) -> fpm::Result<Vec<u8>> {
@@ -80,13 +85,20 @@ async fn handle_view_source(path: &str) -> fpm::Result<Vec<u8>> {
     if fpm::cr::create_cr_page(path) {
         return handle_create_cr_view(&mut config).await;
     }
-    handle_editor_view(&mut config, path, None).await
+
+    let editor_ftd = if config.root.join("e.ftd").exists() {
+        tokio::fs::read_to_string(config.root.join("e.ftd")).await?
+    } else {
+        fpm::editor_ftd().to_string()
+    };
+    handle_editor_view(&mut config, path, None, editor_ftd).await
 }
 
 async fn handle_editor_view(
     config: &mut fpm::Config,
     path: &str,
     root: Option<String>,
+    editor_ftd: String,
 ) -> fpm::Result<Vec<u8>> {
     let (file_name, _) = config
         .get_file_path_with_root(path, root.clone(), Default::default())
@@ -97,11 +109,6 @@ async fn handle_editor_view(
     let file = config
         .get_file_with_root(path, root.clone(), Default::default())
         .await?;
-    let editor_ftd = if config.root.join("e.ftd").exists() {
-        tokio::fs::read_to_string(config.root.join("e.ftd")).await?
-    } else {
-        fpm::editor_ftd().to_string()
-    };
 
     match file {
         fpm::File::Ftd(_) | fpm::File::Markdown(_) | fpm::File::Code(_) => {

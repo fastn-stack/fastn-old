@@ -137,7 +137,6 @@ async fn client_create_(req: CreateRequest) -> fpm::Result<usize> {
             }
             fpm::commands::status::FileStatus::Untracked => {}
         }
-        fpm::commands::revert::revert_(&config, path.as_str(), &mut workspaces, &snapshots).await?;
     }
     fpm::cr::create_cr_delete(
         &config,
@@ -151,9 +150,6 @@ async fn client_create_(req: CreateRequest) -> fpm::Result<usize> {
         response.number,
     )
     .await?;
-    if config.fpm_dir().exists() {
-        tokio::fs::remove_dir_all(config.fpm_dir()).await?;
-    }
     for (file_path, content) in response.files {
         fpm::utils::update(&config.root, file_path.as_str(), content.as_slice()).await?;
     }
