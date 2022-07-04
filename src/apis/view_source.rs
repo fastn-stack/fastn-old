@@ -111,7 +111,7 @@ async fn handle_editor_view(
         .await?;
 
     match file {
-        fpm::File::Ftd(_) | fpm::File::Markdown(_) | fpm::File::Code(_) => {
+        fpm::File::Ftd(ref f) | fpm::File::Markdown(ref f) | fpm::File::Code(ref f) => {
             let snapshots = fpm::snapshot::get_latest_snapshots(&config.root).await?;
             let mut editor_content = format!(
                 "{}\n\n-- content:\n$processor$: fetch-file\npath:{}\n\n-- path: {}\n\n",
@@ -122,7 +122,7 @@ async fn handle_editor_view(
                 editor_content = format!("{}\n\n\n-- root: {}\n\n", editor_content, root);
             }
 
-            if let Ok(Some(diff)) = get_diff(&file, &snapshots).await {
+            if let Ok(Some(diff)) = get_diff(config, &file, &snapshots).await {
                 editor_content = format!("{}\n\n\n-- diff:\n\n{}", editor_content, diff);
             }
             let main_document = fpm::Document {
@@ -138,11 +138,12 @@ async fn handle_editor_view(
 }
 
 pub(crate) async fn get_diff(
+    config: &fpm::Config,
     doc: &fpm::File,
     snapshots: &std::collections::BTreeMap<String, u128>,
 ) -> fpm::Result<Option<String>> {
     if let Some(timestamp) = snapshots.get(&doc.get_id()) {
-        let path = fpm::utils::history_path(&doc.get_id(), &doc.get_base_path(), timestamp);
+        let path = fpm::utils::history_path(&doc.get_id(), config.root.as_str(), timestamp);
         let content = tokio::fs::read_to_string(&doc.get_full_path()).await?;
 
         let existing_doc = tokio::fs::read_to_string(&path).await?;
