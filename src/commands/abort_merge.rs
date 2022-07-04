@@ -15,8 +15,11 @@ pub async fn abort_merge(config: &fpm::Config, path: &str) -> fpm::Result<()> {
         }
         workspace.set_abort();
     }
-    fpm::snapshot::create_workspace(config, workspaces.into_values().collect_vec().as_slice())
-        .await?;
+    fpm::snapshot::create_workspace(
+        &config.root,
+        workspaces.into_values().collect_vec().as_slice(),
+    )
+    .await?;
 
     Ok(())
 }

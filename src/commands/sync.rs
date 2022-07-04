@@ -385,8 +385,11 @@ async fn on_conflict(
         }
     }
 
-    fpm::snapshot::create_workspace(config, workspace.into_values().collect_vec().as_slice())
-        .await?;
+    fpm::snapshot::create_workspace(
+        &config.root,
+        workspace.into_values().collect_vec().as_slice(),
+    )
+    .await?;
 
     Ok(())
 }
@@ -405,7 +408,10 @@ async fn collect_garbage(config: &Config) -> fpm::Result<()> {
         workspaces.remove(&path);
     }
 
-    fpm::snapshot::create_workspace(config, workspaces.into_values().collect_vec().as_slice())
-        .await?;
+    fpm::snapshot::create_workspace(
+        &config.root,
+        workspaces.into_values().collect_vec().as_slice(),
+    )
+    .await?;
     Ok(())
 }

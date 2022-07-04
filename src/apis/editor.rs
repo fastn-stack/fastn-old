@@ -311,6 +311,7 @@ pub async fn sync() -> actix_web::Result<actix_web::HttpResponse> {
 #[derive(serde::Deserialize, serde::Serialize, std::fmt::Debug)]
 pub struct RevertRequest {
     pub path: String,
+    pub root: Option<String>,
 }
 
 pub async fn revert(
@@ -326,7 +327,7 @@ pub async fn revert(
         }
     };
 
-    match fpm::commands::revert::revert(&config, req.0.path.as_str()).await {
+    match fpm::commands::revert::revert(&config, req.0.path.as_str(), req.0.root).await {
         Ok(_) => {
             #[derive(serde::Serialize)]
             struct RevertResponse {

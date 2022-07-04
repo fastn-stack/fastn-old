@@ -116,7 +116,7 @@ pub(crate) async fn resolve_workspace(
 }
 
 pub(crate) async fn create_workspace(
-    config: &fpm::Config,
+    root: &camino::Utf8PathBuf,
     workspaces: &[Workspace],
 ) -> fpm::Result<()> {
     let mut data = vec!["-- import: fpm".to_string()];
@@ -129,7 +129,7 @@ pub(crate) async fn create_workspace(
     }
 
     fpm::utils::update(
-        &config.root.join(".fpm"),
+        &root.join(".fpm"),
         "workspace.ftd",
         data.join("\n\n").as_bytes(),
     )

@@ -67,7 +67,7 @@ async fn main() -> fpm::Result<()> {
     }
 
     if let Some(revert) = matches.subcommand_matches("revert") {
-        fpm::revert(&config, revert.value_of("path").unwrap()).await?;
+        fpm::revert(&config, revert.value_of("path").unwrap(), None).await?;
     }
 
     if let Some(sync) = matches.subcommand_matches("sync") {

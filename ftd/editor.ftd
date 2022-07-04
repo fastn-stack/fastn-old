@@ -377,7 +377,7 @@ function: post
 url: -/revert/
 path: $revert-file-path
 operation: delete
-
+root: $root
 
 
 
