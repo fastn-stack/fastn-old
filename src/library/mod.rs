@@ -176,7 +176,7 @@ impl Library {
                 )
                 .await
             }
-            _ => process_sync(&self.config, section, doc),
+            _ => process_sync(&self.config, section, self.document_id.as_str(), doc),
         }
     }
 }
@@ -184,6 +184,7 @@ impl Library {
 pub fn process_sync<'a>(
     config: &fpm::Config,
     section: &ftd::p1::Section,
+    document_id: &str,
     doc: &'a ftd::p2::TDoc<'a>,
 ) -> ftd::p1::Result<ftd::Value> {
     match section
@@ -197,7 +198,11 @@ pub fn process_sync<'a>(
         "package-query" => fpm::library::sqlite::processor_(section, doc, config),
         "fetch-file" => fpm::library::fetch_file::processor_sync(section, doc, config),
         "package-tree" => fpm::library::package_tree::processor_sync(section, doc, config),
-        t => unimplemented!("No such processor: {}", t),
+        t => Err(ftd::p1::Error::ParseError {
+            message: format!("FPM-Error: No such processor: {}", t),
+            doc_id: document_id.to_string(),
+            line_number: section.line_number,
+        }),
     }
 }
 
