@@ -304,9 +304,7 @@ pub(crate) async fn read_ftd(
 
     let main_ftd_doc = match fpm::doc::parse2(
         main.id_with_package().as_str(),
-        current_package
-            .get_prefixed_body(main.content.as_str(), &main.id, true)
-            .as_str(),
+        main.content.as_str(),
         &mut lib,
         base_url,
         download_assets,
