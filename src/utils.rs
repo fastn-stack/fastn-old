@@ -223,7 +223,7 @@ pub fn escape_ftd(file: &str) -> String {
         .join("\n")
 }
 
-pub(crate) fn id_to_path(id: &str) -> String {
+pub fn id_to_path(id: &str) -> String {
     id.replace("/index.ftd", "/")
         .replace("index.ftd", "/")
         .replace(".ftd", std::path::MAIN_SEPARATOR.to_string().as_str())
@@ -234,7 +234,7 @@ pub(crate) fn id_to_path(id: &str) -> String {
         .replace(".md", std::path::MAIN_SEPARATOR.to_string().as_str())
 }
 
-pub(crate) fn replace_markers(
+pub fn replace_markers(
     s: &str,
     config: &fpm::Config,
     main_id: &str,

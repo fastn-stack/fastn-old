@@ -4,7 +4,7 @@ extern crate self as fpm;
 extern crate lazy_static;
 
 #[macro_use]
-pub(crate) mod utils;
+pub mod utils;
 
 // Temp comment
 mod apis;
@@ -17,7 +17,7 @@ mod doc;
 mod file;
 mod font;
 mod i18n;
-mod library;
+pub mod library;
 mod package_doc;
 mod render;
 mod sitemap;
@@ -53,7 +53,7 @@ pub const PACKAGE_THEME_INTERFACE: &str = "fifthtry.github.io/theme";
 
 pub const IMAGE_EXT: &[&str] = &["jpg", "png", "svg"];
 
-fn ftd_html() -> &'static str {
+pub fn ftd_html() -> &'static str {
     include_str!("../ftd.html")
 }
 
