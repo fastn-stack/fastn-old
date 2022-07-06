@@ -497,11 +497,7 @@ impl Config {
             .collect::<Vec<camino::Utf8PathBuf>>())
     }
 
-    pub(crate) async fn get_file_by_id(
-        &self,
-        id: &str,
-        package: &fpm::Package,
-    ) -> fpm::Result<fpm::File> {
+    pub async fn get_file_by_id(&self, id: &str, package: &fpm::Package) -> fpm::Result<fpm::File> {
         let file_name = fpm::Config::get_file_name(&self.root, id)?;
         return self
             .get_files(package)

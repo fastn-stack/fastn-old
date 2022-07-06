@@ -38,7 +38,8 @@ pub use commands::{
 pub use config::Config;
 pub(crate) use config::Package;
 pub(crate) use dependency::Dependency;
-pub(crate) use file::{get_file, paths_to_files, Document, File, Static};
+pub use file::File;
+pub(crate) use file::{get_file, paths_to_files, Document, Static};
 pub(crate) use font::Font;
 pub(crate) use library::{FPMLibrary, Library, Library2};
 pub use render::render;
