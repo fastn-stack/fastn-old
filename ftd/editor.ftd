@@ -22,6 +22,15 @@ dark: https://fifthtry.github.io/fpm-ui/-/fifthtry.github.io/fpm-ui/mobile.svg
 -- ftd.image-src right-arrow: https://fifthtry.github.io/fpm-ui/-/fifthtry.github.io/fpm-ui/right-arrow.svg
 dark: https://fifthtry.github.io/fpm-ui/-/fifthtry.github.io/fpm-ui/right-arrow.svg
 
+-- ftd.image-src rename-icon: https://fifthtry.github.io/fpm-ui/-/fifthtry.github.io/fpm-ui/rename.png
+dark: https://fifthtry.github.io/fpm-ui/-/fifthtry.github.io/fpm-ui/rename.png
+
+-- ftd.image-src delete-icon: https://fifthtry.github.io/fpm-ui/-/fifthtry.github.io/fpm-ui/delete.png
+dark: https://fifthtry.github.io/fpm-ui/-/fifthtry.github.io/fpm-ui/delete.png
+
+-- ftd.image-src arrow-right: https://fifthtry.github.io/fpm-ui/-/fifthtry.github.io/fpm-ui/arrow-right.png
+dark: https://fifthtry.github.io/fpm-ui/-/fifthtry.github.io/fpm-ui/arrow-right.png
+
 -- ftd.image-src desktop: https://fifthtry.github.io/fpm-ui/-/fifthtry.github.io/fpm-ui/desktop.svg
 dark: https://fifthtry.github.io/fpm-ui/-/fifthtry.github.io/fpm-ui/desktop.svg
 
@@ -36,20 +45,6 @@ dark: https://fifthtry.github.io/fpm-ui/-/fifthtry.github.io/fpm-ui/sync.svg
 
 -- ftd.image-src showbar: https://fifthtry.github.io/fpm-ui/-/fifthtry.github.io/fpm-ui/showbar.svg
 dark: https://fifthtry.github.io/fpm-ui/-/fifthtry.github.io/fpm-ui/showbar.svg
-
--- ftd.image-src rename-icon: https://fifthtry.github.io/fpm-ui/-/fifthtry.github.io/fpm-ui/rename.png
-dark: https://fifthtry.github.io/fpm-ui/-/fifthtry.github.io/fpm-ui/rename.png
-
--- ftd.image-src delete-icon: https://fifthtry.github.io/fpm-ui/-/fifthtry.github.io/fpm-ui/delete.png
-dark: https://fifthtry.github.io/fpm-ui/-/fifthtry.github.io/fpm-ui/delete.png
-
--- ftd.image-src arrow-right: https://fifthtry.github.io/fpm-ui/-/fifthtry.github.io/fpm-ui/arrow-right.png
-dark: https://fifthtry.github.io/fpm-ui/-/fifthtry.github.io/fpm-ui/arrow-right.png
-
-
-
-
-
 
 
 -- ftd.font-size fine-print-bold-desktop:
