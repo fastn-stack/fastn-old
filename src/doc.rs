@@ -265,7 +265,7 @@ async fn resolve_foreign_variable2(
             }
         };
 
-        match files.rsplit_once(".") {
+        match files.rsplit_once('.') {
             Some((file, ext))
                 if mime_guess::MimeGuess::from_ext(ext)
                     .first_or_octet_stream()
@@ -377,6 +377,7 @@ async fn resolve_foreign_variable2(
                         source: ftd::TextSource::Header,
                     });
                 }
+                #[allow(deprecated)]
                 Ok(ftd::Value::Record {
                     name: "ftd#image-src".to_string(),
                     fields: std::array::IntoIter::new([
@@ -471,7 +472,7 @@ fn resolve_foreign_variable(
             }
         };
 
-        match files.rsplit_once(".") {
+        match files.rsplit_once('.') {
             Some((file, ext))
                 if mime_guess::MimeGuess::from_ext(ext)
                     .first_or_octet_stream()
@@ -513,6 +514,7 @@ fn resolve_foreign_variable(
                         source: ftd::TextSource::Header,
                     });
                 }
+                #[allow(deprecated)]
                 Ok(ftd::Value::Record {
                     name: "ftd#image-src".to_string(),
                     fields: std::array::IntoIter::new([
