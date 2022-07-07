@@ -1428,7 +1428,7 @@ z-index: 99
 -- ftd.column delete-confimation:
 caption title: Delete file?
 string subtitle: This file has changes which will be  lost
-string close: CANCLE DELETE
+string close: CANCEL DELETE
 string confirm: CONFIRM DELETE
 string file: 
 width: percent 80
