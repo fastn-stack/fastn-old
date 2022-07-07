@@ -449,6 +449,9 @@ $on-click$: $edits = true
 
 --- container: image
 
+--- ftd.column:
+if: not $is-mobile
+
 --- ftd.image:
 if: not $open-1
 src: $desktop
