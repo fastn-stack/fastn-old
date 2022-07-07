@@ -1477,6 +1477,7 @@ $on-input$: $source=$VALUE
 $on-input$: message-host $edit-obj
 background-color: $code-bg
 color: $fpm.color.main.text
+white-space: pre
 
 --- container: code-container
 
