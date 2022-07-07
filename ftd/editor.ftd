@@ -1091,7 +1091,7 @@ if: $show-rename
 anchor: parent
 width: 285
 height: 30
-right: -20
+right: 10
 top: 0
 z-index: 10000
 background-color: $fpm.color.main.background.step-2
