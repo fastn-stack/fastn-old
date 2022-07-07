@@ -57,6 +57,18 @@ dark: https://fifthtry.github.io/fpm-ui/-/fifthtry.github.io/fpm-ui/sync.svg
 -- ftd.image-src showbar: https://fifthtry.github.io/fpm-ui/-/fifthtry.github.io/fpm-ui/showbar.svg
 dark: https://fifthtry.github.io/fpm-ui/-/fifthtry.github.io/fpm-ui/showbar.svg
 
+-- ftd.image-src m-default: https://fifthtry.github.io/fpm-ui/-/fifthtry.github.io/fpm-ui/m-default.svg
+dark: https://fifthtry.github.io/fpm-ui/-/fifthtry.github.io/fpm-ui/m-default.svg
+
+-- ftd.image-src m-active: https://fifthtry.github.io/fpm-ui/-/fifthtry.github.io/fpm-ui/m-active.svg
+dark: https://fifthtry.github.io/fpm-ui/-/fifthtry.github.io/fpm-ui/m-active.svg
+
+-- ftd.image-src e-default: https://fifthtry.github.io/fpm-ui/-/fifthtry.github.io/fpm-ui/e-default.svg
+dark: https://fifthtry.github.io/fpm-ui/-/fifthtry.github.io/fpm-ui/e-default.svg
+
+-- ftd.image-src e-active: https://fifthtry.github.io/fpm-ui/-/fifthtry.github.io/fpm-ui/e-active.svg
+dark: https://fifthtry.github.io/fpm-ui/-/fifthtry.github.io/fpm-ui/e-active.svg
+
 
 -- ftd.font-size fine-print-bold-desktop:
 line-height: 18
@@ -449,7 +461,7 @@ color: $fpm.color.main.text
 --- ftd.column:
 width: 53
 height: fill
-padding-top: 29
+padding-top: 16
 padding-bottom: 21
 id: main-sidebar
 background-color: $fpm.color.main.background.step-1
@@ -457,32 +469,22 @@ background-color: $fpm.color.main.background.step-1
 --- ftd.column:
 width: fill
 height: fill
-spacing: 32
+spacing: 12
 id: sidebar
 
---- ftd.text: M
-color: $fpm.color.main.text
-color if $MOUSE-IN: $fpm.color.main.cta-primary.base
+--- ftd.image:
+src: $m-default
 align: center
 width: fill
-border-right: 5
-padding-horizontal: 16
-height: 30
-border-color: $fpm.color.main.background.step-1
-border-color if $MOUSE-IN: $fpm.color.main.cta-primary.base
+height: auto
 
 --- container: sidebar
 
---- ftd.text: E
-color: $fpm.color.main.text
-color if $MOUSE-IN: $fpm.color.main.cta-primary.base
+--- ftd.image:
+src: $e-default
 align: center
 width: fill
-border-right: 5
-padding-horizontal: 16
-height: 30
-border-color: $fpm.color.main.background.step-1
-border-color if $MOUSE-IN: $fpm.color.main.cta-primary.base
+height: auto
 
 --- container: main-sidebar
 
@@ -499,6 +501,23 @@ height: auto
 $on-click$: $open-1 = false
 $on-click$: $open-2 = false
 $on-click$: $edits = true
+
+--- container: image
+
+--- ftd.image:
+if: not $open-2
+src: $mobile
+width: 20
+height: auto
+$on-click$: toggle $open-2
+$on-click$: $open-1= false
+$on-click$: $edits = false
+
+--- ftd.image:
+if: $open-2
+src: $mobile-active
+width: 20
+height: auto
 
 --- container: image
 
@@ -520,22 +539,6 @@ src: $desktop-active
 width: 20
 height: auto
 
---- container: image
-
---- ftd.image:
-if: not $open-2
-src: $mobile
-width: 20
-height: auto
-$on-click$: toggle $open-2
-$on-click$: $open-1= false
-$on-click$: $edits = false
-
---- ftd.image:
-if: $open-2
-src: $mobile-active
-width: 20
-height: auto
 
 --- container: ftd.main
 
@@ -666,7 +669,7 @@ color: $fpm.color.main.text
 --- ftd.column:
 width: 53
 height: fill
-padding-top: 29
+padding-top: 16
 padding-bottom: 21
 id: main-sidebar
 background-color: $fpm.color.main.background.step-1
@@ -677,29 +680,20 @@ height: fill
 spacing: 32
 id: sidebar
 
---- ftd.text: M
-color: $fpm.color.main.text
-color if $MOUSE-IN: $fpm.color.main.cta-primary.base
+--- ftd.image:
+src: $m-default
 align: center
 width: fill
-border-right: 5
-padding-horizontal: 16
-height: 30
-border-color: $fpm.color.main.background.step-1
-border-color if $MOUSE-IN: $fpm.color.main.cta-primary.base
+height: auto
+
 
 --- container: sidebar
 
---- ftd.text: E
-color: $fpm.color.main.text
-color if $MOUSE-IN: $fpm.color.main.cta-primary.base
+--- ftd.image:
+src: $e-default
 align: center
 width: fill
-border-right: 5
-padding-horizontal: 16
-height: 30
-border-color: $fpm.color.main.background.step-1
-border-color if $MOUSE-IN: $fpm.color.main.cta-primary.base
+height: auto
 
 --- container: main-sidebar
 
@@ -720,6 +714,23 @@ $on-click$: $edits = true
 --- container: image
 
 --- ftd.image:
+if: not $open-2
+src: $mobile
+width: 20
+height: auto
+$on-click$: toggle $open-2
+$on-click$: $open-1= false
+$on-click$: $edits = false
+
+--- ftd.image:
+if: $open-2
+src: $mobile-active
+width: 20
+height: auto
+
+--- container: image
+
+--- ftd.image:
 if: not $open-1
 src: $desktop
 width: 20
@@ -734,22 +745,7 @@ src: $desktop-active
 width: 20
 height: auto
 
---- container: image
 
---- ftd.image:
-if: not $open-2
-src: $mobile
-width: 20
-height: auto
-$on-click$: toggle $open-2
-$on-click$: $open-1= false
-$on-click$: $edits = false
-
---- ftd.image:
-if: $open-2
-src: $mobile-active
-width: 20
-height: auto
 
 
 
