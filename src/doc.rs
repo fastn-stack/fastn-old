@@ -142,11 +142,10 @@ pub async fn parse2<'a>(
                 s = st.continue_after_import(module.as_str(), source.as_str())?;
             }
             ftd::Interpreter::StuckOnForeignVariable { variable, state } => {
-                lib.packages_under_process
-                    .truncate(state.document_stack.len());
                 let value = resolve_foreign_variable2(
                     variable.as_str(),
                     name,
+                    &state,
                     lib,
                     base_url,
                     download_assets,
@@ -203,13 +202,16 @@ pub async fn resolve_import<'a>(
     Ok(source)
 }
 
-async fn resolve_foreign_variable2(
+pub async fn resolve_foreign_variable2(
     variable: &str,
     doc_name: &str,
+    state: &ftd::InterpreterState,
     lib: &mut fpm::Library2,
     base_url: &str,
     download_assets: bool,
 ) -> ftd::p1::Result<ftd::Value> {
+    lib.packages_under_process
+        .truncate(state.document_stack.len());
     let package = lib.get_current_package()?.to_owned();
     if let Ok(value) = resolve_ftd_foreign_variable(variable, doc_name) {
         return Ok(value);

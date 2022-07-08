@@ -38,7 +38,6 @@ pub use commands::{
 pub use config::Config;
 pub(crate) use config::Package;
 pub(crate) use dependency::Dependency;
-pub use doc::resolve_import;
 pub use file::File;
 pub(crate) use file::{get_file, paths_to_files, Document, Static};
 pub(crate) use font::Font;
@@ -49,6 +48,7 @@ pub(crate) use tracker::Track;
 pub(crate) use translation::{TranslatedDocument, TranslationData};
 pub(crate) use utils::{copy_dir_all, timestamp_nanosecond};
 pub(crate) use version::Version;
+pub use {doc::resolve_foreign_variable2, doc::resolve_import};
 
 pub const PACKAGE_INFO_INTERFACE: &str = "fifthtry.github.io/package-info";
 pub const PACKAGE_THEME_INTERFACE: &str = "fifthtry.github.io/theme";
