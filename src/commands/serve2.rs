@@ -1,5 +1,3 @@
-use mime_guess::mime;
-
 async fn serve_files(config: &mut fpm::Config, path: &std::path::Path) -> actix_web::HttpResponse {
     let path = match path.to_str() {
         Some(s) => s,
@@ -30,26 +28,7 @@ async fn serve_files(config: &mut fpm::Config, path: &std::path::Path) -> actix_
         }
         fpm::File::Image(image) => {
             return actix_web::HttpResponse::Ok()
-                .content_type(if image.id.ends_with(".svg") {
-                    // infer is guessing wrong mime type in case of svg
-                    "image/svg+xml"
-                } else {
-                    let guess = mime_guess::from_path(image.id.as_str());
-                    match guess.first_or_octet_stream() {
-                        IMAGE_SVG => "image/svg+xml",
-                        _ => "image/jpeg",
-                    }
-
-                    // mime::IMAGE_SVG.essence_str()
-                    // assert_eq!(mime::IMAGE_SVG.essence_str(), "image/svg+xml");
-                    // infer::get(image.content.as_slice())
-                    //     .map(|v| v.mime_type())
-                    //     if image.id.ends_with(".svg") {
-                    //         "image/svg+xml"
-                    //     } else {
-                    //         "image/jpeg"
-                    //     }
-                })
+                .content_type(guess_mime_type(image.id.as_str()))
                 .body(image.content);
         }
         _ => {
@@ -59,6 +38,9 @@ async fn serve_files(config: &mut fpm::Config, path: &std::path::Path) -> actix_
     };
 }
 
+fn guess_mime_type(path: &str) -> mime_guess::Mime {
+    mime_guess::from_path(path).first_or_octet_stream()
+}
 /*async fn handle_dash(
     req: &actix_web::HttpRequest,
     config: &fpm::Config,
@@ -182,9 +164,9 @@ pub async fn serve2(bind_address: &str, port: Option<u16>) -> std::io::Result<()
 You can try without providing port, it will automatically pick unused port"#,
                     x
                 ))
-                    .unwrap_or_else(|| {
-                        "Tried picking port between port 8000 to 9000, not available -:(".to_string()
-                    })
+                .unwrap_or_else(|| {
+                    "Tried picking port between port 8000 to 9000, not available -:(".to_string()
+                })
             );
             return Ok(());
         }
@@ -205,20 +187,20 @@ You can try without providing port, it will automatically pick unused port"#,
                 actix_web::App::new()
             }
         }
-            .route(
-                "/-/view-src/{path:.*}",
-                actix_web::web::get().to(fpm::apis::view_source),
-            )
-            .route("/-/edit/", actix_web::web::post().to(fpm::apis::edit))
-            .route(
-                "/-/revert/",
-                actix_web::web::post().to(fpm::apis::edit::revert),
-            )
-            .route(
-                "/-/editor-sync/",
-                actix_web::web::get().to(fpm::apis::edit::sync),
-            )
-            .route("/{path:.*}", actix_web::web::get().to(serve))
+        .route(
+            "/-/view-src/{path:.*}",
+            actix_web::web::get().to(fpm::apis::view_source),
+        )
+        .route("/-/edit/", actix_web::web::post().to(fpm::apis::edit))
+        .route(
+            "/-/revert/",
+            actix_web::web::post().to(fpm::apis::edit::revert),
+        )
+        .route(
+            "/-/editor-sync/",
+            actix_web::web::get().to(fpm::apis::edit::sync),
+        )
+        .route("/{path:.*}", actix_web::web::get().to(serve))
     };
 
     println!("### Server Started ###");
