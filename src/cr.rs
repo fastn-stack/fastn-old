@@ -63,6 +63,23 @@ pub(crate) fn generate_cr_about_content(cr_about: &fpm::cr::CRAbout) -> String {
 }
 
 pub(crate) fn get_cr_and_path_from_id(id: &str, root: &Option<String>) -> Option<(usize, String)> {
+    if let Some((cr_number, path)) = cr_number_and_path(id) {
+        return Some((cr_number, path));
+    }
+
+    if let Some(root) = root {
+        if let Some((cr_number, r)) = get_cr_and_path_from_id(root, &None) {
+            let mut r = format!("{}/{}", r.trim_end_matches('/'), id.trim_start_matches('/'));
+            if !r.eq("/") {
+                r = r.trim_start_matches('/').to_string();
+            }
+            return Some((cr_number, r));
+        }
+    }
+    None
+}
+
+pub(crate) fn cr_number_and_path(id: &str) -> Option<(usize, String)> {
     if let Some(path) = id.strip_prefix("-/") {
         let (cr_number, path) = if let Some((cr_number, path)) = path.split_once('/') {
             (cr_number, Some(path))
@@ -75,16 +92,6 @@ pub(crate) fn get_cr_and_path_from_id(id: &str, root: &Option<String>) -> Option
                 _ => "/".to_string(),
             };
             return Some((cr_number, path));
-        }
-    }
-
-    if let Some(root) = root {
-        if let Some((cr_number, r)) = get_cr_and_path_from_id(root, &None) {
-            let mut r = format!("{}/{}", r.trim_end_matches('/'), id.trim_start_matches('/'));
-            if !r.eq("/") {
-                r = r.trim_start_matches('/').to_string();
-            }
-            return Some((cr_number, r));
         }
     }
     None

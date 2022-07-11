@@ -162,8 +162,9 @@ padding: 20
 
 
 -- object sync-obj:
-function: get
+function: post
 url: /-/editor-sync/
+root: $root
 
 
 -- ftd.row sync:

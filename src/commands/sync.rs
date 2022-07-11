@@ -1,15 +1,26 @@
-use crate::apis::sync::SyncResponseFile;
+use crate::apis::sync::{SyncRequestFile, SyncResponseFile};
 use fpm::apis::sync::SyncStatus;
 use fpm::Config;
 use itertools::Itertools;
 
-pub async fn sync(config: &fpm::Config, files: Option<Vec<String>>) -> fpm::Result<()> {
+pub async fn sync(
+    config: &fpm::Config,
+    files: Option<Vec<String>>,
+    root: Option<String>,
+) -> fpm::Result<()> {
     // Read All the Document
     // Get all the updated, added and deleted files
     // Get Updated Files -> If content differs from latest snapshot
     // Get Added Files -> If files does not present in latest snapshot
     // Get Deleted Files -> If file present in latest.ftd and not present in directory
     // Send to fpm server
+
+    if let Some((cr_number, _)) = root
+        .map(|v| fpm::cr::cr_number_and_path(v.as_str()))
+        .flatten()
+    {
+        return cr_sync(config, cr_number);
+    }
 
     let documents = if let Some(ref files) = files {
         let files = files
@@ -91,6 +102,29 @@ pub async fn sync(config: &fpm::Config, files: Option<Vec<String>>) -> fpm::Resu
                 println!("{}", file);
             }
         }
+    }
+    Ok(())
+}
+
+
+// delete
+
+async fn cr_sync(config: &fpm::Config, cr_number: usize) -> fpm::Result<()> {
+    tokio::fs::create_dir_all(config.history_dir()).await?;
+    let snapshots = fpm::snapshot::get_latest_snapshots(&config.root).await?;
+    let files =
+        fpm::utils::get_all_file_paths_for_root(&config.cr_path(cr_number), &config.package, true)?;
+    let cr_delete = fpm::cr::get_cr_delete(config, cr_number).await?;
+    let cr_track = fpm::tracker::get_cr_track(config, cr_number).await?;
+    let mut changed_file = vec![];
+    changed_file.extend(
+        cr_delete
+            .into_keys()
+            .map(|path| SyncRequestFile::Delete { path: key }),
+    );
+
+    for (key, m) in cr_track.into_iter() {
+        if let
     }
     Ok(())
 }

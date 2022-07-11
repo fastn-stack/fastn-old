@@ -287,7 +287,14 @@ async fn handle_cr_edit(
     Ok(edit_response)
 }
 
-pub async fn sync() -> actix_web::Result<actix_web::HttpResponse> {
+#[derive(serde::Deserialize, serde::Serialize, std::fmt::Debug)]
+pub struct SyncRequest {
+    pub root: Option<String>,
+}
+
+pub async fn sync(
+    req: actix_web::web::Json<SyncRequest>,
+) -> actix_web::Result<actix_web::HttpResponse> {
     let config = match fpm::Config::read2(None, false).await {
         Ok(config) => config,
         Err(err) => {
@@ -297,7 +304,7 @@ pub async fn sync() -> actix_web::Result<actix_web::HttpResponse> {
             )
         }
     };
-    match fpm::commands::sync::sync(&config, None).await {
+    match fpm::commands::sync::sync(&config, None, req.0.root).await {
         Ok(_) => {
             #[derive(serde::Serialize)]
             struct SyncResponse {
