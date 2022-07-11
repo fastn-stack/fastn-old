@@ -1,5 +1,3 @@
-use mime_guess::mime;
-
 async fn serve_files(config: &mut fpm::Config, path: &std::path::Path) -> actix_web::HttpResponse {
     let path = match path.to_str() {
         Some(s) => s,
@@ -30,26 +28,7 @@ async fn serve_files(config: &mut fpm::Config, path: &std::path::Path) -> actix_
         }
         fpm::File::Image(image) => {
             return actix_web::HttpResponse::Ok()
-                .content_type(if image.id.ends_with(".svg") {
-                    // infer is guessing wrong mime type in case of svg
-                    "image/svg+xml"
-                } else {
-                    let guess = mime_guess::from_path(image.id.as_str());
-                    match guess.first_or_octet_stream() {
-                        IMAGE_SVG => "image/svg+xml",
-                        _ => "image/jpeg",
-                    }
-
-                    // mime::IMAGE_SVG.essence_str()
-                    // assert_eq!(mime::IMAGE_SVG.essence_str(), "image/svg+xml");
-                    // infer::get(image.content.as_slice())
-                    //     .map(|v| v.mime_type())
-                    //     if image.id.ends_with(".svg") {
-                    //         "image/svg+xml"
-                    //     } else {
-                    //         "image/jpeg"
-                    //     }
-                })
+                .content_type(guess_mime_type(&image.id.as_str()))
                 .body(image.content);
         }
         _ => {
@@ -59,6 +38,9 @@ async fn serve_files(config: &mut fpm::Config, path: &std::path::Path) -> actix_
     };
 }
 
+fn guess_mime_type(path: &str)-> mime_guess::Mime{
+    return mime_guess::from_path(path).first_or_octet_stream()
+}
 /*async fn handle_dash(
     req: &actix_web::HttpRequest,
     config: &fpm::Config,
