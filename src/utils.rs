@@ -234,7 +234,79 @@ pub fn id_to_path(id: &str) -> String {
         .replace(".md", std::path::MAIN_SEPARATOR.to_string().as_str())
 }
 
-pub fn replace_markers(
+/// returns true if an existing file named "file_name"
+/// exists in the root package folder
+fn is_file_in_root(root: &str, file_name: &str) -> bool {
+    camino::Utf8PathBuf::from(root).join(file_name).exists()
+}
+
+/// returns favicon html tag as string
+/// (if favicon is passed as header in fpm.package or if any favicon.* file is present in the root package folder)
+/// otherwise returns None
+fn resolve_favicon(
+    root_path: &str,
+    package_name: &str,
+    favicon: &Option<String>,
+) -> Option<String> {
+    /// returns html tag for using favicon.
+    fn favicon_html(favicon_path: &str, content_type: &str) -> String {
+        let favicon_html = format!(
+            "\n<link rel=\"shortcut icon\" href=\"{}\" type=\"{}\">",
+            favicon_path, content_type
+        );
+        favicon_html
+    }
+
+    /// returns relative favicon path from package and its mime content type
+    fn get_favicon_path_and_type(package_name: &str, favicon_path: &str) -> (String, String) {
+        // relative favicon path wrt package
+        let path = camino::Utf8PathBuf::from(package_name).join(favicon_path);
+        // mime content type of the favicon
+        let content_type = mime_guess::from_path(path.as_str()).first_or_octet_stream();
+
+        (path.to_string(), content_type.to_string())
+    }
+
+    // favicon image path from fpm.package if provided
+    let fav_path = favicon;
+
+    let (full_fav_path, fav_mime_content_type): (String, String) = {
+        match fav_path {
+            Some(ref path) => {
+                // In this case, favicon is provided with fpm.package in FPM.ftd
+                get_favicon_path_and_type(package_name, path)
+            }
+            None => {
+                // If favicon not provided so we will look for favicon in the package directory
+                // By default if any file favicon.* is present we will use that file instead
+                // In case of favicon.* conflict priority will be: .ico > .svg > .png > .jpg.
+                // Default searching directory being the root folder of the package
+
+                // Just check if any favicon exists in the root package directory
+                // in the above mentioned priority order
+                let found_favicon_id = if is_file_in_root(root_path, "favicon.ico") {
+                    "favicon.ico"
+                } else if is_file_in_root(root_path, "favicon.svg") {
+                    "favicon.svg"
+                } else if is_file_in_root(root_path, "favicon.png") {
+                    "favicon.png"
+                } else if is_file_in_root(root_path, "favicon.jpg") {
+                    "favicon.jpg"
+                } else {
+                    // Not using any favicon
+                    return None;
+                };
+
+                get_favicon_path_and_type(package_name, found_favicon_id)
+            }
+        }
+    };
+
+    // Will use some favicon
+    Some(favicon_html(&full_fav_path, &fav_mime_content_type))
+}
+
+pub(crate) fn replace_markers(
     s: &str,
     config: &fpm::Config,
     main_id: &str,
@@ -246,6 +318,16 @@ pub fn replace_markers(
         .replace(
             "__ftd_canonical_url__",
             config.package.generate_canonical_url(main_id).as_str(),
+        )
+        .replace(
+            "__favicon_html_tag__",
+            resolve_favicon(
+                config.root.as_str(),
+                config.package.name.as_str(),
+                &config.package.favicon,
+            )
+            .unwrap_or_else(|| "".to_string())
+            .as_str(),
         )
         .replace("__ftd_js__", fpm::ftd_js().as_str())
         .replace("__ftd_body_events__", main_rt.body_events.as_str())
