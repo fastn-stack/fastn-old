@@ -422,6 +422,38 @@ if: $show-create-new-folder
 
 
 
+-- fpm.toc-item list fs:
+$processor$: package-tree
+
+-- optional string source:
+$always-include$: true
+
+-- optional string path:
+$always-include$: true
+
+-- string url: -/edit/
+
+-- object edit-obj:
+function: http
+method: post
+url: $url
+value: $source
+path: $path
+
+-- optional string diff:
+$always-include$: true
+
+-- boolean show-diff: false
+
+
+
+
+
+
+
+
+
+
 -- ftd.row editor:
 width: fill
 height: fill
@@ -491,7 +523,7 @@ height: fill
 spacing: 8
 overflow-y: auto
 id:toc-id
- 
+
 --- ftd.row:
 id: text-container
 width: fill
@@ -820,7 +852,7 @@ src: $showbar
 width: 20
 height: auto
 $on-click$: toggle $open
-$on-click$: $show-fullscreen = true 
+$on-click$: $show-fullscreen = true
 
 --- container:  right-side
 
@@ -834,7 +866,7 @@ id:toc-id
 --- ftd.row:
 id: text-container
 width: fill
- 
+
 --- ftd.row:
 width: fill
 $on-click$: $toc-show= true
@@ -1116,7 +1148,8 @@ height: auto
 
 
 -- object sync-obj:
-function: get
+function: http
+method: get
 url: /-/editor-sync/
 
 -- ftd.row sync:
@@ -1176,7 +1209,8 @@ $on-click$: message-host $view-obj
 $always-include$: true
 
 -- object create-obj:
-function: post
+function: http
+method: post
 url: $url
 path: $create-file-path
 
@@ -1220,7 +1254,8 @@ border-radius: 8
 $always-include$: true
 
 -- object delete-obj:
-function: post
+function: http
+method: post
 url: $url
 path: $delete-file-path
 operation: delete
@@ -1241,7 +1276,8 @@ $always-include$: true
 $always-include$: true
 
 -- object rename-obj:
-function: post
+function: http
+method: post
 url: $url
 path: $rename-file-path
 operation: rename
@@ -1276,6 +1312,132 @@ is-first: true
 
 
 -- ftd.row folder:
+
+-- optional string revert-file-path:
+$always-include$: true
+
+-- object revert-obj:
+function: http
+method: post
+url: -/revert/
+path: $revert-file-path
+operation: delete
+
+
+
+
+
+
+
+
+
+
+-- ftd.column print-toc-item:
+fpm.toc-item toc:
+boolean is-first: false
+boolean show-actions: false
+boolean show-rename: false
+boolean show-create-new-file: false
+boolean show-create-new-folder: false
+boolean show: false
+width: fill
+border-radius: 2
+padding-bottom: 2
+padding-top: 2
+boolean show-children: false
+id: file-row
+
+--- overlay:
+if: $show-overlay
+
+--- delete-confimation:
+if: $show-delete-dialog
+file: $toc.path
+
+--- container: ftd.main
+
+--- ftd.row:
+if: $show-rename
+anchor: window
+width: 285
+height: 30
+left: 370
+left if $is-mobile: 12
+top: 84
+z-index: 10000
+background-color: $fpm.color.main.background.step-2
+border-radius: 4
+id: rename-row
+
+--- ftd.row:
+width: fill
+background-color: $fpm.color.main.background.step-2
+padding-left: 10
+padding-right: 5
+padding-vertical: 3
+border-radius: 4
+
+--- ftd.text: Rename
+role: $tiny
+color: $fpm.color.main.cta-primary.base
+margin-right: $fpm.space.space-2
+align: center
+
+--- ftd.row:
+width: fill
+background-color: $fpm.color.main.background.step-1
+
+--- ftd.input:
+width: fill
+value: $toc.title
+$on-input$: $new-name=$VALUE
+$on-input$: $rename-file-path=$toc.path
+padding-horizontal: 10
+padding-vertical: $fpm.space.space-2
+background-color: $fpm.color.main.background.step-1
+color: $fpm.color.main.text-strong
+border-width: 0
+cursor: text
+
+--- ftd.image:
+src: $arrow-right
+$on-click$: message-host $rename-obj
+align: center
+margin-right: 10
+
+/--- ftd.text: Revert
+background-color: $red
+color: $fpm.color.main.text-strong
+padding-horizontal: 2
+if: $show-revert
+$on-click$: $revert-file-path=$toc.path
+$on-click$: message-host $revert-obj
+
+--- ftd.row:
+anchor: parent
+right: -12
+top: -12
+z-index: 9999
+width: 16
+height: 16
+background-color: $fpm.color.main.background.step-2
+border-width: 1
+border-color: $grey-dark
+padding: 3
+border-radius: 100
+id: close
+
+--- ftd.image:
+src: $close
+width: 8
+height: 8
+$on-click$: $show-rename = false
+$on-click$: $dialog-open = false
+
+--- container: ftd.main
+
+--- ftd.row:
+if: $show-create-new-file
 anchor: window
 width: 285
 height: 30
