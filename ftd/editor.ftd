@@ -1223,6 +1223,7 @@ $always-include$: true
 -- object delete-obj:
 function: http  
 method: post
+url: $url
 path: $delete-file-path
 operation: delete
 
