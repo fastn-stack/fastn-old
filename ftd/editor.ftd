@@ -10,8 +10,6 @@
 
 -- boolean dialog-open: false
 
-\-- boolean show-tooltip: false
-
 -- boolean show-server-actions: false
 
 -- boolean show-datas: false
