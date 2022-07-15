@@ -183,7 +183,8 @@ $always-include$: true
 -- string url: -/edit/
 
 -- object edit-obj:
-function: post
+function: http
+method: post
 url: $url
 value: $source
 path: $path
@@ -839,7 +840,8 @@ height: auto
 
 
 -- object sync-obj:
-function: get
+function: http
+method: get
 url: /-/editor-sync/
 
 -- ftd.row sync:
@@ -894,7 +896,8 @@ $on-click$: message-host $view-obj
 $always-include$: true
 
 -- object create-obj:
-function: post
+function: http
+method: post
 url: $url
 path: $create-file-path
 
@@ -938,7 +941,8 @@ border-radius: 8
 $always-include$: true
 
 -- object delete-obj:
-function: post
+function: http
+method: post
 url: $url
 path: $delete-file-path
 operation: delete
@@ -959,7 +963,8 @@ $always-include$: true
 $always-include$: true
 
 -- object rename-obj:
-function: post
+function: http
+method: post
 url: $url
 path: $rename-file-path
 operation: rename
@@ -1024,7 +1029,8 @@ is-first: true
 $always-include$: true
 
 -- object revert-obj:
-function: post
+function: http
+method: post
 url: -/revert/
 path: $revert-file-path
 operation: delete
