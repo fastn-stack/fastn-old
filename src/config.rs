@@ -1258,25 +1258,140 @@ impl Package {
         })
     }
 
+    /// returns the full path of the import from alias if valid
+    /// otherwise returns None
+    pub fn get_full_path_from_alias(&self, alias: &str) -> Option<String>{
+        let mut full_path: Option<String> = None;
+
+        for dependency in &self.dependencies {
+            if let Some(dep_alias) = &dependency.alias {
+                if dep_alias.as_str().eq(alias) {
+                    full_path = Some(format!("{}", dependency.package.name));
+                }
+            }
+        }
+
+        full_path
+    }
+
+    /// returns expanded import path given Type-1 aliased import content
+    ///
+    /// Type-1 aliased imports
+    ///
+    /// -- import alias/x.. as alias_2
+    ///
+    /// -- import alias/x.. as alias_2
+    pub fn fix_import_as_type(&self, import_content: &str, id: &str, line_number: usize) -> ftd::p1::Result<String>{
+
+        let mut parts = import_content.splitn(2," as ");
+
+        match (parts.next(), parts.next()){
+            (Some(front), Some(alias)) => {
+                // case 3: -- import alias/x.. as alias_2
+                // map:    -- import full_path_of_alias/x.. as alias_2
+                // case 4: -- import alias as alias_2
+                // map:    -- import full_path_of_alias as alias_2
+
+                let extended_front = self.fix_import_non_as_type(front,id,line_number,false)?;
+                Ok(format!("{} as {}",extended_front, alias))
+            },
+            _ => {
+                // Throw error for unknown as-type import
+                Err(ftd::p1::Error::ParseError {
+                    message: "invalid import !! (type-1)".to_string(),
+                    doc_id: id.to_string(),
+                    line_number
+                })
+            }
+        }
+    }
+
+    /// returns expanded import path given Type-2 aliased import content
+    ///
+    /// Type-2 aliased imports
+    ///
+    /// -- import alias
+    ///
+    /// -- import alias/x..
+    pub fn fix_import_non_as_type(&self, import_content: &str, id: &str, line_number: usize, with_alias: bool) -> ftd::p1::Result<String>{
+
+        // if with-alias is true
+        // and the import content is an alias itself then
+        // the extended path will be returned with alias
+        // like this -- import: full_path_of_alias as alias
+        // instead of -- import: full_path_of_alias
+
+        let mut parts = import_content.splitn(2,"/");
+        match (parts.next(), parts.next()) {
+            (Some(front), Some(rem)) =>  {
+                // case 2: -- import alias/x..
+                // map: -- import full_path_of_alias/x..
+
+                let extended_path_of_alias = self.get_full_path_from_alias(front);
+                match extended_path_of_alias{
+                    Some(ext_path) => Ok(format!("{}/{}", ext_path, rem)),
+                    None => Ok(format!("{}/{}", front, rem)),
+                }
+            },
+            (Some(front), None) => {
+                // case 1: -- import alias
+                // map: -- import full_path_of_alias as alias
+
+                let extended_path_of_alias = self.get_full_path_from_alias(front);
+                match extended_path_of_alias{
+                    Some(ext_path) => {
+                        match with_alias{
+                            true => Ok(format!("{} as {}", ext_path, front)),
+                            false => Ok(format!("{}", ext_path)),
+                        }
+                    },
+                    None => Ok(format!("{}", front)),
+                }
+            },
+            _ => {
+                // Throw error for unknown non-as-type import
+                Err(ftd::p1::Error::ParseError {
+                    message: "invalid import !! (type-2)".to_string(),
+                    doc_id: id.to_string(),
+                    line_number
+                })
+            }
+        }
+    }
+
     /// will map aliased imports to full path in the actual body of the document
     /// and return the new document body as string
     ///
-    /// [-- import: some_alias] will be mapped to
-    /// [-- import full_path_of_some_alias as some_alias]
-
+    /// In ftd files apart from FPM.ftd
+    ///
+    /// case 1: -- import alias
+    ///
+    /// map:    -- import full_path_of_alias as alias
+    ///
+    /// case 2: -- import alias/x..
+    ///
+    /// map:    -- import full_path_of_alias/x..
+    ///
+    /// case 3: -- import alias/x.. as alias_2
+    ///
+    /// map:    -- import full_path_of_alias/x.. as alias_2
+    ///
+    /// case 4: -- import alias as alias_2
+    ///
+    /// map:    -- import full_path_of_alias as alias_2
+    ///
     pub fn fix_imports_in_body(&self, body: &str, id: &str) -> ftd::p1::Result<String> {
-        let mut new_body = String::new();
 
+        let mut new_body = String::new();
         let mut ln = 1;
+
         for line in body.lines() {
             let line_string = line.trim();
 
-            // Import statement (All possible cases)
-            // [-- import: full_path] (pass this)
-            // [-- import: alias] -> convert this to -> [--import: full_path as alias]
-            // [-- import: full_path as alias] (pass this)
-            let final_line =
-                if line_string.starts_with("-- import") && !line_string.contains(" as ") {
+            let final_line = {
+                if line_string.starts_with("-- import") {
+
+                    // Split [-- import | content]
                     let import_tokens: Vec<&str> = line_string.split(':').collect();
                     if import_tokens.len() <= 1 {
                         return Err(ftd::p1::Error::ParseError {
@@ -1289,27 +1404,22 @@ impl Package {
                     // Initial import content from the doc
                     let mut import_content = String::from(import_tokens[1].trim());
 
-                    // Update the import content to full path if dependency alias is used
-                    for dependency in &self.dependencies {
-                        if let Some(dep_alias) = &dependency.alias {
-                            if dep_alias.as_str().eq(import_content.as_str()) {
-                                import_content =
-                                    format!("{} as {}", dependency.package.name, dep_alias);
-                            }
-                        }
-                    }
+                    import_content = match import_content.contains(" as ") {
+                        true => self.fix_import_as_type(import_content.as_str(), id, ln)?,
+                        false => self.fix_import_non_as_type(import_content.as_str(), id, ln, true)?
+                    };
 
-                    // Final import statement
-                    // -- import: [import_content]
-                    let final_string = format!("{}: {}", import_tokens[0], import_content);
-                    final_string
+                    format!("-- import: {}", &import_content)
+
                 } else {
                     // No change in line push as it is
                     line_string.to_string()
-                };
+                }
+            };
 
             new_body.push_str(&final_line);
             new_body.push('\n');
+
             ln += 1;
         }
 
