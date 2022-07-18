@@ -1258,7 +1258,7 @@ impl Package {
         })
     }
 
-    /// returns the full path of the import from alias if valid
+    /// returns the full path of the import from its alias if valid
     /// otherwise returns None
     pub fn get_full_path_from_alias(&self, alias: &str) -> Option<String> {
         let mut full_path: Option<String> = None;
@@ -1275,13 +1275,51 @@ impl Package {
     }
 
     /// returns expanded import path given Type-1 aliased import content
-    ///
-    /// Type-1 aliased imports
-    ///
-    /// -- import alias/x.. as alias_2
-    ///
-    /// -- import alias/x.. as alias_2
-    pub fn fix_import_as_type(
+    pub fn fix_aliased_import_type1(
+        &self,
+        import_content: &str,
+        id: &str,
+        line_number: usize,
+        with_alias: bool,
+    ) -> ftd::p1::Result<String> {
+        let mut parts = import_content.splitn(2, '/');
+        match (parts.next(), parts.next()) {
+            (Some(front), Some(rem)) => {
+                // case 1: -- import alias/x..
+                // front = alias, rem = x..
+
+                let extended_front = self.get_full_path_from_alias(front);
+                match extended_front {
+                    Some(ext_front) => Ok(format!("{}/{}", ext_front, rem)),
+                    None => Ok(format!("{}/{}", front, rem)),
+                }
+            }
+            (Some(front), None) => {
+                // case 2: -- import alias
+                // front = alias
+
+                let extended_front = self.get_full_path_from_alias(front);
+                match extended_front {
+                    Some(ext_front) => match with_alias {
+                        true => Ok(format!("{} as {}", ext_front, front)),
+                        false => Ok(ext_front),
+                    },
+                    None => Ok(front.to_string()),
+                }
+            }
+            _ => {
+                // Throw error for unknown type-1 import
+                Err(ftd::p1::Error::ParseError {
+                    message: "invalid aliased import !! (Type-1)".to_string(),
+                    doc_id: id.to_string(),
+                    line_number,
+                })
+            }
+        }
+    }
+
+    /// returns expanded import path given Type-2 aliased import content
+    pub fn fix_aliased_import_type2(
         &self,
         import_content: &str,
         id: &str,
@@ -1291,74 +1329,18 @@ impl Package {
 
         match (parts.next(), parts.next()) {
             (Some(front), Some(alias)) => {
-                // case 3: -- import alias/x.. as alias_2
-                // map:    -- import full_path_of_alias/x.. as alias_2
-                // case 4: -- import alias as alias_2
-                // map:    -- import full_path_of_alias as alias_2
+                // case 1: -- import alias/x.. as alias_2
+                // case 2: -- import alias as alias_2
+                // front = alias/x or alias, alias = alias_2
 
-                let extended_front = self.fix_import_non_as_type(front, id, line_number, false)?;
+                let extended_front =
+                    self.fix_aliased_import_type1(front, id, line_number, false)?;
                 Ok(format!("{} as {}", extended_front, alias))
             }
             _ => {
-                // Throw error for unknown as-type import
+                // Throw error for unknown type-2 import
                 Err(ftd::p1::Error::ParseError {
-                    message: "invalid import !! (type-1)".to_string(),
-                    doc_id: id.to_string(),
-                    line_number,
-                })
-            }
-        }
-    }
-
-    /// returns expanded import path given Type-2 aliased import content
-    ///
-    /// Type-2 aliased imports
-    ///
-    /// -- import alias
-    ///
-    /// -- import alias/x..
-    pub fn fix_import_non_as_type(
-        &self,
-        import_content: &str,
-        id: &str,
-        line_number: usize,
-        with_alias: bool,
-    ) -> ftd::p1::Result<String> {
-        // if with-alias is true
-        // and the import content is an alias itself then
-        // the extended path will be returned with alias
-        // like this -- import: full_path_of_alias as alias
-        // instead of -- import: full_path_of_alias
-
-        let mut parts = import_content.splitn(2, '/');
-        match (parts.next(), parts.next()) {
-            (Some(front), Some(rem)) => {
-                // case 2: -- import alias/x..
-                // map: -- import full_path_of_alias/x..
-
-                let extended_path_of_alias = self.get_full_path_from_alias(front);
-                match extended_path_of_alias {
-                    Some(ext_path) => Ok(format!("{}/{}", ext_path, rem)),
-                    None => Ok(format!("{}/{}", front, rem)),
-                }
-            }
-            (Some(front), None) => {
-                // case 1: -- import alias
-                // map: -- import full_path_of_alias as alias
-
-                let extended_path_of_alias = self.get_full_path_from_alias(front);
-                match extended_path_of_alias {
-                    Some(ext_path) => match with_alias {
-                        true => Ok(format!("{} as {}", ext_path, front)),
-                        false => Ok(ext_path),
-                    },
-                    None => Ok(front.to_string()),
-                }
-            }
-            _ => {
-                // Throw error for unknown non-as-type import
-                Err(ftd::p1::Error::ParseError {
-                    message: "invalid import !! (type-2)".to_string(),
+                    message: "invalid aliased import !! (Type-2)".to_string(),
                     doc_id: id.to_string(),
                     line_number,
                 })
@@ -1369,7 +1351,12 @@ impl Package {
     /// will map aliased imports to full path in the actual body of the document
     /// and return the new document body as string
     ///
-    /// In ftd files apart from FPM.ftd
+    /// For ftd files apart from FPM.ftd
+    ///
+    /// If aliased imports of Type-1 and Type-2 are used
+    /// then those will be mapped to its corresponding full import paths
+    ///
+    /// [`Type-1`] aliased imports
     ///
     /// case 1: -- import alias
     ///
@@ -1379,11 +1366,13 @@ impl Package {
     ///
     /// map:    -- import full_path_of_alias/x..
     ///
-    /// case 3: -- import alias/x.. as alias_2
+    /// [`Type-2`] aliased imports
+    ///
+    /// case 1: -- import alias/x.. as alias_2
     ///
     /// map:    -- import full_path_of_alias/x.. as alias_2
     ///
-    /// case 4: -- import alias as alias_2
+    /// case 2: -- import alias as alias_2
     ///
     /// map:    -- import full_path_of_alias as alias_2
     ///
@@ -1410,9 +1399,9 @@ impl Package {
                     let mut import_content = String::from(import_tokens[1].trim());
 
                     import_content = match import_content.contains(" as ") {
-                        true => self.fix_import_as_type(import_content.as_str(), id, ln)?,
+                        true => self.fix_aliased_import_type2(import_content.as_str(), id, ln)?,
                         false => {
-                            self.fix_import_non_as_type(import_content.as_str(), id, ln, true)?
+                            self.fix_aliased_import_type1(import_content.as_str(), id, ln, true)?
                         }
                     };
 
