@@ -226,10 +226,15 @@ optional toc-item current-section:
 optional toc-item current-subsection:
 optional toc-item current-page:
 
+-- record key-value-data:
+string key:
+string value:
+
+
 -- record toc-ui-data:
 string id:
 optional string title:
-optional string extra_data:
+key-value-data list extra_data:
 boolean is_active:
 optional string nav_title:
 toc-ui-data list children:
@@ -240,7 +245,7 @@ boolean skip:
 optional string id:
 optional string title:
 boolean visible:
-optional string extra_data:
+key-value-data list extra_data:
 boolean is_active:
 optional string nav_title:
 toc-ui-data list toc:
@@ -250,7 +255,7 @@ boolean skip:
 -- record section-ui-data:
 string id:
 optional string title:
-optional string extra_data:
+key-value-data list extra_data:
 boolean is_active:
 optional string nav_title:
 subsection-ui-data list subsections:
