@@ -226,4 +226,35 @@ optional toc-item current-section:
 optional toc-item current-subsection:
 optional toc-item current-page:
 
+-- record toc-ui-data:
+string id:
+optional string title:
+optional string extra_data:
+boolean is_active:
+optional string nav_title:
+toc-ui-data list children:
+boolean skip:
 
+
+-- record subsection-ui-data:
+optional string id:
+optional string title:
+boolean visible:
+optional string extra_data:
+boolean is_active:
+optional string nav_title:
+toc-ui-data list toc:
+boolean skip:
+
+
+-- record section-ui-data:
+string id:
+optional string title:
+optional string extra_data:
+boolean is_active:
+optional string nav_title:
+subsection-ui-data list subsections:
+
+
+-- record sitemap-ui-data:
+section-ui-data list sections:
