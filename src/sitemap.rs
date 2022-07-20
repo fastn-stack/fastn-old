@@ -18,8 +18,8 @@ use itertools::Itertools;
 #[derive(Debug, Clone, Default)]
 pub struct Sitemap {
     pub sections: Vec<Section>,
-    pub readers: Vec<String>,
-    pub writers: Vec<String>,
+    // pub readers: Vec<String>,
+    // pub writers: Vec<String>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -107,7 +107,8 @@ pub struct Section {
     /// The above example injects the value `true` and `Hello World`
     /// to the variables `show` and `message` respectively in foo.ftd
     /// and then renders it.
-    pub extra_data: Vec<(String, String)>,
+    //    pub extra_data: Vec<(String, String)>,
+    pub extra_data: std::collections::BTreeMap<String, String>,
     pub is_active: bool,
     pub nav_title: Option<String>,
     pub subsections: Vec<Subsection>,
@@ -123,8 +124,8 @@ pub struct Section {
     /// ```
     /// default value will be `false`
     pub skip: bool,
-    pub readers: Vec<String>,
-    pub writers: Vec<String>,
+    // pub readers: Vec<String>,
+    // pub writers: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
