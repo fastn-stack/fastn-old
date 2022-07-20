@@ -1,6 +1,7 @@
 mod fetch_file;
 mod fpm_dot_ftd;
 mod get_data;
+mod get_full_sitemap;
 mod get_version_data;
 pub(crate) mod http;
 mod include;
@@ -195,6 +196,7 @@ pub fn process_sync<'a>(
         "include" => fpm::library::include::processor(section, doc, config),
         "get-data" => fpm::library::get_data::processor(section, doc, config),
         "sitemap" => fpm::library::sitemap::processor(section, doc, config),
+        "get-full-sitemap" => fpm::library::get_full_sitemap::processor(section, doc, config),
         "package-query" => fpm::library::sqlite::processor_(section, doc, config),
         "fetch-file" => fpm::library::fetch_file::processor_sync(section, doc, config),
         "package-tree" => fpm::library::package_tree::processor_sync(section, doc, config),
