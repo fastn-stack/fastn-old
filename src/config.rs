@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::convert::TryInto;
 
 /// `Config` struct keeps track of configuration parameters that is shared with the entire
@@ -36,6 +37,7 @@ pub struct Config {
     /// and table of content (`toc`). This automatically converts the documents in package into the
     /// corresponding to structure.
     pub sitemap: Option<fpm::sitemap::Sitemap>,
+    pub groups: std::collections::BTreeMap<String, Group>,
     /// `current_document` stores the document id (Eg: `foo.ftd` or `bar/foo.ftd`) which is
     /// currently in building process.
     /// It's value is injected by `fpm::build()` function according to the currently processing
@@ -48,6 +50,16 @@ pub struct Config {
     /// The key store the name of the package and value stores corresponding package data
     pub all_packages: std::collections::BTreeMap<String, fpm::Package>,
     pub downloaded_assets: std::collections::BTreeMap<String, String>,
+}
+
+// identities to group, test also
+struct Group {
+    title: String,
+    id: String,
+    identities: Vec<(String, String)>,
+    import: Vec<String>,
+    exclude: Vec<(String, String)>,
+    excluded_groups: Vec<String>,
 }
 
 impl Config {
