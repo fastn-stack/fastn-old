@@ -872,27 +872,6 @@ impl Sitemap {
         }
     }
 
-    // pub(crate) fn to_sitemap_compat(&self) {
-    //     let mut sections = vec![];
-    //     let mut subsections = vec![];
-    //     let mut toc = vec![];
-    //     let mut index = 0;
-    //     let mut current_section = None;
-    //     let mut current_subsection = None;
-    //     let mut current_page = None;
-    //     for (idx, section) in self.sections.iter().enumerate() {
-    //         subsections = section
-    //             .subsections
-    //             .iter()
-    //             .filter(|subsection| subsection.visible)
-    //             .filter(|subsection| !subsection.skip)
-    //             .map(|subsection| {
-    //                 TocItemCompat::new(subsection.id.clone(), subsection.title.clone(), true, true)
-    //             })
-    //             .collect();
-    //     }
-    // }
-
     pub(crate) fn get_sitemap_by_id(&self, id: &str) -> Option<SiteMapCompat> {
         let mut sections = vec![];
         let mut subsections = vec![];
