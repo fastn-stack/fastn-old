@@ -291,3 +291,10 @@ subsection-compat-data list subsections:
 
 -- record sitemap-compat-data:
 section-compat-data list sections:
+
+
+-- record user-group-compat:
+caption id:
+optional string title:
+optional string description:
+key-value-data list group-members:
