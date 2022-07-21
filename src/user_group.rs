@@ -55,27 +55,62 @@ pub struct UserGroupCompat {
 }
 
 impl UserGroup {
+    pub fn get_import_group_identities(&self) {
+        // case
+        /*
+        user-group b:
+        email: c
+        email: d
+        -email: a
+
+        user-group a:
+        email: a
+        email: b
+        import: b
+        -email: c
+
+        Question is should final member list should contains email `a` or not
+         */
+    }
+
     pub fn to_group_compat(&self, config: &fpm::Config) -> UserGroupCompat {
         // TODO:
         // Main logic is group_members = all_group(identities) - all_group(excluded_identities)
         // Combine all imported group identities and then exclude all group identities
 
-        // for import_identity in self.import.iter() {
-        //     let (package, identity) =
-        //         import_identity
-        //             .rsplit_once('/')
-        //             .ok_or_else(|| ftd::p1::Error::ParseError {
-        //                 message: format!(
-        //                     "import_identity: {}, does not contain `/`",
-        //                     import_identity
-        //                 ),
-        //                 doc_id: "FPM.ftd".to_string(),
-        //                 line_number: 0,
-        //             })?;
-        //     // either http of file-system
-        //     // config.package.fs_fetch_by_file_name()
-        //     // config.packages_root.join(package, "")
-        // }
+        for import_identity in self.import.iter() {
+            let (package, group_id) = import_identity
+                .rsplit_once('/')
+                .ok_or_else(|| ftd::p1::Error::ParseError {
+                    message: format!("import_identity: {}, does not contain `/`", import_identity),
+                    doc_id: "FPM.ftd".to_string(),
+                    line_number: 0,
+                })
+                .unwrap();
+            // We have to check whether that package exists or not on file system,
+            // If not available so download first and then read
+            let package_fpm_path = config.packages_root.join(package).join("FPM.ftd");
+            println!("{:?}", package_fpm_path);
+            let doc = std::fs::read_to_string(package_fpm_path).unwrap();
+            let lib = fpm::FPMLibrary::default();
+            let fpm_document = fpm::doc::parse_ftd("FPM", doc.as_str(), &lib).unwrap();
+
+            let user_groups: Vec<crate::user_group::UserGroupTemp> =
+                fpm_document.get("fpm#user-group").unwrap();
+
+            let user_group = user_groups.into_iter().find(|g| g.id.eq(group_id)).unwrap();
+
+            let user_group = user_group.to_user_group();
+
+            // {
+            //     Ok(v) => v,
+            //     Err(e) => {
+            //         return Err(fpm::Error::PackageError {
+            //             message: format!("failed to parse FPM.ftd 2: {:?}", &e),
+            //         });
+            //     }
+            // };
+        }
 
         let excluded_identities: std::collections::HashMap<&str, &str> = self
             .excluded_identities
