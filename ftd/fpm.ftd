@@ -303,12 +303,13 @@ key-value-data list group-members:
 string id:
 optional caption title:
 optional body description:
+string list import:
 string list email:
 string list -email:
-string list import:
-string list -import:
 string list github:
-string list github-team:
+string list -github:
+string list telegram:
+string list -telegram:
 
 
 -- user-group-data list user-group:
