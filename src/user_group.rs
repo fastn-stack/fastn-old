@@ -7,6 +7,9 @@ pub struct UserGroup {
     pub id: String,
     pub identities: Vec<(String, String)>,
     pub excluded_identities: Vec<(String, String)>,
+
+    /// if package name is abrark.com and it has user-group with id my-all-readers
+    /// so import string will be abrark.com/my-all-readers
     pub import: Vec<String>,
     pub description: Option<String>,
 }
@@ -17,6 +20,9 @@ pub struct UserGroupTemp {
     pub id: String,
     pub title: Option<String>,
     pub description: Option<String>,
+
+    /// if package name is abrark.com and it has user-group with id my-all-readers
+    /// so import string will be abrark.com/my-all-readers
     pub import: Vec<String>,
     pub email: Vec<String>,
     #[serde(rename = "-email")]
@@ -49,10 +55,27 @@ pub struct UserGroupCompat {
 }
 
 impl UserGroup {
-    pub fn to_group_compat(&self) -> UserGroupCompat {
+    pub fn to_group_compat(&self, config: &fpm::Config) -> UserGroupCompat {
         // TODO:
         // Main logic is group_members = all_group(identities) - all_group(excluded_identities)
-        // Combine all imported group identities and then exclude all group identites
+        // Combine all imported group identities and then exclude all group identities
+
+        // for import_identity in self.import.iter() {
+        //     let (package, identity) =
+        //         import_identity
+        //             .rsplit_once('/')
+        //             .ok_or_else(|| ftd::p1::Error::ParseError {
+        //                 message: format!(
+        //                     "import_identity: {}, does not contain `/`",
+        //                     import_identity
+        //                 ),
+        //                 doc_id: "FPM.ftd".to_string(),
+        //                 line_number: 0,
+        //             })?;
+        //     // either http of file-system
+        //     // config.package.fs_fetch_by_file_name()
+        //     // config.packages_root.join(package, "")
+        // }
 
         let excluded_identities: std::collections::HashMap<&str, &str> = self
             .excluded_identities
@@ -70,7 +93,7 @@ impl UserGroup {
             group_members: self
                 .identities
                 .iter()
-                .filter(|(k, v)| is_excluded(k.as_str(), v.as_str()))
+                .filter(|(k, v)| !is_excluded(k.as_str(), v.as_str()))
                 .map(|(key, value)| fpm::library::full_sitemap::KeyValueData {
                     key: key.clone(),
                     value: value.clone(),
@@ -148,7 +171,7 @@ pub mod processor {
         let g = config
             .groups
             .iter()
-            .map(|(_, g)| g.to_group_compat())
+            .map(|(_, g)| g.to_group_compat(config))
             .collect_vec();
         doc.from_json(&g, section)
     }
@@ -162,7 +185,7 @@ pub mod processor {
         let g = config
             .groups
             .get(id)
-            .map(|g| g.to_group_compat())
+            .map(|g| g.to_group_compat(config))
             .ok_or_else(|| ftd::p1::Error::NotFound {
                 key: format!("user-group: `{}` not found", id),
                 doc_id: doc.name.to_string(),
