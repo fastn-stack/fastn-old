@@ -36,7 +36,8 @@ pub struct Config {
     /// and table of content (`toc`). This automatically converts the documents in package into the
     /// corresponding to structure.
     pub sitemap: Option<fpm::sitemap::Sitemap>,
-    // pub groups: std::collections::BTreeMap<String, Group>,
+
+    pub groups: std::collections::BTreeMap<String, crate::user_group::UserGroup>,
     /// `current_document` stores the document id (Eg: `foo.ftd` or `bar/foo.ftd`) which is
     /// currently in building process.
     /// It's value is injected by `fpm::build()` function according to the currently processing
@@ -49,16 +50,6 @@ pub struct Config {
     /// The key store the name of the package and value stores corresponding package data
     pub all_packages: std::collections::BTreeMap<String, fpm::Package>,
     pub downloaded_assets: std::collections::BTreeMap<String, String>,
-}
-
-// identities to group, test also
-struct Group {
-    title: String,
-    id: String,
-    identities: Vec<(String, String)>,
-    import: Vec<String>,
-    exclude: Vec<(String, String)>,
-    excluded_groups: Vec<String>,
 }
 
 impl Config {
@@ -394,6 +385,7 @@ impl Config {
             current_document: None,
             all_packages: Default::default(),
             downloaded_assets: Default::default(),
+            groups: std::default::Default::default(),
         };
 
         config.sitemap = {
@@ -928,8 +920,10 @@ impl Config {
                 (root.clone(), root)
             }
             None => {
-                let original_directory: camino::Utf8PathBuf = // TODO: make async
-                    std::env::current_dir()?.canonicalize()?.try_into()?;
+                let original_directory: camino::Utf8PathBuf =
+                    tokio::fs::canonicalize(std::env::current_dir()?)
+                        .await?
+                        .try_into()?;
                 (
                     fpm::Config::get_root_path(&original_directory).await?,
                     original_directory,
@@ -1018,6 +1012,8 @@ impl Config {
             }
         }
 
+        let user_groups: Vec<crate::user_group::UserGroupTemp> = fpm_doc.get("fpm#user-group")?;
+
         let mut config = Config {
             package: package.clone(),
             packages_root: root.clone().join(".packages"),
@@ -1025,6 +1021,10 @@ impl Config {
             original_directory,
             extra_data: Default::default(),
             sitemap: None,
+            groups: user_groups
+                .into_iter()
+                .map(|u| (u.id.to_string(), u.to_user_group()))
+                .collect(),
             current_document: None,
             all_packages: Default::default(),
             downloaded_assets: Default::default(),

@@ -298,3 +298,17 @@ caption id:
 optional string title:
 optional string description:
 key-value-data list group-members:
+
+-- record user-group-data:
+string id:
+optional caption title:
+optional body description:
+string list email:
+string list -email:
+string list import:
+string list -import:
+string list github:
+string list github-team:
+
+
+-- user-group-data list user-group:
