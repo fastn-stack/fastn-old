@@ -1082,6 +1082,7 @@ impl Config {
     }
 
     pub(crate) fn get_fpm_document(&self, package_name: &str) -> fpm::Result<ftd::p2::Document> {
+        // TODO: check if self package or imported package
         let package_fpm_path = self.packages_root.join(package_name).join("FPM.ftd");
         let doc = std::fs::read_to_string(package_fpm_path)?;
         let lib = fpm::FPMLibrary::default();

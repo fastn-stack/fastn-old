@@ -299,17 +299,17 @@ optional string title:
 optional string description:
 key-value-data list group-members:
 
+; Need to think of a type like object
 -- record user-group-data:
 string id:
 optional caption title:
 optional body description:
-string list import:
+string list group:
 string list email:
 string list -email:
 string list github:
 string list -github:
 string list telegram:
 string list -telegram:
-
 
 -- user-group-data list user-group:
