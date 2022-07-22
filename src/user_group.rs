@@ -1,4 +1,5 @@
 use itertools::Itertools;
+use std::collections::{HashMap, HashSet};
 
 // identities to group, test also
 #[derive(Debug, Clone)]
@@ -55,84 +56,101 @@ pub struct UserGroupCompat {
 }
 
 impl UserGroup {
-    pub fn get_import_group_identities(&self) {
-        // case
-        /*
-        user-group b:
-        email: c
-        email: d
-        -email: a
+    fn a_minus_b_ref<'a>(
+        a: &'a [(&'a str, &'a str)],
+        b: &'a [(&'a str, &'a str)],
+    ) -> Vec<&'a (&'a str, &'a str)> {
+        let mut excluded: HashMap<_, HashSet<_>> = HashMap::new();
+        for (k, v) in b {
+            if excluded.contains_key(k) {
+                let t = excluded.get_mut(k).unwrap();
+                t.insert(v);
+            } else {
+                let mut t = HashSet::new();
+                t.insert(v);
+                excluded.insert(k, t);
+            }
+        }
 
-        user-group a:
-        email: a
-        email: b
-        import: b
-        -email: c
+        let is_in_b = |k: &str, v: &str| {
+            if let Some(set) = excluded.get(&k) {
+                return set.contains(&v);
+            }
+            false
+        };
+        a.into_iter().filter(|(k, v)| !is_in_b(k, v)).collect_vec()
+    }
 
-        Question is should final member list should contains email `a` or not
-         */
+    fn a_minus_b<'a>(
+        a: &'a Vec<(String, String)>,
+        b: &'a Vec<(String, String)>,
+    ) -> Vec<(String, String)> {
+        let mut excluded: HashMap<_, HashSet<_>> = HashMap::new();
+        for (k, v) in b {
+            if excluded.contains_key(k) {
+                let t = excluded.get_mut(k).unwrap();
+                t.insert(v);
+            } else {
+                let mut t = HashSet::new();
+                t.insert(v);
+                excluded.insert(k, t);
+            }
+        }
+        let is_in_b = |k: &String, v: &String| {
+            if let Some(set) = excluded.get(&k) {
+                return set.contains(v);
+            }
+            false
+        };
+        //TODO: Remove .map(|(k, v)| (k.to_string(), v.to_string()))
+        a.into_iter()
+            .filter(|(k, v)| !is_in_b(k, v))
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect_vec()
+    }
+
+    pub fn get_group_members(&self, config: &fpm::Config) -> Vec<(String, String)> {
+        if self.import.len() == 0 {
+            return UserGroup::a_minus_b(&self.identities, &self.excluded_identities);
+        }
+
+        let mut group_identities = vec![];
+        for group in self.import.iter() {
+            let (package, group_id) = group
+                .rsplit_once('/')
+                .ok_or_else(|| ftd::p1::Error::ParseError {
+                    message: format!("import_identity: {}, does not contain `/`", group),
+                    doc_id: "FPM.ftd".to_string(),
+                    line_number: 0,
+                })
+                .unwrap();
+
+            // TODO: Remove unwrap
+            let fpm_document = config.get_fpm_document(package).unwrap();
+            let user_groups: Vec<UserGroupTemp> = fpm_document.get("fpm#user-group").unwrap();
+            let user_group = user_groups.into_iter().find(|g| g.id.eq(group_id)).unwrap();
+            let user_group = user_group.to_user_group();
+            let user_group_members = user_group.get_group_members(config);
+            group_identities.extend(user_group_members);
+        }
+
+        //TODO: Remove Clone
+        group_identities.extend(self.identities.clone());
+        return UserGroup::a_minus_b(&group_identities, &self.excluded_identities);
     }
 
     pub fn to_group_compat(&self, config: &fpm::Config) -> UserGroupCompat {
         // TODO:
         // Main logic is group_members = all_group(identities) - all_group(excluded_identities)
         // Combine all imported group identities and then exclude all group identities
-
-        for import_identity in self.import.iter() {
-            let (package, group_id) = import_identity
-                .rsplit_once('/')
-                .ok_or_else(|| ftd::p1::Error::ParseError {
-                    message: format!("import_identity: {}, does not contain `/`", import_identity),
-                    doc_id: "FPM.ftd".to_string(),
-                    line_number: 0,
-                })
-                .unwrap();
-            // We have to check whether that package exists or not on file system,
-            // If not available so download first and then read
-            let package_fpm_path = config.packages_root.join(package).join("FPM.ftd");
-            println!("{:?}", package_fpm_path);
-            let doc = std::fs::read_to_string(package_fpm_path).unwrap();
-            let lib = fpm::FPMLibrary::default();
-            let fpm_document = fpm::doc::parse_ftd("FPM", doc.as_str(), &lib).unwrap();
-
-            let user_groups: Vec<crate::user_group::UserGroupTemp> =
-                fpm_document.get("fpm#user-group").unwrap();
-
-            let user_group = user_groups.into_iter().find(|g| g.id.eq(group_id)).unwrap();
-
-            let user_group = user_group.to_user_group();
-
-            // {
-            //     Ok(v) => v,
-            //     Err(e) => {
-            //         return Err(fpm::Error::PackageError {
-            //             message: format!("failed to parse FPM.ftd 2: {:?}", &e),
-            //         });
-            //     }
-            // };
-        }
-
-        let excluded_identities: std::collections::HashMap<&str, &str> = self
-            .excluded_identities
-            .iter()
-            .map(|(k, v)| (k.as_str(), v.as_str()))
-            .collect();
-
-        let is_excluded =
-            |key: &str, value: &str| excluded_identities.get(key).map_or(false, |v| v.eq(&value));
-
         UserGroupCompat {
             id: self.id.clone(),
             title: self.title.clone(),
             description: self.description.clone(),
             group_members: self
-                .identities
-                .iter()
-                .filter(|(k, v)| !is_excluded(k.as_str(), v.as_str()))
-                .map(|(key, value)| fpm::library::full_sitemap::KeyValueData {
-                    key: key.clone(),
-                    value: value.clone(),
-                })
+                .get_group_members(config)
+                .into_iter()
+                .map(|(key, value)| fpm::library::full_sitemap::KeyValueData { key, value })
                 .collect_vec(),
         }
     }

@@ -1080,6 +1080,13 @@ impl Config {
         self.all_packages
             .insert(package.name.to_string(), package.to_owned());
     }
+
+    pub(crate) fn get_fpm_document(&self, package_name: &str) -> fpm::Result<ftd::p2::Document> {
+        let package_fpm_path = self.packages_root.join(package_name).join("FPM.ftd");
+        let doc = std::fs::read_to_string(package_fpm_path)?;
+        let lib = fpm::FPMLibrary::default();
+        Ok(fpm::doc::parse_ftd("FPM", doc.as_str(), &lib)?)
+    }
 }
 
 /// `find_root_for_file()` starts with the given path, which is the current directory where the
