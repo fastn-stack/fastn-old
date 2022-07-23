@@ -324,6 +324,12 @@ pub enum ParseError {
         message: String,
         row_content: String,
     },
+    #[error("InvalidUserGroup: {doc_id} -> {message} -> Row Content: {row_content}")]
+    InvalidUserGroup {
+        doc_id: String,
+        message: String,
+        row_content: String,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]

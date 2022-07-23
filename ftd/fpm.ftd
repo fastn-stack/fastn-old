@@ -304,12 +304,7 @@ key-value-data list group-members:
 string id:
 optional caption title:
 optional body description:
+string list i:
 string list group:
-string list email:
-string list -email:
-string list github:
-string list -github:
-string list telegram:
-string list -telegram:
 
 -- user-group-data list user-group:

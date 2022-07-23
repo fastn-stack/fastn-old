@@ -1012,7 +1012,12 @@ impl Config {
             }
         }
 
+        // TODO: Check all groups have unique identity
         let user_groups: Vec<crate::user_group::UserGroupTemp> = fpm_doc.get("fpm#user-group")?;
+        let mut groups = std::collections::BTreeMap::new();
+        for group in user_groups.into_iter() {
+            groups.insert(group.id.to_string(), group.to_user_group()?);
+        }
 
         let mut config = Config {
             package: package.clone(),
@@ -1021,10 +1026,7 @@ impl Config {
             original_directory,
             extra_data: Default::default(),
             sitemap: None,
-            groups: user_groups
-                .into_iter()
-                .map(|u| (u.id.to_string(), u.to_user_group()))
-                .collect(),
+            groups,
             current_document: None,
             all_packages: Default::default(),
             downloaded_assets: Default::default(),

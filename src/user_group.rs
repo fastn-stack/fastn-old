@@ -22,20 +22,21 @@ pub struct UserGroupTemp {
     pub id: String,
     pub title: Option<String>,
     pub description: Option<String>,
-
-    /// if package name is abrark.com and it has user-group with id my-all-readers
-    /// so import string will be abrark.com/my-all-readers
-    /// keys should be dynamic
+    pub i: Vec<String>,
     pub group: Vec<String>,
-    pub email: Vec<String>,
-    #[serde(rename = "-email")]
-    pub excluded_email: Vec<String>,
-    pub github: Vec<String>,
-    #[serde(rename = "-github")]
-    pub excluded_github: Vec<String>,
-    pub telegram: Vec<String>,
-    #[serde(rename = "-telegram")]
-    pub excluded_telegram: Vec<String>,
+    // if package name is abrark.com and it has user-group with id my-all-readers
+    // so import string will be abrark.com/my-all-readers
+    // keys should be dynamic
+    // pub group: Vec<String>,
+    // pub email: Vec<String>,
+    // #[serde(rename = "-email")]
+    // pub excluded_email: Vec<String>,
+    // pub github: Vec<String>,
+    // #[serde(rename = "-github")]
+    // pub excluded_github: Vec<String>,
+    // pub telegram: Vec<String>,
+    // #[serde(rename = "-telegram")]
+    // pub excluded_telegram: Vec<String>,
 }
 
 /*
@@ -83,59 +84,39 @@ impl UserGroup {
 }
 
 impl UserGroupTemp {
-    pub fn to_user_group(self) -> UserGroup {
-        let identities = {
-            let mut identities = vec![];
-            identities.extend(
-                self.email
-                    .into_iter()
-                    .map(|identity| ("email".to_string(), identity)),
-            );
+    fn parse_identity(i: &str) -> fpm::Result<(String, String)> {
+        let (key, value) = i.split_once(':').ok_or_else(|| {
+            fpm::Error::SitemapParseError(fpm::sitemap::ParseError::InvalidUserGroup {
+                doc_id: "FPM.ftd".to_string(),
+                message: "can not parse provided identity".to_string(),
+                row_content: format!("provided identity: {}", i),
+            })
+        })?;
 
-            identities.extend(
-                self.github
-                    .into_iter()
-                    .map(|identity| ("github".to_string(), identity)),
-            );
+        Ok((key.trim().to_string(), value.trim().to_string()))
+    }
 
-            identities.extend(
-                self.telegram
-                    .into_iter()
-                    .map(|identity| ("telegram".to_string(), identity)),
-            );
-            identities
-        };
+    pub fn to_user_group(self) -> fpm::Result<UserGroup> {
+        let mut identities = vec![];
+        let mut excluded_identities = vec![];
 
-        let excluded_identities = {
-            let mut excluded_identities = vec![];
-            excluded_identities.extend(
-                self.excluded_email
-                    .into_iter()
-                    .map(|identity| ("email".to_string(), identity)),
-            );
+        for identity in self.i.iter() {
+            let (key, value) = UserGroupTemp::parse_identity(identity)?;
+            if key.starts_with("-") {
+                excluded_identities.push((key, value));
+            } else {
+                identities.push((key, value));
+            }
+        }
 
-            excluded_identities.extend(
-                self.excluded_github
-                    .into_iter()
-                    .map(|identity| ("github".to_string(), identity)),
-            );
-
-            excluded_identities.extend(
-                self.excluded_telegram
-                    .into_iter()
-                    .map(|identity| ("telegram".to_string(), identity)),
-            );
-            excluded_identities
-        };
-
-        UserGroup {
+        Ok(UserGroup {
             id: self.id,
             description: self.description,
             identities,
             excluded_identities,
             title: self.title,
             groups: self.group,
-        }
+        })
     }
 }
 
