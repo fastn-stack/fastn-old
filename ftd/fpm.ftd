@@ -301,10 +301,22 @@ key-value-data list group-members:
 
 ; Need to think of a type like object
 -- record user-group-data:
-string id:
+caption id:
 optional caption title:
 optional body description:
-string list i:
+string list email:
+string list -email:
+string list domain:
+string list -domain:
+string list telegram:
+string list -telegram:
+string list github:
+string list -github:
+string list github-team:
+string list -github-team:
+string list discord:
+string list -discord:
 string list group:
+string list -group:
 
 -- user-group-data list user-group:

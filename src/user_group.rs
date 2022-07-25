@@ -11,6 +11,7 @@ pub struct UserGroup {
     /// if package name is abrark.com and it has user-group with id my-all-readers
     /// so import string will be abrark.com/my-all-readers
     pub groups: Vec<String>,
+    pub excluded_groups: Vec<String>,
     pub description: Option<String>,
 }
 
@@ -19,24 +20,40 @@ pub struct UserGroup {
 
 #[derive(serde::Deserialize, Debug)]
 pub struct UserGroupTemp {
+    // if package name is abrark.com and it has user-group with id my-all-readers
+    // so group string will be abrark.com/my-all-readers
+    // keys should be dynamic
     pub id: String,
     pub title: Option<String>,
     pub description: Option<String>,
-    pub i: Vec<String>,
-    pub group: Vec<String>,
-    // if package name is abrark.com and it has user-group with id my-all-readers
-    // so import string will be abrark.com/my-all-readers
-    // keys should be dynamic
-    // pub group: Vec<String>,
-    // pub email: Vec<String>,
-    // #[serde(rename = "-email")]
-    // pub excluded_email: Vec<String>,
-    // pub github: Vec<String>,
-    // #[serde(rename = "-github")]
-    // pub excluded_github: Vec<String>,
-    // pub telegram: Vec<String>,
-    // #[serde(rename = "-telegram")]
-    // pub excluded_telegram: Vec<String>,
+    #[serde(rename = "group")]
+    pub groups: Vec<String>,
+    #[serde(rename = "-group")]
+    pub excluded_group: Vec<String>,
+    #[serde(rename = "email")]
+    pub email: Vec<String>,
+    #[serde(rename = "-email")]
+    pub excluded_email: Vec<String>,
+    #[serde(rename = "domain")]
+    pub domain: Vec<String>,
+    #[serde(rename = "-domain")]
+    pub excluded_domain: Vec<String>,
+    #[serde(rename = "telegram")]
+    pub telegram: Vec<String>,
+    #[serde(rename = "-telegram")]
+    pub excluded_telegram: Vec<String>,
+    #[serde(rename = "github")]
+    pub github: Vec<String>,
+    #[serde(rename = "-github")]
+    pub excluded_github: Vec<String>,
+    #[serde(rename = "github-team")]
+    pub github_team: Vec<String>,
+    #[serde(rename = "-github-team")]
+    pub excluded_github_team: Vec<String>,
+    #[serde(rename = "discord")]
+    pub discord: Vec<String>,
+    #[serde(rename = "-discord")]
+    pub excluded_discord: Vec<String>,
 }
 
 /*
@@ -84,30 +101,29 @@ impl UserGroup {
 }
 
 impl UserGroupTemp {
-    fn parse_identity(i: &str) -> fpm::Result<(String, String)> {
-        let (key, value) = i.split_once(':').ok_or_else(|| {
-            fpm::Error::SitemapParseError(fpm::sitemap::ParseError::InvalidUserGroup {
-                doc_id: "FPM.ftd".to_string(),
-                message: "can not parse provided identity".to_string(),
-                row_content: format!("provided identity: {}", i),
-            })
-        })?;
-
-        Ok((key.trim().to_string(), value.trim().to_string()))
-    }
-
     pub fn to_user_group(self) -> fpm::Result<UserGroup> {
         let mut identities = vec![];
         let mut excluded_identities = vec![];
 
-        for identity in self.i.iter() {
-            let (key, value) = UserGroupTemp::parse_identity(identity)?;
-            if key.starts_with("-") {
-                excluded_identities.push((key, value));
-            } else {
-                identities.push((key, value));
-            }
+        fn to_key_value(name: &str, values: Vec<String>) -> Vec<(String, String)> {
+            values
+                .into_iter()
+                .map(|v| (name.to_string(), v))
+                .collect_vec()
         }
+
+        identities.extend(to_key_value("email", self.email));
+        excluded_identities.extend(to_key_value("-email", self.excluded_email));
+        identities.extend(to_key_value("domain", self.domain));
+        excluded_identities.extend(to_key_value("-domain", self.excluded_domain));
+        identities.extend(to_key_value("domain", self.telegram));
+        excluded_identities.extend(to_key_value("-telegram", self.excluded_telegram));
+        identities.extend(to_key_value("github", self.github));
+        excluded_identities.extend(to_key_value("-github", self.excluded_github));
+        identities.extend(to_key_value("github-team", self.github_team));
+        excluded_identities.extend(to_key_value("-github-team", self.excluded_github_team));
+        identities.extend(to_key_value("discord", self.discord));
+        excluded_identities.extend(to_key_value("-discord", self.excluded_discord));
 
         Ok(UserGroup {
             id: self.id,
@@ -115,7 +131,8 @@ impl UserGroupTemp {
             identities,
             excluded_identities,
             title: self.title,
-            groups: self.group,
+            groups: self.groups,
+            excluded_groups: self.excluded_group,
         })
     }
 }
