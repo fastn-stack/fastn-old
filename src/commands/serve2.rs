@@ -44,33 +44,8 @@ async fn serve_files(config: &mut fpm::Config, path: &std::path::Path) -> actix_
 fn guess_mime_type(path: &str) -> mime_guess::Mime {
     mime_guess::from_path(path).first_or_octet_stream()
 }
-/*async fn handle_dash(
-    req: &actix_web::HttpRequest,
-    config: &fpm::Config,
-    path: std::path::PathBuf,
-) -> actix_web::HttpResponse {
-    let new_path = match path.to_str() {
-        Some(s) => s.replace("-/", ""),
-        None => {
-            println!("handle_dash: Not able to convert path");
-            return actix_web::HttpResponse::InternalServerError().body("".as_bytes());
-        }
-    };
 
-    let file_path = if new_path.starts_with(&config.package.name) {
-        std::path::PathBuf::new().join(
-            new_path
-                .strip_prefix(&(config.package.name.to_string() + "/"))
-                .unwrap(),
-        )
-    } else {
-        std::path::PathBuf::new().join(".packages").join(new_path)
-    };
-
-    server_static_file(req, file_path).await
-}*/
-
-async fn server_fpm_file(config: &fpm::Config) -> actix_web::HttpResponse {
+async fn serve_fpm_file(config: &fpm::Config) -> actix_web::HttpResponse {
     let response =
         match tokio::fs::read(config.get_root_for_package(&config.package).join("FPM.ftd")).await {
             Ok(res) => res,
@@ -84,7 +59,7 @@ async fn server_fpm_file(config: &fpm::Config) -> actix_web::HttpResponse {
         .body(response)
 }
 
-async fn server_static_file(
+async fn static_file(
     req: &actix_web::HttpRequest,
     file_path: std::path::PathBuf,
 ) -> actix_web::HttpResponse {
@@ -109,9 +84,9 @@ async fn serve(req: actix_web::HttpRequest) -> actix_web::HttpResponse {
     let time = std::time::Instant::now();
     let favicon = std::path::PathBuf::new().join("favicon.ico");
     let response = if path.eq(&favicon) {
-        server_static_file(&req, favicon).await
+        static_file(&req, favicon).await
     } else if path.eq(&std::path::PathBuf::new().join("FPM.ftd")) {
-        server_fpm_file(&config).await
+        serve_fpm_file(&config).await
     } else if path.eq(&std::path::PathBuf::new().join("")) {
         serve_files(&mut config, &path.join("/")).await
     } else {
@@ -122,7 +97,7 @@ async fn serve(req: actix_web::HttpRequest) -> actix_web::HttpResponse {
 }
 
 #[actix_web::main]
-pub async fn serve2(bind_address: &str, port: Option<u16>) -> std::io::Result<()> {
+pub async fn fpm_serve(bind_address: &str, port: Option<u16>) -> std::io::Result<()> {
     if cfg!(feature = "controller") {
         // fpm-controller base path and ec2 instance id (hardcoded for now)
         let fpm_controller: String = std::env::var("FPM_CONTROLLER")
