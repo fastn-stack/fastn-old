@@ -98,6 +98,16 @@ impl UserGroup {
                 .collect_vec(),
         }
     }
+
+    // This function will check whether given identities are part or given groups or not,
+    // It will return true if all are part of provided groups
+    pub fn belongs_to(_identities: &[&str], _groups: &[UserGroup]) -> fpm::Result<bool> {
+        Ok(false)
+    }
+
+    // TODO: Both should be part of config sitemap functions
+    // pub fn readers(doc_path: &str) -> fpm::Result<UserGroup> {}
+    // pub fn writers(doc_path: &str) -> fpm::Result<UserGroup> {}
 }
 
 impl UserGroupTemp {

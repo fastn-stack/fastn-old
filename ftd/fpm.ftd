@@ -30,6 +30,8 @@ string list implements:
 
 
 -- optional string sitemap:
+/string list readers:
+/string list writers:
 
 
 
@@ -267,6 +269,9 @@ boolean is-active:
 optional string nav-title:
 toc-compat-data list children:
 boolean skip:
+string list readers:
+string list writers:
+
 
 
 -- record subsection-compat-data:
@@ -278,6 +283,9 @@ boolean is-active:
 optional string nav-title:
 toc-compat-data list toc:
 boolean skip:
+string list readers:
+string list writers:
+
 
 
 -- record section-compat-data:
@@ -287,10 +295,14 @@ key-value-data list extra-data:
 boolean is-active:
 optional string nav-title:
 subsection-compat-data list subsections:
+string list readers:
+string list writers:
 
 
 -- record sitemap-compat-data:
 section-compat-data list sections:
+string list readers:
+string list writers:
 
 
 -- record user-group-compat:
