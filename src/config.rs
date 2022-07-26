@@ -821,10 +821,7 @@ impl Config {
 
         // TODO: Check all groups have unique identity
         let user_groups: Vec<crate::user_group::UserGroupTemp> = fpm_doc.get("fpm#user-group")?;
-        let mut groups = std::collections::BTreeMap::new();
-        for group in user_groups.into_iter() {
-            groups.insert(group.id.to_string(), group.to_user_group()?);
-        }
+        let groups = crate::user_group::UserGroupTemp::user_groups(user_groups)?;
 
         let mut config = Config {
             package: package.clone(),
