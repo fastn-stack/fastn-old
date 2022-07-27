@@ -1,7 +1,7 @@
 use itertools::Itertools;
 
 // identities to group, test also
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct UserGroup {
     pub title: Option<String>,
     pub id: String,
@@ -99,15 +99,12 @@ impl UserGroup {
         }
     }
 
+    // TODO:
     // This function will check whether given identities are part or given groups or not,
     // It will return true if all are part of provided groups
     // pub fn belongs_to(_identities: &[&str], _groups: &[UserGroup]) -> fpm::Result<bool> {
     //     Ok(false)
     // }
-
-    // TODO: Both should be part of config sitemap functions
-    // pub fn readers(doc_path: &str) -> fpm::Result<Vec<UserGroup>> {}
-    // pub fn writers(doc_path: &str) -> fpm::Result<Vec<UserGroup>> {}
 }
 
 impl UserGroupTemp {

@@ -1298,6 +1298,167 @@ impl Sitemap {
             None
         }
     }
+
+    /// This function will return all the readers and readers which are inherited from parent
+    /// # Section1: /foo/
+    /// readers: r1
+    /// ## Subsection: /api/
+    /// readers: r2
+    /// - Toc API1: /get-identity/
+    /// readers: r3
+    /// doc_path: /foo/api/get-identity/
+
+    pub fn readers<'a>(
+        &self,
+        doc_path: &str,
+        groups: &'a std::collections::BTreeMap<String, fpm::user_group::UserGroup>,
+    ) -> Vec<&'a fpm::user_group::UserGroup> {
+        for section in self.sections.iter() {
+            let readers = find_section(section, doc_path);
+            if readers.is_empty() {
+                continue;
+            }
+            let readers: Vec<String> = self.readers.iter().cloned().chain(readers).collect();
+            return readers.iter().filter_map(|g| groups.get(g)).collect();
+        }
+
+        return vec![];
+
+        fn find_toc(toc: &TocItem, doc_path: &str) -> Vec<String> {
+            if toc.id.eq(doc_path) {
+                return toc.readers.clone();
+            }
+
+            for child in toc.children.iter() {
+                let readers = find_toc(child, doc_path);
+                if readers.is_empty() {
+                    continue;
+                }
+                return readers
+                    .into_iter()
+                    .chain(toc.readers.iter().cloned())
+                    .collect();
+            }
+            vec![]
+        }
+
+        fn find_subsection(subsection: &Subsection, doc_path: &str) -> Vec<String> {
+            if subsection
+                .id
+                .as_ref()
+                .map(|id| id.eq(doc_path))
+                .unwrap_or(false)
+            {
+                return subsection.readers.clone();
+            }
+
+            for toc in subsection.toc.iter() {
+                let readers = find_toc(toc, doc_path);
+                if readers.is_empty() {
+                    continue;
+                }
+                return readers
+                    .into_iter()
+                    .chain(subsection.readers.iter().cloned())
+                    .collect();
+            }
+            vec![]
+        }
+
+        fn find_section(section: &Section, doc_path: &str) -> Vec<String> {
+            if section.id.eq(doc_path) {
+                return section.readers.clone();
+            }
+
+            for subsection in section.subsections.iter() {
+                let readers = find_subsection(subsection, doc_path);
+                if readers.is_empty() {
+                    continue;
+                }
+                return readers
+                    .into_iter()
+                    .chain(section.readers.iter().cloned())
+                    .collect();
+            }
+            vec![]
+        }
+    }
+
+    pub fn writers<'a>(
+        &self,
+        doc_path: &str,
+        groups: &'a std::collections::BTreeMap<String, fpm::user_group::UserGroup>,
+    ) -> Vec<&'a fpm::user_group::UserGroup> {
+        for section in self.sections.iter() {
+            let writers = find_section(section, doc_path);
+            if writers.is_empty() {
+                continue;
+            }
+            let writers: Vec<String> = self.writers.iter().cloned().chain(writers).collect();
+            return writers.iter().filter_map(|g| groups.get(g)).collect();
+        }
+
+        return vec![];
+
+        fn find_toc(toc: &TocItem, doc_path: &str) -> Vec<String> {
+            if toc.id.eq(doc_path) {
+                return toc.writers.clone();
+            }
+
+            for child in toc.children.iter() {
+                let writers = find_toc(child, doc_path);
+                if writers.is_empty() {
+                    continue;
+                }
+                return writers
+                    .into_iter()
+                    .chain(toc.writers.iter().cloned())
+                    .collect();
+            }
+            vec![]
+        }
+
+        fn find_subsection(subsection: &Subsection, doc_path: &str) -> Vec<String> {
+            if subsection
+                .id
+                .as_ref()
+                .map(|id| id.eq(doc_path))
+                .unwrap_or(false)
+            {
+                return subsection.writers.clone();
+            }
+
+            for toc in subsection.toc.iter() {
+                let writers = find_toc(toc, doc_path);
+                if writers.is_empty() {
+                    continue;
+                }
+                return writers
+                    .into_iter()
+                    .chain(subsection.writers.iter().cloned())
+                    .collect();
+            }
+            vec![]
+        }
+
+        fn find_section(section: &Section, doc_path: &str) -> Vec<String> {
+            if section.id.eq(doc_path) {
+                return section.writers.clone();
+            }
+
+            for subsection in section.subsections.iter() {
+                let writers = find_subsection(subsection, doc_path);
+                if writers.is_empty() {
+                    continue;
+                }
+                return writers
+                    .into_iter()
+                    .chain(section.writers.iter().cloned())
+                    .collect();
+            }
+            vec![]
+        }
+    }
 }
 
 #[derive(Debug)]
