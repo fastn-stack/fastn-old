@@ -613,7 +613,6 @@ impl Sitemap {
         }
         let mut sitemap = Sitemap {
             sections: construct_tree_util(parser.finalize()?),
-            // TODO:
             readers: vec![],
             writers: vec![],
         };
