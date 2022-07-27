@@ -28,10 +28,13 @@ string list implements:
 -- string list auto-import:
 
 
+-- record sitemap-rec:
+string list readers:
+string list writers:
+body sitemap-body:
 
--- optional string sitemap:
-/string list readers:
-/string list writers:
+
+-- optional sitemap-rec sitemap:
 
 
 

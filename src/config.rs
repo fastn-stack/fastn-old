@@ -819,7 +819,6 @@ impl Config {
             }
         }
 
-        // TODO: Check all groups have unique identity
         let user_groups: Vec<crate::user_group::UserGroupTemp> = fpm_doc.get("fpm#user-group")?;
         let groups = crate::user_group::UserGroupTemp::user_groups(user_groups)?;
 
@@ -845,18 +844,22 @@ impl Config {
             }
             .sitemap
             .as_ref();
+
             let sitemap = match sitemap {
-                Some(data) => Some(
-                    fpm::sitemap::Sitemap::parse(
-                        data.as_str(),
+                Some(sitemap_temp) => {
+                    let mut s = fpm::sitemap::Sitemap::parse(
+                        sitemap_temp.body.as_str(),
                         &package,
                         &mut config,
                         &asset_documents,
                         "/",
                         resolve_sitemap,
                     )
-                    .await?,
-                ),
+                    .await?;
+                    s.readers = sitemap_temp.readers.clone();
+                    s.writers = sitemap_temp.writers.clone();
+                    Some(s)
+                }
                 None => None,
             };
             sitemap
@@ -1005,7 +1008,7 @@ pub struct Package {
     /// sitemap stores the structure of the package. The structure includes sections, subsections
     /// and table of content (`toc`). This automatically converts the documents in package into the
     /// corresponding to structure.
-    pub sitemap: Option<String>,
+    pub sitemap: Option<fpm::sitemap::SitemapTemp>,
     /// Optional path for favicon icon to be used.
     ///
     /// By default if any file favicon.* is present in package and favicon is not specified

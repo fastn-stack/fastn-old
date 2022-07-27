@@ -379,6 +379,14 @@ pub struct SitemapParser {
     doc_name: String,
 }
 
+#[derive(Debug, serde::Deserialize, Clone)]
+pub struct SitemapTemp {
+    #[serde(rename = "sitemap-body")]
+    pub body: String,
+    pub readers: Vec<String>,
+    pub writers: Vec<String>,
+}
+
 impl SitemapParser {
     pub fn read_line(&mut self, line: &str) -> Result<(), ParseError> {
         // The row could be one of the 4 things:
