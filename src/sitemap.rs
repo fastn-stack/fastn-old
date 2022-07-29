@@ -1300,14 +1300,6 @@ impl Sitemap {
     }
 
     /// This function will return all the readers and readers which are inherited from parent
-    /// # Section1: /foo/
-    /// readers: r1
-    /// ## Subsection: /api/
-    /// readers: r2
-    /// - Toc API1: /get-identity/
-    /// readers: r3
-    /// doc_path: /foo/api/get-identity/
-
     pub fn readers<'a>(
         &self,
         doc_path: &str,
@@ -1319,7 +1311,11 @@ impl Sitemap {
                 continue;
             }
             let readers: Vec<String> = self.readers.iter().cloned().chain(readers).collect();
-            return readers.iter().filter_map(|g| groups.get(g)).collect();
+            return readers
+                .iter()
+                .unique()
+                .filter_map(|g| groups.get(g))
+                .collect();
         }
 
         return vec![];
@@ -1395,7 +1391,11 @@ impl Sitemap {
                 continue;
             }
             let writers: Vec<String> = self.writers.iter().cloned().chain(writers).collect();
-            return writers.iter().filter_map(|g| groups.get(g)).collect();
+            return writers
+                .iter()
+                .unique()
+                .filter_map(|g| groups.get(g))
+                .collect();
         }
 
         return vec![];

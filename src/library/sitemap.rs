@@ -31,6 +31,7 @@ pub fn document_readers(
     doc: &ftd::p2::TDoc,
     config: &fpm::Config,
 ) -> ftd::p1::Result<ftd::Value> {
+    // TODO: document key should be optional
     let document =
         section
             .header
@@ -54,6 +55,7 @@ pub fn document_writers(
     doc: &ftd::p2::TDoc,
     config: &fpm::Config,
 ) -> ftd::p1::Result<ftd::Value> {
+    // TODO: document key should be optional
     let document =
         section
             .header

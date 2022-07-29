@@ -1,5 +1,3 @@
-use itertools::Itertools;
-
 // identities to group, test also
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct UserGroup {
@@ -77,6 +75,7 @@ pub struct UserGroupCompat {
 
 impl UserGroup {
     pub fn to_group_compat(&self) -> UserGroupCompat {
+        use itertools::Itertools;
         let mut group_members = vec![];
 
         group_members.extend(self.identities.clone());
@@ -144,6 +143,7 @@ impl UserGroupTemp {
 
     #[allow(clippy::wrong_self_convention)]
     pub fn to_user_group(self) -> fpm::Result<UserGroup> {
+        use itertools::Itertools;
         let mut identities = vec![];
         let mut excluded_identities = vec![];
 
