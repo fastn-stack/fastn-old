@@ -405,6 +405,12 @@ impl Library2 {
             "user-group-by-id" => {
                 fpm::user_group::processor::user_group_by_id(section, doc, &self.config)
             }
+            "document-id" => document::processor::document_id(section, doc, &self.config),
+            "document-full-id" => document::processor::document_full_id(section, doc, &self.config),
+            "document-filename" => {
+                document::processor::document_filename(section, doc, &self.config)
+            }
+            "document-suffix" => document::processor::document_suffix(section, doc, &self.config),
             "package-tree" => {
                 fpm::library::package_tree::processor(section, doc, &self.config).await
             }
