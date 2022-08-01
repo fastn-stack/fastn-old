@@ -376,6 +376,7 @@ impl Config {
 
     pub async fn get_file_and_package_by_id(&mut self, id: &str) -> fpm::Result<fpm::File> {
         let file_name = self.get_file_path_and_resolve(id).await?;
+        dbg!(&file_name);
         let package = self.find_package_by_id(id).await?.1;
         let mut file = fpm::get_file(
             package.name.to_string(),
@@ -397,10 +398,21 @@ impl Config {
         Ok(file)
     }
 
+    pub async fn get_file_path(&self, id: &str) -> fpm::Result<String> {
+        unimplemented!()
+    }
+
+    pub fn doc_id(&self) -> Option<String> {
+        self.current_document
+            .clone()
+            .map(|v| fpm::utils::id_to_path(v.as_str()))
+            .map(|v| v.trim().replace(std::path::MAIN_SEPARATOR, "/"))
+    }
+
     pub(crate) async fn get_file_path_and_resolve(&mut self, id: &str) -> fpm::Result<String> {
         let (package_name, package) = self.find_package_by_id(id).await?;
-        let package = self.resolve_package(&package).await?;
-        self.add_package(&package);
+        //let package = self.resolve_package(&package).await?;
+        //self.add_package(&package);
         let mut id = id.to_string();
         let mut add_packages = "".to_string();
         if let Some(new_id) = id.strip_prefix("-/") {
