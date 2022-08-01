@@ -1,3 +1,4 @@
+mod document;
 mod fetch_file;
 mod fpm_dot_ftd;
 pub(crate) mod full_sitemap;
@@ -207,6 +208,10 @@ pub fn process_sync<'a>(
         "package-query" => fpm::library::sqlite::processor_(section, doc, config),
         "fetch-file" => fpm::library::fetch_file::processor_sync(section, doc, config),
         "package-tree" => fpm::library::package_tree::processor_sync(section, doc, config),
+        "document-id" => document::processor::document_id(section, doc, config),
+        "document-full-id" => document::processor::document_full_id(section, doc, config),
+        "document-filename" => document::processor::document_filename(section, doc, config),
+        "document-suffix" => document::processor::document_suffix(section, doc, config),
         t => Err(ftd::p1::Error::NotFound {
             doc_id: document_id.to_string(),
             line_number: section.line_number,
