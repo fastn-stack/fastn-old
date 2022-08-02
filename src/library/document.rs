@@ -5,6 +5,7 @@ foo/abc.ftd
 document id
 /foo/abc/
 /foo/abc/-/x/y/ --> full id
+/x/y/ - suffix
 */
 
 pub mod processor {
@@ -47,13 +48,33 @@ pub mod processor {
             source: ftd::TextSource::Default,
         })
     }
-    pub fn document_filename<'a>(
+    pub async fn document_filename<'a>(
         section: &ftd::p1::Section,
         doc: &ftd::p2::TDoc<'a>,
         config: &fpm::Config,
     ) -> ftd::p1::Result<ftd::Value> {
-        unimplemented!()
+        let doc_id = config.doc_id().unwrap_or_else(|| {
+            doc.name
+                .to_string()
+                .replace(config.package.name.as_str(), "")
+        });
+
+        let file_path =
+            config
+                .get_file_path(&doc_id)
+                .await
+                .map_err(|e| ftd::p1::Error::ParseError {
+                    message: e.to_string(),
+                    doc_id: doc.name.to_string(),
+                    line_number: section.line_number,
+                })?;
+
+        Ok(ftd::Value::String {
+            text: format!("{}", file_path.trim()),
+            source: ftd::TextSource::Default,
+        })
     }
+
     pub fn document_suffix<'a>(
         section: &ftd::p1::Section,
         doc: &ftd::p2::TDoc<'a>,

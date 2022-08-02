@@ -177,6 +177,9 @@ impl Library {
                 )
                 .await
             }
+            "document-filename" => {
+                document::processor::document_filename(section, doc, &self.config).await
+            }
             _ => process_sync(&self.config, section, self.document_id.as_str(), doc),
         }
     }
@@ -210,7 +213,6 @@ pub fn process_sync<'a>(
         "package-tree" => fpm::library::package_tree::processor_sync(section, doc, config),
         "document-id" => document::processor::document_id(section, doc, config),
         "document-full-id" => document::processor::document_full_id(section, doc, config),
-        "document-filename" => document::processor::document_filename(section, doc, config),
         "document-suffix" => document::processor::document_suffix(section, doc, config),
         t => Err(ftd::p1::Error::NotFound {
             doc_id: document_id.to_string(),
@@ -411,7 +413,7 @@ impl Library2 {
             "document-id" => document::processor::document_id(section, doc, &self.config),
             "document-full-id" => document::processor::document_full_id(section, doc, &self.config),
             "document-filename" => {
-                document::processor::document_filename(section, doc, &self.config)
+                document::processor::document_filename(section, doc, &self.config).await
             }
             "document-suffix" => document::processor::document_suffix(section, doc, &self.config),
             "package-tree" => {
