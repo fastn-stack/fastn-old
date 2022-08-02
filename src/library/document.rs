@@ -86,19 +86,22 @@ pub mod processor {
                 .replace(config.package.name.as_str(), "")
         });
 
-        Ok(doc_id.split_once('/').map_or_else(
-            || ftd::Value::None {
-                kind: ftd::p2::Kind::String {
-                    caption: false,
-                    body: false,
-                    default: None,
-                    is_reference: false,
-                },
-            },
-            |(_f, s)| ftd::Value::String {
-                text: s.to_string(),
+        let value = doc_id
+            .split_once("/-/")
+            .map(|(_, y)| y.trim().to_string())
+            .map(|suffix| ftd::Value::String {
+                text: suffix,
                 source: ftd::TextSource::Default,
+            });
+
+        Ok(ftd::Value::Optional {
+            data: Box::new(value),
+            kind: ftd::p2::Kind::String {
+                caption: false,
+                body: false,
+                default: None,
+                is_reference: false,
             },
-        ))
+        })
     }
 }
