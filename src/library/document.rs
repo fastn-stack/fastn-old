@@ -70,16 +70,35 @@ pub mod processor {
                 })?;
 
         Ok(ftd::Value::String {
-            text: format!("{}", file_path.trim()),
+            text: file_path.trim().to_string(),
             source: ftd::TextSource::Default,
         })
     }
 
     pub fn document_suffix<'a>(
-        section: &ftd::p1::Section,
+        _section: &ftd::p1::Section,
         doc: &ftd::p2::TDoc<'a>,
         config: &fpm::Config,
     ) -> ftd::p1::Result<ftd::Value> {
-        unimplemented!()
+        let doc_id = config.doc_id().unwrap_or_else(|| {
+            doc.name
+                .to_string()
+                .replace(config.package.name.as_str(), "")
+        });
+
+        Ok(doc_id.split_once('/').map_or_else(
+            || ftd::Value::None {
+                kind: ftd::p2::Kind::String {
+                    caption: false,
+                    body: false,
+                    default: None,
+                    is_reference: false,
+                },
+            },
+            |(_f, s)| ftd::Value::String {
+                text: s.to_string(),
+                source: ftd::TextSource::Default,
+            },
+        ))
     }
 }
