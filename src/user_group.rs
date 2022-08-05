@@ -105,7 +105,7 @@ impl UserGroup {
         // identities, exclude identities
         // groups and excluded groups
         // Identities of a group are
-        // group.identities + For all (group.groups - group.excluded_group).identities - For all group.group.excluded_identities
+        // group.identities + (For all group.groups(g.group - g.excluded_group)).identities - group.excluded_identities
         vec![]
     }
     // TODO:
@@ -209,8 +209,7 @@ pub fn get_identities(
 
     let identities = groups
         .into_iter()
-        .map(|g| g.identities())
-        .flatten()
+        .flat_map(|g| g.identities())
         .map(|(key, value)| format!("{}: {}", key, value))
         .collect_vec();
 
