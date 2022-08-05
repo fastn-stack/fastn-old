@@ -1,0 +1,7 @@
+-- fbt:
+cmd: $FBT_CWD/target/debug/fpm --test add 1.ftd && $FBT_CWD/target/debug/fpm --test sync-status
+output: .client-state
+
+-- stdout:
+
+Added: 1.ftd
