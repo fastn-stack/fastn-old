@@ -98,6 +98,16 @@ impl UserGroup {
         }
     }
 
+    // Return group identities, convert exported groups into identities
+    // A group can also be part of similar package or a different package
+    pub fn identities(&self) -> Vec<(String, String)> {
+        // A group have
+        // identities, exclude identities
+        // groups and excluded groups
+        // Identities of a group are
+        // group.identities + For all (group.groups - group.excluded_group).identities - For all group.group.excluded_identities
+        vec![]
+    }
     // TODO:
     // This function will check whether given identities are part or given groups or not,
     // It will return true if all are part of provided groups
@@ -179,6 +189,34 @@ impl UserGroupTemp {
     }
 }
 
+pub fn get_identities(
+    config: &crate::Config,
+    doc_path: &str,
+    is_read: bool,
+) -> fpm::Result<Vec<String>> {
+    use itertools::Itertools;
+    // TODO: cookies or cli parameter
+
+    let groups = if let Some(sitemap) = &config.sitemap {
+        if is_read {
+            sitemap.readers(doc_path, &config.groups)
+        } else {
+            sitemap.writers(doc_path, &config.groups)
+        }
+    } else {
+        vec![]
+    };
+
+    let identities = groups
+        .into_iter()
+        .map(|g| g.identities())
+        .flatten()
+        .map(|(key, value)| format!("{}: {}", key, value))
+        .collect_vec();
+
+    Ok(identities)
+}
+
 pub mod processor {
     use itertools::Itertools;
 
@@ -211,6 +249,49 @@ pub mod processor {
                 line_number: section.line_number,
             })?;
         doc.from_json(&g, section)
+    }
+
+    pub fn get_identities(
+        section: &ftd::p1::Section,
+        doc: &ftd::p2::TDoc,
+        config: &fpm::Config,
+    ) -> ftd::p1::Result<ftd::Value> {
+        let full_document_id = config.doc_id().unwrap_or_else(|| {
+            doc.name
+                .to_string()
+                .replace(config.package.name.as_str(), "")
+        });
+
+        let identities =
+            super::get_identities(config, full_document_id.as_str(), true).map_err(|e| {
+                ftd::p1::Error::ParseError {
+                    message: e.to_string(),
+                    doc_id: full_document_id,
+                    line_number: section.line_number,
+                }
+            })?;
+
+        Ok(ftd::Value::List {
+            data: identities
+                .into_iter()
+                .map(|i| ftd::PropertyValue::Value {
+                    value: ftd::Value::String {
+                        text: i,
+                        source: ftd::TextSource::Default,
+                    },
+                })
+                .collect_vec(),
+            kind: ftd::p2::Kind::List {
+                kind: Box::new(ftd::p2::Kind::String {
+                    caption: false,
+                    body: false,
+                    default: None,
+                    is_reference: false,
+                }),
+                default: None,
+                is_reference: false,
+            },
+        })
     }
 }
 
