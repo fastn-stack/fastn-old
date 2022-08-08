@@ -132,7 +132,6 @@ impl UserGroup {
     pub fn get_identities(&self, config: &fpm::Config) -> fpm::Result<Vec<UserIdentity>> {
         let mut identities = vec![];
         for group in self.groups.iter() {
-            dbg!(&group);
             let group =
                 fpm::config::user_group_by_id(config, group.as_str())?.ok_or_else(|| {
                     fpm::Error::GroupNotFound {
