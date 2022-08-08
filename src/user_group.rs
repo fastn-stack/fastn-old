@@ -98,16 +98,34 @@ impl UserGroup {
         }
     }
 
-    // Return group identities, convert exported groups into identities
-    // A group can also be part of similar package or a different package
-    pub fn identities(&self) -> Vec<(String, String)> {
+    pub fn identities(&self, config: &fpm::Config) -> fpm::Result<Vec<(String, String)>> {
+        let mut identities = vec![];
+        for group in self.groups.iter() {
+            let group =
+                fpm::config::user_group_by_id(config, group.as_str())?.ok_or_else(|| {
+                    fpm::Error::GroupNotFound {
+                        message: format!("group: {}, not found in FPM.ftd", group),
+                    }
+                })?;
+            // Recursive call to get child groups identities
+            identities.extend(group.identities(config)?)
+        }
+        identities.extend(self.identities.clone());
+
+        Ok(identities)
+    }
+
+    // github: <id>
+    pub fn get_identities(&self) -> Vec<(String, String)> {
         // A group have
         // identities, exclude identities
         // groups and excluded groups
         // Identities of a group are
         // group.identities + (For all group.groups(g.group - g.excluded_group)).identities - group.excluded_identities
+        //
         vec![]
     }
+
     // TODO:
     // This function will check whether given identities are part or given groups or not,
     // It will return true if all are part of provided groups
@@ -197,7 +215,7 @@ pub fn get_identities(
     use itertools::Itertools;
     // TODO: cookies or cli parameter
 
-    let groups = if let Some(sitemap) = &config.sitemap {
+    let readers_writers = if let Some(sitemap) = &config.sitemap {
         if is_read {
             sitemap.readers(doc_path, &config.groups)
         } else {
@@ -207,9 +225,9 @@ pub fn get_identities(
         vec![]
     };
 
-    let identities = groups
+    let identities = readers_writers
         .into_iter()
-        .flat_map(|g| g.identities())
+        .flat_map(|g| g.get_identities())
         .map(|(key, value)| format!("{}: {}", key, value))
         .collect_vec();
 
