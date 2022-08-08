@@ -1959,13 +1959,3 @@ pub fn user_group_by_id(
         .into_iter()
         .find(|g| g.id.as_str() == group_id))
 }
-
-/*
-
-get_root_for_package(package)
- */
-
-/*
-if any group uses foreign groups, so need to download the
-FPM.ftd of that package as well
- */
