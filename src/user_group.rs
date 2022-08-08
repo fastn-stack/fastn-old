@@ -269,20 +269,14 @@ pub mod processor {
         doc: &ftd::p2::TDoc,
         config: &fpm::Config,
     ) -> ftd::p1::Result<ftd::Value> {
-        let full_document_id = config.doc_id().unwrap_or_else(|| {
-            doc.name
-                .to_string()
-                .replace(config.package.name.as_str(), "")
-        });
-
-        let identities =
-            super::get_identities(config, full_document_id.as_str(), true).map_err(|e| {
-                ftd::p1::Error::ParseError {
-                    message: e.to_string(),
-                    doc_id: full_document_id,
-                    line_number: section.line_number,
-                }
-            })?;
+        let doc_id = fpm::library::document::document_full_id(config, doc)?;
+        let identities = super::get_identities(config, doc_id.as_str(), true).map_err(|e| {
+            ftd::p1::Error::ParseError {
+                message: e.to_string(),
+                doc_id,
+                line_number: section.line_number,
+            }
+        })?;
 
         Ok(ftd::Value::List {
             data: identities

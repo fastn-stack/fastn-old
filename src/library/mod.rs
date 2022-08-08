@@ -1,4 +1,4 @@
-mod document;
+pub(crate) mod document;
 mod fetch_file;
 mod fpm_dot_ftd;
 pub(crate) mod full_sitemap;
