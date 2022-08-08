@@ -11,6 +11,8 @@ mod sitemap;
 mod sqlite;
 mod toc;
 
+pub use full_sitemap::KeyValueData;
+
 #[derive(Debug)]
 pub struct Library {
     pub config: fpm::Config,

@@ -1,10 +1,31 @@
 // identities to group, test also
 #[derive(Debug, Clone, serde::Serialize)]
+pub struct UserIdentity {
+    pub key: String,
+    pub value: String,
+}
+
+impl UserIdentity {
+    pub fn from(key: &str, value: &str) -> Self {
+        Self {
+            key: key.to_string(),
+            value: value.to_string(),
+        }
+    }
+}
+
+impl ToString for UserIdentity {
+    fn to_string(&self) -> String {
+        format!("{}: {}", self.key, self.value)
+    }
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct UserGroup {
     pub title: Option<String>,
     pub id: String,
-    pub identities: Vec<(String, String)>,
-    pub excluded_identities: Vec<(String, String)>,
+    pub identities: Vec<UserIdentity>,
+    pub excluded_identities: Vec<UserIdentity>,
 
     /// if package name is abrark.com and it has user-group with id my-all-readers
     /// so import string will be abrark.com/my-all-readers
@@ -75,33 +96,40 @@ pub struct UserGroupCompat {
 
 impl UserGroup {
     pub fn to_group_compat(&self) -> UserGroupCompat {
-        use itertools::Itertools;
         let mut group_members = vec![];
 
-        group_members.extend(self.identities.clone());
-        for (k, v) in self.excluded_identities.iter() {
-            group_members.push((format!("-{}", k), v.to_string()));
-        }
+        // Group Identities
+        group_members.extend(
+            self.identities
+                .clone()
+                .into_iter()
+                .map(|i| fpm::library::KeyValueData::from(i.key, i.value)),
+        );
 
-        for import in self.groups.iter() {
-            group_members.push(("group".to_string(), import.to_string()));
-        }
+        group_members.extend(
+            self.excluded_identities.iter().map(|i| {
+                fpm::library::KeyValueData::from(format!("-{}", i.key), i.value.to_string())
+            }),
+        );
+
+        group_members.extend(
+            self.groups
+                .iter()
+                .map(|i| fpm::library::KeyValueData::from("group".to_string(), i.to_string())),
+        );
 
         UserGroupCompat {
             id: self.id.clone(),
             title: self.title.clone(),
             description: self.description.clone(),
-            group_members: group_members
-                .into_iter()
-                .map(|(key, value)| fpm::library::full_sitemap::KeyValueData { key, value })
-                .collect_vec(),
+            group_members,
         }
     }
 
     // TODO: Need to handle excluded_identities and excluded_groups
     // Maybe Logic: group.identities + (For all group.groups(g.group - g.excluded_group)).identities
     //              - group.excluded_identities
-    pub fn get_identities(&self, config: &fpm::Config) -> fpm::Result<Vec<(String, String)>> {
+    pub fn get_identities(&self, config: &fpm::Config) -> fpm::Result<Vec<UserIdentity>> {
         let mut identities = vec![];
         for group in self.groups.iter() {
             let group =
@@ -167,25 +195,25 @@ impl UserGroupTemp {
         let mut identities = vec![];
         let mut excluded_identities = vec![];
 
-        fn to_key_value(name: &str, values: Vec<String>) -> Vec<(String, String)> {
+        fn to_user_identity(name: &str, values: Vec<String>) -> Vec<UserIdentity> {
             values
                 .into_iter()
-                .map(|v| (name.to_string(), v))
+                .map(|v| UserIdentity::from(name, v.as_str()))
                 .collect_vec()
         }
 
-        identities.extend(to_key_value("email", self.email));
-        excluded_identities.extend(to_key_value("-email", self.excluded_email));
-        identities.extend(to_key_value("domain", self.domain));
-        excluded_identities.extend(to_key_value("-domain", self.excluded_domain));
-        identities.extend(to_key_value("domain", self.telegram));
-        excluded_identities.extend(to_key_value("-telegram", self.excluded_telegram));
-        identities.extend(to_key_value("github", self.github));
-        excluded_identities.extend(to_key_value("-github", self.excluded_github));
-        identities.extend(to_key_value("github-team", self.github_team));
-        excluded_identities.extend(to_key_value("-github-team", self.excluded_github_team));
-        identities.extend(to_key_value("discord", self.discord));
-        excluded_identities.extend(to_key_value("-discord", self.excluded_discord));
+        identities.extend(to_user_identity("email", self.email));
+        excluded_identities.extend(to_user_identity("-email", self.excluded_email));
+        identities.extend(to_user_identity("domain", self.domain));
+        excluded_identities.extend(to_user_identity("-domain", self.excluded_domain));
+        identities.extend(to_user_identity("domain", self.telegram));
+        excluded_identities.extend(to_user_identity("-telegram", self.excluded_telegram));
+        identities.extend(to_user_identity("github", self.github));
+        excluded_identities.extend(to_user_identity("-github", self.excluded_github));
+        identities.extend(to_user_identity("github-team", self.github_team));
+        excluded_identities.extend(to_user_identity("-github-team", self.excluded_github_team));
+        identities.extend(to_user_identity("discord", self.discord));
+        excluded_identities.extend(to_user_identity("-discord", self.excluded_discord));
 
         Ok(UserGroup {
             id: self.id,
@@ -216,7 +244,7 @@ pub fn get_identities(
         vec![]
     };
 
-    let identities: fpm::Result<Vec<Vec<(String, String)>>> = readers_writers
+    let identities: fpm::Result<Vec<Vec<UserIdentity>>> = readers_writers
         .into_iter()
         .map(|g| g.get_identities(config))
         .collect();
@@ -224,7 +252,7 @@ pub fn get_identities(
     let identities = identities?
         .into_iter()
         .flat_map(|x| x.into_iter())
-        .map(|(key, value)| format!("{}: {}", key, value))
+        .map(|identity| identity.to_string())
         .collect();
 
     Ok(identities)

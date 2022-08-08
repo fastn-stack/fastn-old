@@ -1952,7 +1952,7 @@ pub fn user_group_by_id(
     // If group `id` does not contain `/` then it is current package group_id
     let (package, group_id) = group_id
         .rsplit_once('/')
-        .unwrap_or_else(|| (&config.package.name, group_id));
+        .unwrap_or((&config.package.name, group_id));
 
     Ok(user_groups_by_package(config, package)?
         .into_iter()
