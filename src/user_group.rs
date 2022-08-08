@@ -98,7 +98,10 @@ impl UserGroup {
         }
     }
 
-    pub fn identities(&self, config: &fpm::Config) -> fpm::Result<Vec<(String, String)>> {
+    // TODO: Need to handle excluded_identities and excluded_groups
+    // Maybe Logic: group.identities + (For all group.groups(g.group - g.excluded_group)).identities
+    //              - group.excluded_identities
+    pub fn get_identities(&self, config: &fpm::Config) -> fpm::Result<Vec<(String, String)>> {
         let mut identities = vec![];
         for group in self.groups.iter() {
             let group =
@@ -108,22 +111,11 @@ impl UserGroup {
                     }
                 })?;
             // Recursive call to get child groups identities
-            identities.extend(group.identities(config)?)
+            identities.extend(group.get_identities(config)?)
         }
         identities.extend(self.identities.clone());
 
         Ok(identities)
-    }
-
-    // github: <id>
-    pub fn get_identities(&self) -> Vec<(String, String)> {
-        // A group have
-        // identities, exclude identities
-        // groups and excluded groups
-        // Identities of a group are
-        // group.identities + (For all group.groups(g.group - g.excluded_group)).identities - group.excluded_identities
-        //
-        vec![]
     }
 
     // TODO:
@@ -212,7 +204,6 @@ pub fn get_identities(
     doc_path: &str,
     is_read: bool,
 ) -> fpm::Result<Vec<String>> {
-    use itertools::Itertools;
     // TODO: cookies or cli parameter
 
     let readers_writers = if let Some(sitemap) = &config.sitemap {
@@ -225,11 +216,16 @@ pub fn get_identities(
         vec![]
     };
 
-    let identities = readers_writers
+    let identities: fpm::Result<Vec<Vec<(String, String)>>> = readers_writers
         .into_iter()
-        .flat_map(|g| g.get_identities())
+        .map(|g| g.get_identities(config))
+        .collect();
+
+    let identities = identities?
+        .into_iter()
+        .flat_map(|x| x.into_iter())
         .map(|(key, value)| format!("{}: {}", key, value))
-        .collect_vec();
+        .collect();
 
     Ok(identities)
 }
