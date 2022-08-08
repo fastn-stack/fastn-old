@@ -895,6 +895,7 @@ impl Config {
             }
         }
 
+        // TODO: resolve group dependent packages
         let user_groups: Vec<crate::user_group::UserGroupTemp> = fpm_doc.get("fpm#user-group")?;
         let groups = crate::user_group::UserGroupTemp::user_groups(user_groups)?;
 
@@ -968,8 +969,9 @@ impl Config {
 
     #[allow(dead_code)]
     pub(crate) fn get_fpm_document(&self, package_name: &str) -> fpm::Result<ftd::p2::Document> {
-        // TODO: check if self package or imported package
-        let package_fpm_path = self.packages_root.join(package_name).join("FPM.ftd");
+        let package = Package::new(package_name);
+        let root = self.get_root_for_package(&package);
+        let package_fpm_path = root.join("FPM.ftd");
         let doc = std::fs::read_to_string(package_fpm_path)?;
         let lib = fpm::FPMLibrary::default();
         Ok(fpm::doc::parse_ftd("FPM", doc.as_str(), &lib)?)
@@ -1944,7 +1946,6 @@ pub fn user_groups_by_package(
 }
 
 /// group_id: "<package_name>/<group_id>" or "<group_id>"
-
 pub fn user_group_by_id(
     config: &Config,
     group_id: &str,
@@ -1958,3 +1959,13 @@ pub fn user_group_by_id(
         .into_iter()
         .find(|g| g.id.as_str() == group_id))
 }
+
+/*
+
+get_root_for_package(package)
+ */
+
+/*
+if any group uses foreign groups, so need to download the
+FPM.ftd of that package as well
+ */
