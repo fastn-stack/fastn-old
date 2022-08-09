@@ -32,10 +32,6 @@ pub struct Config {
     ///
     /// This data is processed by `get-data` processor.
     pub extra_data: serde_json::Map<String, serde_json::Value>,
-    /// sitemap stores the structure of the package. The structure includes sections, subsections
-    /// and table of content (`toc`). This automatically converts the documents in package into the
-    /// corresponding to structure.
-    pub sitemap: Option<fpm::sitemap::Sitemap>,
 
     pub groups: std::collections::BTreeMap<String, crate::user_group::UserGroup>,
     /// `current_document` stores the document id (Eg: `foo.ftd` or `bar/foo.ftd`) which is
@@ -877,7 +873,7 @@ impl Config {
 
             package.ignored_paths = fpm_doc.get::<Vec<String>>("fpm#ignore")?;
             package.fonts = fpm_doc.get("fpm#font")?;
-            package.sitemap = fpm_doc.get("fpm#sitemap")?;
+            package.sitemap_temp = fpm_doc.get("fpm#sitemap")?;
             package
         };
 
@@ -921,7 +917,7 @@ impl Config {
                 Some(translation) => translation,
                 None => &package,
             }
-            .sitemap
+            .sitemap_temp
             .as_ref();
 
             let sitemap = match sitemap {
@@ -1051,7 +1047,7 @@ impl PackageTemp {
             ignored_paths: vec![],
             fonts: vec![],
             import_auto_imports_from_original: self.import_auto_imports_from_original,
-            sitemap: None,
+            sitemap_temp: None,
             favicon: self.favicon,
         }
     }
@@ -1085,10 +1081,16 @@ pub struct Package {
     /// Note that this too is kind of bad design, we will move fonts to `fpm::Package` struct soon.
     pub fonts: Vec<fpm::Font>,
     pub import_auto_imports_from_original: bool,
+
     /// sitemap stores the structure of the package. The structure includes sections, subsections
     /// and table of content (`toc`). This automatically converts the documents in package into the
     /// corresponding to structure.
-    pub sitemap: Option<fpm::sitemap::SitemapTemp>,
+    pub sitemap: Option<fpm::sitemap::Sitemap>,
+
+    /// sitemap stores the structure of the package. The structure includes sections, subsections
+    /// and table of content (`toc`). This automatically converts the documents in package into the
+    /// corresponding to structure.
+    pub sitemap_temp: Option<fpm::sitemap::SitemapTemp>,
     /// Optional path for favicon icon to be used.
     ///
     /// By default if any file favicon.* is present in package and favicon is not specified
@@ -1118,6 +1120,7 @@ impl Package {
             ignored_paths: vec![],
             fonts: vec![],
             import_auto_imports_from_original: true,
+            sitemap_temp: None,
             sitemap: None,
             favicon: None,
         }
@@ -1907,7 +1910,7 @@ impl Package {
             .map(|f| fpm::AutoImport::from_string(f.as_str()))
             .collect();
         package.fonts = ftd_document.get("fpm#font")?;
-        package.sitemap = ftd_document.get("fpm#sitemap")?;
+        package.sitemap_temp = ftd_document.get("fpm#sitemap")?;
         *self = package;
         Ok(())
     }
