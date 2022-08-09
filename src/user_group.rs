@@ -92,6 +92,7 @@ pub struct UserGroupCompat {
     // It will contain all group members, like group, email and -email, etc...
     #[serde(rename = "group-members")]
     group_members: Vec<fpm::library::full_sitemap::KeyValueData>,
+    groups: Vec<String>,
 }
 
 impl UserGroup {
@@ -112,17 +113,12 @@ impl UserGroup {
             }),
         );
 
-        group_members.extend(
-            self.groups
-                .iter()
-                .map(|i| fpm::library::KeyValueData::from("group".to_string(), i.to_string())),
-        );
-
         UserGroupCompat {
             id: self.id.clone(),
             title: self.title.clone(),
             description: self.description.clone(),
             group_members,
+            groups: self.groups.clone(),
         }
     }
 
@@ -329,3 +325,12 @@ pub mod processor {
         })
     }
 }
+
+/*
+- Identities from fpm controller
+    Get Identities from sitemap by document
+    Get Identities from fpm controller
+- Identities from request cookies
+- Identities from cli parameter
+    Call function belongs to on them
+ */
