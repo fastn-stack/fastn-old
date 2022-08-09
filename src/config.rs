@@ -1,3 +1,4 @@
+// Document: fpm.dev/crate/config.ftd,
 use std::convert::TryInto;
 
 /// `Config` struct keeps track of configuration parameters that is shared with the entire
@@ -1086,10 +1087,6 @@ pub struct Package {
     /// and table of content (`toc`). This automatically converts the documents in package into the
     /// corresponding to structure.
     pub sitemap: Option<fpm::sitemap::Sitemap>,
-
-    /// sitemap stores the structure of the package. The structure includes sections, subsections
-    /// and table of content (`toc`). This automatically converts the documents in package into the
-    /// corresponding to structure.
     pub sitemap_temp: Option<fpm::sitemap::SitemapTemp>,
     /// Optional path for favicon icon to be used.
     ///
