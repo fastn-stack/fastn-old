@@ -119,12 +119,11 @@ impl UserGroup {
     pub fn get_identities(&self, config: &fpm::Config) -> fpm::Result<Vec<UserIdentity>> {
         let mut identities = vec![];
         for group in self.groups.iter() {
-            let group =
-                fpm::config::user_group_by_id(config, group.as_str())?.ok_or_else(|| {
-                    fpm::Error::GroupNotFound {
-                        message: format!("group: {}, not found in FPM.ftd", group),
-                    }
-                })?;
+            let group = user_group_by_id(config, group.as_str())?.ok_or_else(|| {
+                fpm::Error::GroupNotFound {
+                    message: format!("group: {}, not found in FPM.ftd", group),
+                }
+            })?;
             // Recursive call to get child groups identities
             identities.extend(group.get_identities(config)?)
         }
@@ -243,6 +242,28 @@ pub fn get_identities(
         .collect();
 
     Ok(identities)
+}
+
+// TODO Doc: group-id should not contain / in it
+pub fn user_groups_by_package(config: &fpm::Config, package: &str) -> fpm::Result<Vec<UserGroup>> {
+    let fpm_document = config.get_fpm_document(package)?;
+    fpm_document
+        .get::<Vec<UserGroupTemp>>("fpm#user-group")?
+        .into_iter()
+        .map(|g| g.to_user_group())
+        .collect()
+}
+
+/// group_id: "<package_name>/<group_id>" or "<group_id>"
+pub fn user_group_by_id(config: &fpm::Config, group_id: &str) -> fpm::Result<Option<UserGroup>> {
+    // If group `id` does not contain `/` then it is current package group_id
+    let (package, group_id) = group_id
+        .rsplit_once('/')
+        .unwrap_or((&config.package.name, group_id));
+
+    Ok(user_groups_by_package(config, package)?
+        .into_iter()
+        .find(|g| g.id.as_str() == group_id))
 }
 
 pub mod processor {

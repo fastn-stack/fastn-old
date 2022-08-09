@@ -1937,31 +1937,3 @@ impl Package {
         Ok(package)
     }
 }
-
-// TODO Doc: group-id should not contain / in it
-pub fn user_groups_by_package(
-    config: &Config,
-    package: &str,
-) -> fpm::Result<Vec<fpm::user_group::UserGroup>> {
-    let fpm_document = config.get_fpm_document(package)?;
-    fpm_document
-        .get::<Vec<fpm::user_group::UserGroupTemp>>("fpm#user-group")?
-        .into_iter()
-        .map(|g| g.to_user_group())
-        .collect()
-}
-
-/// group_id: "<package_name>/<group_id>" or "<group_id>"
-pub fn user_group_by_id(
-    config: &Config,
-    group_id: &str,
-) -> fpm::Result<Option<fpm::user_group::UserGroup>> {
-    // If group `id` does not contain `/` then it is current package group_id
-    let (package, group_id) = group_id
-        .rsplit_once('/')
-        .unwrap_or((&config.package.name, group_id));
-
-    Ok(user_groups_by_package(config, package)?
-        .into_iter()
-        .find(|g| g.id.as_str() == group_id))
-}
