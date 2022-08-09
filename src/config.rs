@@ -903,7 +903,6 @@ impl Config {
             root,
             original_directory,
             extra_data: Default::default(),
-            sitemap: None,
             groups,
             current_document: None,
             all_packages: Default::default(),
@@ -912,7 +911,7 @@ impl Config {
 
         let asset_documents = config.get_assets("/").await?;
 
-        config.sitemap = {
+        config.package.sitemap = {
             let sitemap = match package.translation_of.as_ref() {
                 Some(translation) => translation,
                 None => &package,
@@ -1047,6 +1046,7 @@ impl PackageTemp {
             ignored_paths: vec![],
             fonts: vec![],
             import_auto_imports_from_original: self.import_auto_imports_from_original,
+            sitemap: None,
             sitemap_temp: None,
             favicon: self.favicon,
         }

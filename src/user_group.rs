@@ -221,7 +221,7 @@ pub fn get_identities(
 ) -> fpm::Result<Vec<String>> {
     // TODO: cookies or cli parameter
 
-    let readers_writers = if let Some(sitemap) = &config.sitemap {
+    let readers_writers = if let Some(sitemap) = &config.package.sitemap {
         if is_read {
             sitemap.readers(doc_path, &config.groups)
         } else {

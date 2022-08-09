@@ -114,7 +114,7 @@ async fn get_documents_for_current_package(
             .map(|v| (v.get_id(), v)),
     );
 
-    if let Some(ref sitemap) = config.sitemap {
+    if let Some(ref sitemap) = config.package.sitemap {
         let mut new_config = config.clone();
         let get_all_locations = sitemap.get_all_locations();
         let mut files: std::collections::HashMap<String, fpm::File> = Default::default();
