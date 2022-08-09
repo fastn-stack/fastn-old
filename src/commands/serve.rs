@@ -100,7 +100,7 @@ async fn serve(req: actix_web::HttpRequest) -> actix_web::HttpResponse {
 pub async fn fpm_serve(
     bind_address: &str,
     port: Option<u16>,
-    identities: Option<String>,
+    _identities: Option<String>,
 ) -> std::io::Result<()> {
     if cfg!(feature = "controller") {
         // fpm-controller base path and ec2 instance id (hardcoded for now)
