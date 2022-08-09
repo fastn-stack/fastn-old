@@ -39,7 +39,7 @@ pub fn document_readers(
 
     let readers = match config.package.sitemap.as_ref() {
         Some(s) => s
-            .readers(document.as_str(), &config.groups)
+            .readers(document.as_str(), &config.package.groups)
             .into_iter()
             .map(|g| g.to_group_compat())
             .collect_vec(),
@@ -63,7 +63,7 @@ pub fn document_writers(
 
     let writers = match config.package.sitemap.as_ref() {
         Some(s) => s
-            .writers(document.as_str(), &config.groups)
+            .writers(document.as_str(), &config.package.groups)
             .into_iter()
             .map(|g| g.to_group_compat())
             .collect_vec(),

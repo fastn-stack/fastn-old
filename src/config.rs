@@ -32,8 +32,6 @@ pub struct Config {
     ///
     /// This data is processed by `get-data` processor.
     pub extra_data: serde_json::Map<String, serde_json::Value>,
-
-    pub groups: std::collections::BTreeMap<String, crate::user_group::UserGroup>,
     /// `current_document` stores the document id (Eg: `foo.ftd` or `bar/foo.ftd`) which is
     /// currently in building process.
     /// It's value is injected by `fpm::build()` function according to the currently processing
@@ -896,14 +894,13 @@ impl Config {
         // TODO: Because in `UserGroup::get_identities` we have to resolve identities of a group
         let user_groups: Vec<crate::user_group::UserGroupTemp> = fpm_doc.get("fpm#user-group")?;
         let groups = crate::user_group::UserGroupTemp::user_groups(user_groups)?;
-
+        package.groups = groups;
         let mut config = Config {
             package: package.clone(),
             packages_root: root.clone().join(".packages"),
             root,
             original_directory,
             extra_data: Default::default(),
-            groups,
             current_document: None,
             all_packages: Default::default(),
             downloaded_assets: Default::default(),
@@ -1046,6 +1043,7 @@ impl PackageTemp {
             ignored_paths: vec![],
             fonts: vec![],
             import_auto_imports_from_original: self.import_auto_imports_from_original,
+            groups: std::collections::BTreeMap::new(),
             sitemap: None,
             sitemap_temp: None,
             favicon: self.favicon,
@@ -1081,6 +1079,8 @@ pub struct Package {
     /// Note that this too is kind of bad design, we will move fonts to `fpm::Package` struct soon.
     pub fonts: Vec<fpm::Font>,
     pub import_auto_imports_from_original: bool,
+
+    pub groups: std::collections::BTreeMap<String, crate::user_group::UserGroup>,
 
     /// sitemap stores the structure of the package. The structure includes sections, subsections
     /// and table of content (`toc`). This automatically converts the documents in package into the
@@ -1120,6 +1120,7 @@ impl Package {
             ignored_paths: vec![],
             fonts: vec![],
             import_auto_imports_from_original: true,
+            groups: std::collections::BTreeMap::new(),
             sitemap_temp: None,
             sitemap: None,
             favicon: None,

@@ -223,9 +223,9 @@ pub fn get_identities(
 
     let readers_writers = if let Some(sitemap) = &config.package.sitemap {
         if is_read {
-            sitemap.readers(doc_path, &config.groups)
+            sitemap.readers(doc_path, &config.package.groups)
         } else {
-            sitemap.writers(doc_path, &config.groups)
+            sitemap.writers(doc_path, &config.package.groups)
         }
     } else {
         vec![]
@@ -254,6 +254,7 @@ pub mod processor {
         config: &fpm::Config,
     ) -> ftd::p1::Result<ftd::Value> {
         let g = config
+            .package
             .groups
             .iter()
             .map(|(_, g)| g.to_group_compat())
@@ -268,6 +269,7 @@ pub mod processor {
     ) -> ftd::p1::Result<ftd::Value> {
         let id = section.header.str(doc.name, section.line_number, "id")?;
         let g = config
+            .package
             .groups
             .get(id)
             .map(|g| g.to_group_compat())
