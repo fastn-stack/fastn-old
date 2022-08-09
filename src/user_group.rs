@@ -75,15 +75,6 @@ pub struct UserGroupTemp {
     pub excluded_discord: Vec<String>,
 }
 
-/*
-.ftd code
--- fpm.user-group list email-groups:
-$processor$: user-groups
-
--- fpm.user-group list email-groups:
-$processor$: user-groups
- */
-
 #[derive(Debug, serde::Serialize)]
 pub struct UserGroupCompat {
     id: String,
@@ -326,11 +317,9 @@ pub mod processor {
     }
 }
 
-/*
-- Identities from fpm controller
-    Get Identities from sitemap by document
-    Get Identities from fpm controller
-- Identities from request cookies
-- Identities from cli parameter
-    Call function belongs to on them
- */
+#[cfg(test)]
+mod tests {
+    // TODO:
+    #[test]
+    fn get_identities() {}
+}
