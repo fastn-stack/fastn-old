@@ -43,7 +43,7 @@ pub struct Config {
     /// of current package directly or indirectly. It also includes current package,
     /// translation packages, original package (of which the current package is translation)
     /// The key store the name of the package and value stores corresponding package data
-    pub all_packages: std::collections::BTreeMap<String, fpm::Package>,
+    pub all_packages: std::cell::RefCell<std::collections::BTreeMap<String, fpm::Package>>,
     pub downloaded_assets: std::collections::BTreeMap<String, String>,
 }
 
@@ -199,16 +199,16 @@ impl Config {
                         new = dep.package.get_font_html()
                     )
                 });
-            generated_style =
-                self.all_packages
-                    .values()
-                    .fold(generated_style, |accumulator, package| {
-                        format!(
-                            "{pre}\n{new}",
-                            pre = accumulator,
-                            new = package.get_font_html()
-                        )
-                    });
+            generated_style = self.all_packages.borrow().values().fold(
+                generated_style,
+                |accumulator, package| {
+                    format!(
+                        "{pre}\n{new}",
+                        pre = accumulator,
+                        new = package.get_font_html()
+                    )
+                },
+            );
             generated_style
         };
         return match generated_style.trim().is_empty() {
@@ -400,7 +400,7 @@ impl Config {
     }
 
     pub async fn get_file_path(&self, id: &str) -> fpm::Result<String> {
-        let (package_name, package) = self.find_package_by_doc_id(id).await?;
+        let (package_name, package) = self.find_package_by_id(id).await?;
         let mut id = id.to_string();
         let mut add_packages = "".to_string();
         if let Some(new_id) = id.strip_prefix("-/") {
@@ -431,7 +431,7 @@ impl Config {
         ))
     }
 
-    pub(crate) async fn get_file_path_and_resolve(&mut self, id: &str) -> fpm::Result<String> {
+    pub(crate) async fn get_file_path_and_resolve(&self, id: &str) -> fpm::Result<String> {
         let (package_name, package) = self.find_package_by_id(id).await?;
         let package = self.resolve_package(&package).await?;
         self.add_package(&package);
@@ -467,11 +467,7 @@ impl Config {
     }
 
     /// Return (package name or alias, package)
-    /// Duplicate code with find_package_by_id: this function is updating all_packages
-    pub(crate) async fn find_package_by_doc_id(
-        &self,
-        id: &str,
-    ) -> fpm::Result<(String, fpm::Package)> {
+    pub(crate) async fn find_package_by_id(&self, id: &str) -> fpm::Result<(String, fpm::Package)> {
         let id = if let Some(id) = id.strip_prefix("-/") {
             id
         } else {
@@ -488,43 +484,7 @@ impl Config {
             return Ok(package);
         }
 
-        for (package_name, package) in self.all_packages.iter() {
-            if id.starts_with(package_name) {
-                return Ok((package_name.to_string(), package.to_owned()));
-            }
-        }
-
-        if let Some(package_root) = find_root_for_file(&self.packages_root.join(id), "FPM.ftd") {
-            let mut package = fpm::Package::new("unknown-package");
-            package.resolve(&package_root.join("FPM.ftd")).await?;
-            return Ok((package.name.to_string(), package));
-        }
-
-        Ok((self.package.name.to_string(), self.package.to_owned()))
-    }
-
-    /// Return (package name or alias, package)
-    pub(crate) async fn find_package_by_id(
-        &mut self,
-        id: &str,
-    ) -> fpm::Result<(String, fpm::Package)> {
-        let id = if let Some(id) = id.strip_prefix("-/") {
-            id
-        } else {
-            return Ok((self.package.name.to_string(), self.package.to_owned()));
-        };
-
-        if let Some(package) = self.package.aliases().iter().find_map(|(alias, d)| {
-            if id.starts_with(alias) {
-                Some((alias.to_string(), (*d).to_owned()))
-            } else {
-                None
-            }
-        }) {
-            return Ok(package);
-        }
-
-        for (package_name, package) in self.all_packages.iter() {
+        for (package_name, package) in self.all_packages.borrow().iter() {
             if id.starts_with(package_name) {
                 return Ok((package_name.to_string(), package.to_owned()));
             }
@@ -534,6 +494,7 @@ impl Config {
             let mut package = fpm::Package::new("unknown-package");
             package.resolve(&package_root.join("FPM.ftd")).await?;
             self.all_packages
+                .borrow_mut()
                 .insert(package.name.to_string(), package.clone());
             return Ok((package.name.to_string(), package));
         }
@@ -947,16 +908,18 @@ impl Config {
         if self.package.name.eq(package.name.as_str()) {
             return Ok(self.package.clone());
         }
-        if let Some(package) = self.all_packages.get(package.name.as_str()) {
+        if let Some(package) = { self.all_packages.borrow().get(package.name.as_str()) } {
             return Ok(package.clone());
         }
+
         package
             .get_and_resolve(&self.get_root_for_package(package))
             .await
     }
 
-    pub(crate) fn add_package(&mut self, package: &fpm::Package) {
+    pub(crate) fn add_package(&self, package: &fpm::Package) {
         self.all_packages
+            .borrow_mut()
             .insert(package.name.to_string(), package.to_owned());
     }
 

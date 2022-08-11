@@ -212,7 +212,8 @@ impl UserGroupTemp {
         })
     }
 }
-
+/// `get_identities` for a `doc_path`
+/// This will get the identities from groups defined in sitemap
 pub fn get_identities(
     config: &crate::Config,
     doc_path: &str,

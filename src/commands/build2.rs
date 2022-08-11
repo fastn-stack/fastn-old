@@ -115,7 +115,7 @@ async fn get_documents_for_current_package(
     );
 
     if let Some(ref sitemap) = config.package.sitemap {
-        let mut new_config = config.clone();
+        let new_config = config.clone();
         let get_all_locations = sitemap.get_all_locations();
         let mut files: std::collections::HashMap<String, fpm::File> = Default::default();
         for (doc_path, _, url) in get_all_locations {
@@ -140,7 +140,11 @@ async fn get_documents_for_current_package(
             };
             files.insert(file.get_id(), file);
         }
-        config.all_packages.extend(new_config.all_packages);
+
+        config
+            .all_packages
+            .borrow_mut()
+            .extend(new_config.all_packages.into_inner());
         documents.extend(files);
     }
 

@@ -1236,7 +1236,7 @@ pub(crate) async fn process_ftd(
                 )
                 .replace(
                     "__message__",
-                    format!("{}{}", message_rt_doc.html, config.get_font_style(),).as_str(),
+                    format!("{}{}", message_rt_doc.html, config.get_font_style()).as_str(),
                 )
                 .as_str(),
             config,
@@ -1342,7 +1342,7 @@ pub(crate) async fn process_ftd(
                 )
                 .replace(
                     "__message__",
-                    format!("{}{}", message_rt_doc.html, config.get_font_style(),).as_str(),
+                    format!("{}{}", message_rt_doc.html, config.get_font_style()).as_str(),
                 )
                 .replace(
                     "__ftd_data_fallback__",

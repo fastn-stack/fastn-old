@@ -37,7 +37,7 @@ pub async fn edit(
 }
 
 pub(crate) async fn edit_worker(request: EditRequest) -> fpm::Result<EditResponse> {
-    let mut config = fpm::Config::read2(None, false).await?;
+    let config = fpm::Config::read2(None, false).await?;
 
     if request.is_delete() {
         let path = config.root.join(&request.path);
