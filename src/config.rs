@@ -861,14 +861,11 @@ impl Config {
 
             package.dependencies = deps;
 
-            let auto_imports: Vec<String> = fpm_doc.get("fpm#auto-import")?;
-
-            // let mut aliases = std::collections::HashMap::<String, String>::new();
-            let auto_import = auto_imports
+            package.auto_import = fpm_doc
+                .get::<Vec<String>>("fpm#auto-import")?
                 .iter()
                 .map(|f| fpm::AutoImport::from_string(f.as_str()))
                 .collect();
-            package.auto_import = auto_import;
 
             package.ignored_paths = fpm_doc.get::<Vec<String>>("fpm#ignore")?;
             package.fonts = fpm_doc.get("fpm#font")?;
@@ -893,6 +890,7 @@ impl Config {
         // TODO: resolve group dependent packages, there may be imported group from foreign package
         // TODO: We need to make sure to resolve that package as well before moving ahead
         // TODO: Because in `UserGroup::get_identities` we have to resolve identities of a group
+
         let user_groups: Vec<crate::user_group::UserGroupTemp> = fpm_doc.get("fpm#user-group")?;
         let groups = crate::user_group::UserGroupTemp::user_groups(user_groups)?;
         package.groups = groups;
@@ -1876,25 +1874,25 @@ impl Package {
     }
 
     pub(crate) async fn resolve(&mut self, fpm_path: &camino::Utf8PathBuf) -> fpm::Result<()> {
-        let ftd_document = {
+        let fpm_document = {
             let doc = tokio::fs::read_to_string(fpm_path).await?;
             let lib = fpm::FPMLibrary::default();
             match fpm::doc::parse_ftd("FPM", doc.as_str(), &lib) {
                 Ok(v) => v,
                 Err(e) => {
                     return Err(fpm::Error::PackageError {
-                        message: format!("failed to parse FPM.ftd 2: {:?}", &e),
+                        message: format!("failed to parse FPM.ftd: {:?}", &e),
                     });
                 }
             }
         };
         let mut package = {
-            let temp_package: fpm::config::PackageTemp = ftd_document.get("fpm#package")?;
+            let temp_package: fpm::config::PackageTemp = fpm_document.get("fpm#package")?;
             temp_package.into_package()
         };
-        package.translation_status_summary = ftd_document.get("fpm#translation-status-summary")?;
+        package.translation_status_summary = fpm_document.get("fpm#translation-status-summary")?;
         package.fpm_path = Some(fpm_path.to_owned());
-        package.dependencies = ftd_document
+        package.dependencies = fpm_document
             .get::<Vec<fpm::dependency::DependencyTemp>>("fpm#dependency")?
             .into_iter()
             .map(|v| v.into_dependency())
@@ -1902,13 +1900,18 @@ impl Package {
             .into_iter()
             .collect::<fpm::Result<Vec<fpm::Dependency>>>()?;
 
-        package.auto_import = ftd_document
+        let user_groups: Vec<crate::user_group::UserGroupTemp> =
+            fpm_document.get("fpm#user-group")?;
+        let groups = crate::user_group::UserGroupTemp::user_groups(user_groups)?;
+        package.groups = groups;
+
+        package.auto_import = fpm_document
             .get::<Vec<String>>("fpm#auto-import")?
             .iter()
             .map(|f| fpm::AutoImport::from_string(f.as_str()))
             .collect();
-        package.fonts = ftd_document.get("fpm#font")?;
-        package.sitemap_temp = ftd_document.get("fpm#sitemap")?;
+        package.fonts = fpm_document.get("fpm#font")?;
+        package.sitemap_temp = fpm_document.get("fpm#sitemap")?;
         *self = package;
         Ok(())
     }
