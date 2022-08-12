@@ -235,22 +235,16 @@ pub fn get_identities(
         vec![]
     };
 
-    // let identities: fpm::Result<Vec<Vec<UserIdentity>>> = readers_writers
-    //     .into_iter()
-    //     .map((async |g| g.get_identities(config).await))
-    //     .collect();
+    let identities: fpm::Result<Vec<Vec<UserIdentity>>> = readers_writers
+        .into_iter()
+        .map(|g| g.get_identities(config))
+        .collect();
 
-    let mut identities = vec![];
-    for g in readers_writers {
-        let i = g.get_identities(config)?;
-        identities.extend(i.into_iter().map(|i| i.to_string()))
-    }
-
-    // let identities = identities?
-    //     .into_iter()
-    //     .flat_map(|x| x.into_iter())
-    //     .map(|identity| identity.to_string())
-    //     .collect();
+    let identities = identities?
+        .into_iter()
+        .flat_map(|x| x.into_iter())
+        .map(|identity| identity.to_string())
+        .collect();
 
     Ok(identities)
 }
