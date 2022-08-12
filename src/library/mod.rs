@@ -182,6 +182,9 @@ impl Library {
             "document-filename" => {
                 document::processor::document_filename(section, doc, &self.config).await
             }
+            "get-identities" => {
+                fpm::user_group::processor::get_identities(section, doc, &self.config).await
+            }
             _ => process_sync(&self.config, section, self.document_id.as_str(), doc),
         }
     }
@@ -210,7 +213,6 @@ pub fn process_sync<'a>(
         }
         "user-groups" => fpm::user_group::processor::user_groups(section, doc, config),
         "user-group-by-id" => fpm::user_group::processor::user_group_by_id(section, doc, config),
-        "get-identities" => fpm::user_group::processor::get_identities(section, doc, config),
         "package-query" => fpm::library::sqlite::processor_(section, doc, config),
         "fetch-file" => fpm::library::fetch_file::processor_sync(section, doc, config),
         "package-tree" => fpm::library::package_tree::processor_sync(section, doc, config),
@@ -420,7 +422,7 @@ impl Library2 {
                 fpm::user_group::processor::user_group_by_id(section, doc, &self.config)
             }
             "get-identities" => {
-                fpm::user_group::processor::get_identities(section, doc, &self.config)
+                fpm::user_group::processor::get_identities(section, doc, &self.config).await
             }
             "document-id" => document::processor::document_id(section, doc, &self.config),
             "document-full-id" => document::processor::document_full_id(section, doc, &self.config),

@@ -116,16 +116,20 @@ impl UserGroup {
     // TODO: Need to handle excluded_identities and excluded_groups
     // Maybe Logic: group.identities + (For all group.groups(g.group - g.excluded_group)).identities
     //              - group.excluded_identities
-    pub fn get_identities(&self, config: &fpm::Config) -> fpm::Result<Vec<UserIdentity>> {
+
+    #[async_recursion::async_recursion(?Send)]
+    pub async fn get_identities(&self, config: &fpm::Config) -> fpm::Result<Vec<UserIdentity>> {
         let mut identities = vec![];
+
+        // A group contains another group
         for group in self.groups.iter() {
-            let group = user_group_by_id(config, group.as_str())?.ok_or_else(|| {
-                fpm::Error::GroupNotFound {
+            let group = user_group_by_id(config, group.as_str())
+                .await?
+                .ok_or_else(|| fpm::Error::GroupNotFound {
                     message: format!("group: {}, not found in FPM.ftd", group),
-                }
-            })?;
+                })?;
             // Recursive call to get child groups identities
-            identities.extend(group.get_identities(config)?)
+            identities.extend(group.get_identities(config).await?)
         }
         identities.extend(self.identities.clone());
 
@@ -214,7 +218,7 @@ impl UserGroupTemp {
 }
 /// `get_identities` for a `doc_path`
 /// This will get the identities from groups defined in sitemap
-pub fn get_identities(
+pub async fn get_identities(
     config: &crate::Config,
     doc_path: &str,
     is_read: bool,
@@ -231,22 +235,37 @@ pub fn get_identities(
         vec![]
     };
 
-    let identities: fpm::Result<Vec<Vec<UserIdentity>>> = readers_writers
-        .into_iter()
-        .map(|g| g.get_identities(config))
-        .collect();
+    // let identities: fpm::Result<Vec<Vec<UserIdentity>>> = readers_writers
+    //     .into_iter()
+    //     .map((async |g| g.get_identities(config).await))
+    //     .collect();
 
-    let identities = identities?
-        .into_iter()
-        .flat_map(|x| x.into_iter())
-        .map(|identity| identity.to_string())
-        .collect();
+    let mut identities = vec![];
+    for g in readers_writers {
+        let i = g.get_identities(config).await?;
+        identities.extend(i.into_iter().map(|i| i.to_string()))
+    }
+
+    // let identities = identities?
+    //     .into_iter()
+    //     .flat_map(|x| x.into_iter())
+    //     .map(|identity| identity.to_string())
+    //     .collect();
 
     Ok(identities)
 }
 
 // TODO Doc: group-id should not contain / in it
-pub fn user_groups_by_package(config: &fpm::Config, package: &str) -> fpm::Result<Vec<UserGroup>> {
+pub async fn user_groups_by_package(
+    config: &fpm::Config,
+    package: &str,
+) -> fpm::Result<Vec<UserGroup>> {
+    // TODO: Need to fix it, It should not read groups from individual FPM.ftd file
+    // IT should read groups from package.groups
+
+    // let package = config.find_package_by_name(package).await?;
+    // Ok(package.groups.into_values().collect_vec())
+
     let fpm_document = config.get_fpm_document(package)?;
     fpm_document
         .get::<Vec<UserGroupTemp>>("fpm#user-group")?
@@ -256,13 +275,17 @@ pub fn user_groups_by_package(config: &fpm::Config, package: &str) -> fpm::Resul
 }
 
 /// group_id: "<package_name>/<group_id>" or "<group_id>"
-pub fn user_group_by_id(config: &fpm::Config, group_id: &str) -> fpm::Result<Option<UserGroup>> {
+pub async fn user_group_by_id(
+    config: &fpm::Config,
+    group_id: &str,
+) -> fpm::Result<Option<UserGroup>> {
     // If group `id` does not contain `/` then it is current package group_id
     let (package, group_id) = group_id
         .rsplit_once('/')
         .unwrap_or((&config.package.name, group_id));
 
-    Ok(user_groups_by_package(config, package)?
+    Ok(user_groups_by_package(config, package)
+        .await?
         .into_iter()
         .find(|g| g.id.as_str() == group_id))
 }
@@ -303,19 +326,19 @@ pub mod processor {
         doc.from_json(&g, section)
     }
 
-    pub fn get_identities(
+    pub async fn get_identities<'a>(
         section: &ftd::p1::Section,
-        doc: &ftd::p2::TDoc,
+        doc: &'a ftd::p2::TDoc<'_>,
         config: &fpm::Config,
     ) -> ftd::p1::Result<ftd::Value> {
         let doc_id = fpm::library::document::document_full_id(config, doc)?;
-        let identities = super::get_identities(config, doc_id.as_str(), true).map_err(|e| {
-            ftd::p1::Error::ParseError {
+        let identities = super::get_identities(config, doc_id.as_str(), true)
+            .await
+            .map_err(|e| ftd::p1::Error::ParseError {
                 message: e.to_string(),
                 doc_id,
                 line_number: section.line_number,
-            }
-        })?;
+            })?;
 
         Ok(ftd::Value::List {
             data: identities

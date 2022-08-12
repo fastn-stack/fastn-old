@@ -493,9 +493,7 @@ impl Config {
         if let Some(package_root) = find_root_for_file(&self.packages_root.join(id), "FPM.ftd") {
             let mut package = fpm::Package::new("unknown-package");
             package.resolve(&package_root.join("FPM.ftd")).await?;
-            self.all_packages
-                .borrow_mut()
-                .insert(package.name.to_string(), package.clone());
+            self.add_package(&package);
             return Ok((package.name.to_string(), package));
         }
 
@@ -908,13 +906,17 @@ impl Config {
         if self.package.name.eq(package.name.as_str()) {
             return Ok(self.package.clone());
         }
+
         if let Some(package) = { self.all_packages.borrow().get(package.name.as_str()) } {
             return Ok(package.clone());
         }
 
-        package
+        let package = package
             .get_and_resolve(&self.get_root_for_package(package))
-            .await
+            .await?;
+
+        self.add_package(&package);
+        Ok(package)
     }
 
     pub(crate) fn add_package(&self, package: &fpm::Package) {
@@ -1867,7 +1869,6 @@ impl Package {
             fpm_document.get("fpm#user-group")?;
         let groups = crate::user_group::UserGroupTemp::user_groups(user_groups)?;
         package.groups = groups;
-
         package.auto_import = fpm_document
             .get::<Vec<String>>("fpm#auto-import")?
             .iter()
