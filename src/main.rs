@@ -55,7 +55,6 @@ async fn main() -> fpm::Result<()> {
     }
 
     if let Some(build) = matches.subcommand_matches("build") {
-
         if build.is_present("verbose") {
             println!("{}", fpm::debug_env_vars());
         }
