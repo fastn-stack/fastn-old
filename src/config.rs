@@ -1,48 +1,15 @@
-// Document: fpm.dev/crate/config.ftd,
+// Document: https://fpm.dev/crate/config/
+// Document: https://fpm.dev/crate/package/
 use std::convert::TryInto;
 
-/// `Config` struct keeps track of configuration parameters that is shared with the entire
-/// program. It is constructed from the content of `FPM.ftd` file for the package.
-///
-/// `Config` is created using `Config::read()` method, and should be constructed only once in the
-/// `main()` and passed everywhere.
 #[derive(Debug, Clone)]
 pub struct Config {
     pub package: fpm::Package,
-    /// `root` is the package root folder, this is the folder where `FPM.ftd` file is stored.
-    ///
-    /// Technically the rest of the program can simply call `std::env::current_dir()` and that
-    /// is guaranteed to be same as `Config.root`, but `Config.root` is camino path, instead of
-    /// std::path::Path, so we can treat `root` as a handy helper.
-    ///
-    /// A utility that returns camino version of `current_dir()` may be used in future.
     pub root: camino::Utf8PathBuf,
-    /// Keeps a track of the package root for a particular config. For a dep2 of a dep1,
-    /// this could point to the <original_root>/.packages/
-    /// whereas the project root could be at <original_root>/.packages/<dep1_root>
     pub packages_root: camino::Utf8PathBuf,
-    /// `original_directory` is the directory from which the `fpm` command was invoked
-    ///
-    /// During the execution of `fpm`, we change the directory to the package root so the program
-    /// can be written with the assumption that they are running from package `root`.
-    ///
-    /// When printing filenames for users consumption we want to print the paths relative to the
-    /// `original_directory`, so we keep track of the original directory.
     pub original_directory: camino::Utf8PathBuf,
-    /// The extra_data stores the data passed for variables in ftd files as context.
-    ///
-    /// This data is processed by `get-data` processor.
     pub extra_data: serde_json::Map<String, serde_json::Value>,
-    /// `current_document` stores the document id (Eg: `foo.ftd` or `bar/foo.ftd`) which is
-    /// currently in building process.
-    /// It's value is injected by `fpm::build()` function according to the currently processing
-    /// document.
-    /// It is consumed by the `sitemap` processor.
     pub current_document: Option<String>,
-    /// `all_packages` stores the package data for all the packages that are dependencies
-    /// of current package directly or indirectly. It also includes current package,
-    /// translation packages, original package (of which the current package is translation)
-    /// The key store the name of the package and value stores corresponding package data
     pub all_packages: std::cell::RefCell<std::collections::BTreeMap<String, fpm::Package>>,
     pub downloaded_assets: std::collections::BTreeMap<String, String>,
 }
