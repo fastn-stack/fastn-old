@@ -56,11 +56,11 @@ async fn update_workspace(
             }
         })
         .collect_vec();
-    for (file, file_edit) in server_latest.iter() {
-        if conflicted_files.contains(file) || file_edit.is_deleted() {
+    for (file, file_edit) in server_latest.into_iter() {
+        if conflicted_files.contains(&file) || file_edit.is_deleted() {
             continue;
         }
-        workspace.insert(file.to_string(), file_edit.to_workspace(file));
+        workspace.insert(file.to_string(), file_edit.into_workspace(&file));
     }
     for deleted_files in response.files.iter().filter_map(|v| {
         if !v.is_conflicted() && v.is_deleted() {
@@ -102,7 +102,7 @@ async fn update_current_directory(
                 status,
             } => {
                 if status.add_add_conflict() {
-                    println!("ClientAddedServerAdded: {}", path);
+                    println!("CloneAddedRemoteAdded: {}", path);
                 } else {
                     fpm::utils::update(&config.root.join(path), content).await?;
                 }
@@ -113,9 +113,9 @@ async fn update_current_directory(
                 status,
             } => {
                 if status.edit_delete_conflict() {
-                    println!("ClientDeletedServerEdit: {}", path);
+                    println!("CloneDeletedRemoteEdit: {}", path);
                 } else if status.delete_edit_conflict() {
-                    println!("ClientEditedServerDeleted: {}", path);
+                    println!("CloneEditedRemoteDeleted: {}", path);
                 } else if status.edit_edit_conflict() {
                     println!("Conflict: {}", path);
                 } else {

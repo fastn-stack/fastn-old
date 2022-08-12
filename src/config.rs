@@ -1,6 +1,7 @@
 // Document: https://fpm.dev/crate/config/
 // Document: https://fpm.dev/crate/package/
 use std::convert::TryInto;
+use std::iter::FromIterator;
 
 #[derive(Debug, Clone)]
 pub struct Config {
@@ -21,24 +22,41 @@ impl Config {
         self.root.join(".build")
     }
 
-    pub fn client_dir(&self) -> camino::Utf8PathBuf {
-        self.root.join(".client-state")
+    pub fn clone_dir(&self) -> camino::Utf8PathBuf {
+        self.root.join(".clone-state")
     }
 
     pub fn workspace_file(&self) -> camino::Utf8PathBuf {
-        self.client_dir().join("workspace.ftd")
+        self.clone_dir().join("workspace.ftd")
     }
 
-    pub fn server_dir(&self) -> camino::Utf8PathBuf {
-        self.root.join(".server-state")
+    pub fn clone_available_crs_path(&self) -> camino::Utf8PathBuf {
+        self.clone_dir().join("cr")
+    }
+
+    pub fn cr_path(&self, cr_number: usize) -> camino::Utf8PathBuf {
+        self.root.join("-/").join(cr_number.to_string())
+    }
+
+    pub fn cr_about_path(&self, cr_number: usize) -> camino::Utf8PathBuf {
+        self.cr_path(cr_number).join("-/about.ftd")
+    }
+
+    pub fn remote_dir(&self) -> camino::Utf8PathBuf {
+        self.root.join(".remote-state")
     }
 
     pub fn server_history_dir(&self) -> camino::Utf8PathBuf {
-        self.server_dir().join("history")
+        self.remote_dir().join("history")
+    }
+
+    /// location that stores lowest available cr number
+    pub fn server_cr(&self) -> camino::Utf8PathBuf {
+        self.remote_dir().join("cr")
     }
 
     pub fn history_file(&self) -> camino::Utf8PathBuf {
-        self.server_dir().join("history.ftd")
+        self.remote_dir().join("history.ftd")
     }
 
     pub(crate) fn history_path(&self, id: &str, version: i32) -> camino::Utf8PathBuf {
@@ -900,6 +918,30 @@ impl Config {
         let doc = std::fs::read_to_string(package_fpm_path)?;
         let lib = fpm::FPMLibrary::default();
         Ok(fpm::doc::parse_ftd("FPM", doc.as_str(), &lib)?)
+    }
+
+    pub(crate) async fn get_reserved_crs(
+        &self,
+        number_of_crs_to_reserve: Option<usize>,
+    ) -> fpm::Result<Vec<i32>> {
+        let number_of_crs_to_reserve =
+            if let Some(number_of_crs_to_reserve) = number_of_crs_to_reserve {
+                number_of_crs_to_reserve
+            } else {
+                fpm::NUMBER_OF_CRS_TO_RESERVE
+            };
+        if !cfg!(feature = "remote") {
+            return fpm::usage_error("Can be used by remote only".to_string());
+        }
+        let value = fpm::cache::update(
+            self.server_cr().to_string().as_str(),
+            number_of_crs_to_reserve,
+        )
+        .await? as i32;
+
+        Ok(Vec::from_iter(
+            (value - (number_of_crs_to_reserve as i32))..value,
+        ))
     }
 }
 
