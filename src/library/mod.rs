@@ -309,13 +309,6 @@ impl Library2 {
             return Some(fpm::fpm_lib_ftd().to_string());
         }
 
-        // let res = get_for_package(format!("{}/", name.trim_end_matches('/')).as_str(), self).await;
-        // Update terms map
-        // from the packages which are imported into the current package
-        // This is not required for now
-        // self.config.update_terms_from_file(self.document_id.as_str(), &res).await.ok()?;
-        // return res;
-
         return get_for_package(format!("{}/", name.trim_end_matches('/')).as_str(), self).await;
 
         async fn get_for_package(name: &str, lib: &mut fpm::Library2) -> Option<String> {

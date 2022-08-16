@@ -231,6 +231,7 @@ impl Config {
         doc_id: &str,
         data: &str,
     ) -> ftd::p1::Result<()> {
+
         /// returns header key and value
         /// given header string
         fn segregate_key_value(
@@ -286,23 +287,36 @@ impl Config {
             terms_map: &mut std::collections::HashMap<String, String>,
             term_string: &str,
             doc_id: &str,
+            line_number: usize,
         ) -> ftd::p1::Result<()> {
-            // todo: need to update line number below
-            let (_header, term) = segregate_key_value(term_string, doc_id, 0)?;
+
+            let (_header, term) = segregate_key_value(term_string, doc_id, line_number)?;
 
             let slugified_term = slug::slugify(term);
             let document_id = convert_to_document_id(doc_id);
+
+            // println!("updated !!");
+            // dbg!(&slugified_term, &document_id);
 
             terms_map.insert(slugified_term, document_id);
             Ok(())
         }
 
-        let term_regex = regex::Regex::new(r"(?m)^\s*term\s*:[\sA-Za-z\d]*$").unwrap();
+        // let term_regex = regex::Regex::new(r"(?m)^\s*term\s*:[\sA-Za-z\d]*$").unwrap();
+        //
+        // // capture if any line matches with term regex
+        // for capture in term_regex.captures_iter(data) {
+        //     // println!("Capture: |{}|", &capture[0].trim());
+        //     update_terms(&mut self.terms, capture[0].trim(), doc_id)?;
+        // }
 
-        // capture if any line matches with term regex
-        for capture in term_regex.captures_iter(data) {
-            // println!("Capture: |{}|", &capture[0].trim());
-            update_terms(&mut self.terms, capture[0].trim(), doc_id)?;
+        // Avoiding using regex here to reduce complexity as the pattern
+        // to search itself is not that complex
+        // ^term: some term$
+        for (ln, line) in itertools::enumerate(data.lines()){
+            if line.trim_start().starts_with("term") && line.contains(":"){
+                update_terms(&mut self.terms, line.trim_start(), doc_id, ln)?;
+            }
         }
 
         Ok(())
@@ -391,6 +405,20 @@ impl Config {
         documents.sort_by_key(|v| v.get_id());
 
         Ok(documents)
+    }
+
+    /// updates the terms map from the files of the current package
+    async fn update_terms_from_package(&mut self) -> fpm::Result<()> {
+        let path = self.get_root_for_package(&self.package);
+        let all_files_path = self.get_all_file_paths1(&self.package, true)?;
+
+        let documents = fpm::paths_to_files(self.package.name.as_str(), all_files_path, &path).await?;
+        for document in documents.iter(){
+            if let fpm::File::Ftd(doc) = document{
+                self.update_terms_from_file(&doc.id, &doc.content).await?;
+            }
+        }
+        Ok(())
     }
 
     pub(crate) fn get_all_file_paths1(
@@ -966,6 +994,9 @@ impl Config {
         };
 
         config.add_package(&package);
+
+        // Update terms map from the current package files
+        config.update_terms_from_package().await?;
 
         Ok(config)
     }
