@@ -6,6 +6,14 @@ pub async fn build2(
 ) -> fpm::Result<()> {
     tokio::fs::create_dir_all(config.build_dir()).await?;
     let documents = get_documents_for_current_package(config).await?;
+
+    // update terms map for the current package
+    for (id, file) in documents.iter() {
+        if let fpm::File::Ftd(doc) = file {
+            config.update_terms_from_file(id, &doc.content).await?;
+        }
+    }
+
     for main in documents.values() {
         if file.is_some() && file != Some(main.get_id().as_str()) {
             continue;

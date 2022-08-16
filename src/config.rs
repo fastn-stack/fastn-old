@@ -13,6 +13,7 @@ pub struct Config {
     pub current_document: Option<String>,
     pub all_packages: std::cell::RefCell<std::collections::BTreeMap<String, fpm::Package>>,
     pub downloaded_assets: std::collections::BTreeMap<String, String>,
+    pub terms: std::collections::HashMap<String, String>,
 }
 
 impl Config {
@@ -220,6 +221,90 @@ impl Config {
             }
         };
         self.extra_data = data;
+        Ok(())
+    }
+
+    /// update the config.terms map from the contents of a file
+    /// in case any 'term:' header is used within the file
+    pub async fn update_terms_from_file(
+        &mut self,
+        doc_id: &str,
+        data: &str,
+    ) -> ftd::p1::Result<()> {
+        /// returns header key and value
+        /// given header string
+        fn segregate_key_value(
+            header: &str,
+            doc_id: &str,
+            line_number: usize,
+        ) -> ftd::p1::Result<(String, String)> {
+            if !header.contains(':') {
+                return Err(ftd::p1::Error::ParseError {
+                    message: format!(": is missing in: {}", header),
+                    doc_id: doc_id.to_string(),
+                    line_number,
+                });
+            }
+
+            let mut parts = header.splitn(2, ':');
+            match (parts.next(), parts.next()) {
+                (Some(name), Some(value)) => {
+                    // some header and some non-empty value
+                    Ok((name.trim().to_string(), value.trim().to_string()))
+                }
+                (Some(name), None) => Err(ftd::p1::Error::ParseError {
+                    message: format!("Unknown header value for header \'{}\'", name),
+                    doc_id: doc_id.to_string(),
+                    line_number,
+                }),
+                _ => Err(ftd::p1::Error::ParseError {
+                    message: format!("Unknown header found \'{}\'", header),
+                    doc_id: doc_id.to_string(),
+                    line_number,
+                }),
+            }
+        }
+
+        /// converts the given string to document_id
+        /// and returns it
+        fn convert_to_document_id(doc_id: &str) -> String {
+            // Discard document suffix if there
+            let document_id = doc_id
+                .split_once("/-/")
+                .map(|x| x.0)
+                .unwrap_or_else(|| doc_id)
+                .trim_matches('/');
+
+            // Attach /{doc_id}/ in the end
+            format!("/{}/", document_id)
+        }
+
+        /// updates the config.terms map
+        ///
+        /// mapping from [slugified_term -> document_id]
+        fn update_terms(
+            terms_map: &mut std::collections::HashMap<String, String>,
+            term_string: &str,
+            doc_id: &str,
+        ) -> ftd::p1::Result<()> {
+            // todo: need to update line number below
+            let (_header, term) = segregate_key_value(term_string, doc_id, 0)?;
+
+            let slugified_term = slug::slugify(term);
+            let document_id = convert_to_document_id(doc_id);
+
+            terms_map.insert(slugified_term, document_id);
+            Ok(())
+        }
+
+        let term_regex = regex::Regex::new(r"(?m)^\s*term\s*:[\sA-Za-z\d]*$").unwrap();
+
+        // capture if any line matches with term regex
+        for capture in term_regex.captures_iter(data) {
+            // println!("Capture: |{}|", &capture[0].trim());
+            update_terms(&mut self.terms, capture[0].trim(), doc_id)?;
+        }
+
         Ok(())
     }
 
@@ -847,6 +932,7 @@ impl Config {
             current_document: None,
             all_packages: Default::default(),
             downloaded_assets: Default::default(),
+            terms: Default::default(),
         };
 
         let asset_documents = config.get_assets("/").await?;
