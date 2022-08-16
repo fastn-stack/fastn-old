@@ -984,7 +984,6 @@ impl Config {
         use itertools::Itertools;
         let access_identities = {
             if let Some(identity) = req.cookie("identities") {
-                dbg!(&identity.value());
                 parse_identities(identity.value())
             } else {
                 vec![]
