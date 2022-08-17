@@ -157,6 +157,12 @@ pub async fn parse2<'a>(
                 .await?;
                 s = state.continue_after_variable(variable.as_str(), value)?
             }
+            ftd::Interpreter::StuckOnTerm {
+                doc_index: index,
+                state: st,
+            } => {
+                s = st.continue_after_processing_terms(&lib.config.terms, index)?;
+            }
         }
     }
     Ok(document)
