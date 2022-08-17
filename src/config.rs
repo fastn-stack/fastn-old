@@ -270,14 +270,23 @@ impl Config {
         /// and returns it
         fn convert_to_document_id(doc_id: &str) -> String {
             // Discard document suffix if there
+            // Also discard if trailing with index.ftd or .ftd
             let document_id = doc_id
                 .split_once("/-/")
                 .map(|x| x.0)
                 .unwrap_or_else(|| doc_id)
+                .trim_end_matches(".ftd")
+                .trim_end_matches("index")
                 .trim_matches('/');
 
-            // Attach /{doc_id}/ in the end
-            format!("/{}/", document_id)
+
+            // In case if doc_id = index.ftd
+            if document_id.is_empty() {
+                return "/".to_string();
+            }
+
+            // Attach /{doc_id}/ before returning
+            return format!("/{}/", document_id);
         }
 
         /// updates the config.terms map
@@ -293,30 +302,30 @@ impl Config {
             let (_header, term) = segregate_key_value(term_string, doc_id, line_number)?;
 
             let slugified_term = slug::slugify(term);
+            // dbg!(doc_id);
             let document_id = convert_to_document_id(doc_id);
-
-            // println!("updated !!");
+            // dbg!(&document_id);
+            // println!("updated map!!");
             // dbg!(&slugified_term, &document_id);
 
             terms_map.insert(slugified_term, document_id);
             Ok(())
         }
 
-        // let term_regex = regex::Regex::new(r"(?m)^\s*term\s*:[\sA-Za-z\d]*$").unwrap();
-        //
-        // // capture if any line matches with term regex
-        // for capture in term_regex.captures_iter(data) {
-        //     // println!("Capture: |{}|", &capture[0].trim());
-        //     update_terms(&mut self.terms, capture[0].trim(), doc_id)?;
-        // }
-
-        // Avoiding using regex here to reduce complexity as the pattern
-        // to search itself is not that complex
-        // ^term: some term$
+        let term_regex = regex::Regex::new(r"(?m)^\s*term\s*:[\sA-Za-z\d]*$").unwrap();
         for (ln, line) in itertools::enumerate(data.lines()){
-            if line.trim_start().starts_with("term") && line.contains(":"){
-                update_terms(&mut self.terms, line.trim_start(), doc_id, ln)?;
+
+            if term_regex.is_match(line){
+                update_terms(&mut self.terms, line, doc_id, ln)?;
             }
+
+            // In case if we want to
+            // Avoid using regex here to reduce complexity as the pattern
+            // to search itself is not that complex
+            // ^term: <some-alphanumeric-string>$
+            // if line.trim_start().starts_with("term") && line.contains(':'){
+            //     update_terms(&mut self.terms, line.trim_start(), doc_id, ln)?;
+            // }
         }
 
         Ok(())
