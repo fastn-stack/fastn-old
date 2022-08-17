@@ -231,7 +231,6 @@ impl Config {
         doc_id: &str,
         data: &str,
     ) -> ftd::p1::Result<()> {
-
         /// returns header key and value
         /// given header string
         fn segregate_key_value(
@@ -279,7 +278,6 @@ impl Config {
                 .trim_end_matches("index")
                 .trim_matches('/');
 
-
             // In case if doc_id = index.ftd
             if document_id.is_empty() {
                 return "/".to_string();
@@ -298,7 +296,6 @@ impl Config {
             doc_id: &str,
             line_number: usize,
         ) -> ftd::p1::Result<()> {
-
             let (_header, term) = segregate_key_value(term_string, doc_id, line_number)?;
 
             let slugified_term = slug::slugify(term);
@@ -313,9 +310,8 @@ impl Config {
         }
 
         let term_regex = regex::Regex::new(r"(?m)^\s*term\s*:[\sA-Za-z\d]*$").unwrap();
-        for (ln, line) in itertools::enumerate(data.lines()){
-
-            if term_regex.is_match(line){
+        for (ln, line) in itertools::enumerate(data.lines()) {
+            if term_regex.is_match(line) {
                 update_terms(&mut self.terms, line, doc_id, ln)?;
             }
 
@@ -421,9 +417,10 @@ impl Config {
         let path = self.get_root_for_package(&self.package);
         let all_files_path = self.get_all_file_paths1(&self.package, true)?;
 
-        let documents = fpm::paths_to_files(self.package.name.as_str(), all_files_path, &path).await?;
-        for document in documents.iter(){
-            if let fpm::File::Ftd(doc) = document{
+        let documents =
+            fpm::paths_to_files(self.package.name.as_str(), all_files_path, &path).await?;
+        for document in documents.iter() {
+            if let fpm::File::Ftd(doc) = document {
                 self.update_terms_from_file(&doc.id, &doc.content).await?;
             }
         }
