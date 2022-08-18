@@ -269,7 +269,7 @@ impl Config {
         /// and returns it
         fn convert_to_document_id(doc_id: &str) -> String {
             // Discard document suffix if there
-            // Also discard if trailing with index.ftd or .ftd
+            // Also discard trailing index.ftd and .ftd
             let document_id = doc_id
                 .split_once("/-/")
                 .map(|x| x.0)
@@ -298,14 +298,14 @@ impl Config {
         ) -> ftd::p1::Result<()> {
             let (_header, term) = segregate_key_value(term_string, doc_id, line_number)?;
 
-            let slugified_term = slug::slugify(term);
+            // let slugified_term = slug::slugify(term);
             // dbg!(doc_id);
             let document_id = convert_to_document_id(doc_id);
             // dbg!(&document_id);
             // println!("updated map!!");
             // dbg!(&slugified_term, &document_id);
 
-            terms_map.insert(slugified_term, document_id);
+            terms_map.insert(term, document_id);
             Ok(())
         }
 
