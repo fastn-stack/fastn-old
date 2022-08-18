@@ -268,13 +268,17 @@ impl Config {
         /// converts the given string to document_id
         /// and returns it
         fn convert_to_document_id(doc_id: &str) -> String {
+
+            // Todo use lazystatic! for this regex
+            let ext: regex::Regex = regex::Regex::new(r".[a-z\d]+[/]?$").unwrap();
+            let doc_id = ext.replace_all(doc_id, "");
+
             // Discard document suffix if there
-            // Also discard trailing index.ftd and .ftd
+            // Also discard trailing index
             let document_id = doc_id
                 .split_once("/-/")
                 .map(|x| x.0)
-                .unwrap_or_else(|| doc_id)
-                .trim_end_matches(".ftd")
+                .unwrap_or_else(|| doc_id.as_ref())
                 .trim_end_matches("index")
                 .trim_matches('/');
 
@@ -289,7 +293,7 @@ impl Config {
 
         /// updates the config.terms map
         ///
-        /// mapping from [slugified_term -> document_id]
+        /// mapping from [term -> document_id]
         fn update_terms(
             terms_map: &mut std::collections::HashMap<String, String>,
             term_string: &str,
