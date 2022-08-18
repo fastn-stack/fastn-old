@@ -268,7 +268,6 @@ impl Config {
         /// converts the given string to document_id
         /// and returns it
         fn convert_to_document_id(doc_id: &str) -> String {
-
             // Todo use lazystatic! for this regex
             let ext: regex::Regex = regex::Regex::new(r".[a-z\d]+[/]?$").unwrap();
             let doc_id = ext.replace_all(doc_id, "");
