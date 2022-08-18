@@ -10,12 +10,7 @@ pub async fn add(config: &fpm::Config, file: &str, cr: Option<&str>) -> fpm::Res
 }
 
 async fn simple_add(config: &fpm::Config, file: &str) -> fpm::Result<()> {
-    let mut workspace: std::collections::BTreeMap<String, fpm::workspace::WorkspaceEntry> = config
-        .read_workspace()
-        .await?
-        .into_iter()
-        .map(|v| (v.filename.to_string(), v))
-        .collect();
+    let mut workspace = config.get_clone_workspace().await?;
 
     if workspace.contains_key(file) {
         return Err(fpm::Error::UsageError {
@@ -40,7 +35,7 @@ async fn simple_add(config: &fpm::Config, file: &str) -> fpm::Result<()> {
     );
 
     config
-        .write_workspace(workspace.into_values().collect_vec().as_slice())
+        .update_workspace(workspace.into_values().collect_vec())
         .await?;
 
     Ok(())
@@ -50,27 +45,23 @@ async fn cr_add(config: &fpm::Config, file: &str, cr: usize) -> fpm::Result<()> 
     if !fpm::cr::is_open_cr_exists(config, cr).await? {
         return fpm::usage_error(format!("CR#{} is closed", cr));
     };
-
-    let mut workspace: std::collections::BTreeMap<String, fpm::workspace::WorkspaceEntry> = config
-        .read_workspace()
-        .await?
-        .into_iter()
-        .map(|v| (v.filename.to_string(), v))
-        .collect();
-
-    if workspace.contains_key(file) {
+    let remote_manifest = config.get_remote_manifest(false).await?;
+    if remote_manifest.contains_key(file) {
         return Err(fpm::Error::UsageError {
             message: format!(
-                "{} is already in workspace. Help: Use `fpm edit {} --cr {}",
+                "{} is present in remote manifest. Help: Use `fpm edit {} --cr {}",
                 file, file, cr
             ),
         });
     }
 
+    let mut workspace = config.get_workspace_map().await?;
+
+    let cr_file_path = config.cr_path(cr).join(file);
     workspace.insert(
-        file.to_string(),
+        config.path_without_root(&cr_file_path)?,
         fpm::workspace::WorkspaceEntry {
-            filename: file.to_string(),
+            filename: config.path_without_root(&cr_file_path)?,
             deleted: None,
             version: None,
             cr: Some(cr),
@@ -82,7 +73,6 @@ async fn cr_add(config: &fpm::Config, file: &str, cr: usize) -> fpm::Result<()> 
         .await?;
 
     let file_path = config.root.join(file);
-    let cr_file_path = config.cr_path(cr).join(file);
 
     if file_path.exists() {
         fpm::utils::copy(&file_path, &cr_file_path).await?;

@@ -1,7 +1,7 @@
 use itertools::Itertools;
 use sha2::Digest;
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub enum Status {
     Conflict(i32),
     NoConflict,
@@ -28,7 +28,7 @@ impl Status {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum FileStatus {
     Add {
         path: String,
@@ -124,35 +124,61 @@ impl FileStatus {
 
 impl fpm::Config {
     pub(crate) async fn get_files_status(&self) -> fpm::Result<Vec<FileStatus>> {
-        let file_list = self.read_workspace().await?;
         let mut workspace: std::collections::BTreeMap<String, fpm::workspace::WorkspaceEntry> =
-            file_list
-                .iter()
-                .map(|v| (v.filename.to_string(), v.clone()))
-                .collect();
+            self.get_workspace_map().await?;
         let changed_files = self.get_files_status_with_workspace(&mut workspace).await?;
         self.write_workspace(workspace.into_values().collect_vec().as_slice())
             .await?;
         Ok(changed_files)
     }
 
+    /*pub(crate) async fn get_files_status_with_cr_workspace(
+        &self,
+        cr_workspace: &mut fpm::workspace::CRWorkspace,
+    ) -> fpm::Result<Vec<FileStatus>> {
+        self.update_workspace_using_cr_track(cr_workspace).await?;
+        let mut changed_files = self
+            .get_files_status_wrt_workspace(&mut cr_workspace.workspace)
+            .await?;
+        self.get_files_status_wrt_remote_manifest(&mut changed_files, workspace)
+            .await?;
+        Ok(changed_files)
+    }*/
+
     pub(crate) async fn get_files_status_with_workspace(
         &self,
         workspace: &mut std::collections::BTreeMap<String, fpm::workspace::WorkspaceEntry>,
     ) -> fpm::Result<Vec<FileStatus>> {
         let mut changed_files = self.get_files_status_wrt_workspace(workspace).await?;
-        self.get_files_status_wrt_remote_latest(&mut changed_files, workspace)
+        self.get_files_status_wrt_remote_manifest(&mut changed_files, workspace)
             .await?;
         Ok(changed_files)
     }
+
+    /*async fn update_workspace_using_cr_track(
+        &self,
+        cr_workspace: &mut fpm::workspace::CRWorkspace,
+    ) -> fpm::Result<Vec<FileStatus>> {
+        let cr_tracking_infos = self.get_cr_tracking_info(cr_workspace.cr).await?;
+        for tracking_info in cr_tracking_infos {
+            if cr_workspace.workspace.contains_key(&tracking_info.filename) {
+                continue;
+            }
+            cr_workspace.workspace.insert(
+                tracking_info.filename,
+                tracking_info.into_workspace_entry(cr_workspace.cr),
+            )
+        }
+
+        Ok(())
+    }*/
 
     async fn get_files_status_wrt_workspace(
         &self,
         workspace: &std::collections::BTreeMap<String, fpm::workspace::WorkspaceEntry>,
     ) -> fpm::Result<Vec<FileStatus>> {
-        let files = workspace.values().collect_vec();
         let mut changed_files = vec![];
-        for workspace_entry in files {
+        for (filename, workspace_entry) in workspace {
             let version = if let Some(version) = workspace_entry.version {
                 version
             } else {
@@ -181,7 +207,7 @@ impl fpm::Config {
 
             let content =
                 tokio::fs::read(self.root.join(workspace_entry.filename.as_str())).await?;
-            let history_path = self.history_path(workspace_entry.filename.as_str(), version);
+            let history_path = self.history_path(filename.as_str(), version);
             let history_content = tokio::fs::read(history_path).await?;
             if sha2::Sha256::digest(&content).eq(&sha2::Sha256::digest(&history_content)) {
                 changed_files.push(FileStatus::Uptodate {
@@ -200,13 +226,24 @@ impl fpm::Config {
         Ok(changed_files)
     }
 
-    async fn get_files_status_wrt_remote_latest(
+    async fn get_files_status_wrt_remote_manifest(
         &self,
         files: &mut Vec<FileStatus>,
         workspace: &mut std::collections::BTreeMap<String, fpm::workspace::WorkspaceEntry>,
     ) -> fpm::Result<()> {
+        let remote_manifest = self.get_remote_manifest(true).await?;
+        self.get_files_status_wrt_manifest(files, workspace, &remote_manifest)
+            .await?;
+        Ok(())
+    }
+
+    async fn get_files_status_wrt_manifest(
+        &self,
+        files: &mut Vec<FileStatus>,
+        workspace: &mut std::collections::BTreeMap<String, fpm::workspace::WorkspaceEntry>,
+        manifest: &std::collections::BTreeMap<String, fpm::history::FileEdit>,
+    ) -> fpm::Result<()> {
         let mut remove_files = vec![];
-        let server_latest = self.get_latest_file_edits().await?;
         for (index, file) in files.iter_mut().enumerate() {
             match file {
                 FileStatus::Uptodate { .. } => {
@@ -217,7 +254,7 @@ impl fpm::Config {
                     content,
                     status,
                 } => {
-                    let server_version = if let Some(file_edit) = server_latest.get(path) {
+                    let server_version = if let Some(file_edit) = manifest.get(path) {
                         if file_edit.is_deleted() {
                             continue;
                         }
@@ -248,7 +285,7 @@ impl fpm::Config {
                     version,
                     status,
                 } => {
-                    let server_file_edit = if let Some(file_edit) = server_latest.get(path) {
+                    let server_file_edit = if let Some(file_edit) = manifest.get(path) {
                         file_edit
                     } else {
                         continue;
@@ -301,7 +338,7 @@ impl fpm::Config {
                     version,
                     status,
                 } => {
-                    let server_file_edit = if let Some(server_file_edit) = server_latest.get(path) {
+                    let server_file_edit = if let Some(server_file_edit) = manifest.get(path) {
                         server_file_edit
                     } else {
                         remove_files.push(index);

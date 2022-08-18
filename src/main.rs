@@ -42,13 +42,23 @@ async fn main() -> fpm::Result<()> {
         fpm::update(&config).await?;
     }
 
+    if let Some(edit) = matches.subcommand_matches("edit") {
+        fpm::edit(
+            &config,
+            edit.value_of("file").unwrap(),
+            edit.value_of("cr").unwrap(),
+        )
+        .await?;
+        return Ok(());
+    }
+
     if let Some(add) = matches.subcommand_matches("add") {
         fpm::add(&config, add.value_of("file").unwrap(), add.value_of("cr")).await?;
         return Ok(());
     }
 
     if let Some(rm) = matches.subcommand_matches("rm") {
-        fpm::rm(&config, rm.value_of("file").unwrap()).await?;
+        fpm::rm(&config, rm.value_of("file").unwrap(), rm.value_of("cr")).await?;
         return Ok(());
     }
 
@@ -143,14 +153,14 @@ async fn main() -> fpm::Result<()> {
     Ok(())
 }
 
-fn app(authors: &'static str, version: &'static str) -> clap::App<'static, 'static> {
+fn app(authors: &'static str, version: &'static str) -> clap::App<'static> {
     clap::App::new("fpm: FTD Package Manager")
         .version(version)
         .author(authors)
         .setting(clap::AppSettings::ArgRequiredElseHelp)
         .arg(
             clap::Arg::with_name("verbose")
-                .short("v")
+                .short('v')
                 .multiple(true)
                 .help("Sets the level of verbosity"),
         )
@@ -174,7 +184,7 @@ fn app(authors: &'static str, version: &'static str) -> clap::App<'static, 'stat
                 )
                 .arg(
                     clap::Arg::with_name("package-path")
-                        .short("p")
+                        .short('p')
                         .long("path")
                         .takes_value(true)
                         .help("Package path (relative)")
@@ -201,7 +211,7 @@ fn app(authors: &'static str, version: &'static str) -> clap::App<'static, 'stat
                 .arg(
                     clap::Arg::with_name("verbose")
                         .long("verbose")
-                        .short("v")
+                        .short('v')
                         .takes_value(false)
                         .required(false),
                 )
@@ -226,6 +236,15 @@ fn app(authors: &'static str, version: &'static str) -> clap::App<'static, 'stat
                 .version(env!("CARGO_PKG_VERSION")),
         )
         .subcommand(
+            clap::SubCommand::with_name("edit")
+                .about("Edit a file in CR workspace")
+                .args(&[
+                    clap::Arg::with_name("file").required(true),
+                    clap::Arg::with_name("cr").long("--cr").takes_value(true).required(true),
+                ])
+                .version(env!("CARGO_PKG_VERSION")),
+        )
+        .subcommand(
             clap::SubCommand::with_name("add")
                 .about("Adds a file in workspace")
                 .args(&[
@@ -237,7 +256,10 @@ fn app(authors: &'static str, version: &'static str) -> clap::App<'static, 'stat
         .subcommand(
             clap::SubCommand::with_name("rm")
                 .about("Removes a file in workspace")
-                .arg(clap::Arg::with_name("file").required(true))
+                .args(&[
+                    clap::Arg::with_name("file").required(true),
+                    clap::Arg::with_name("cr").long("--cr").takes_value(true),
+                ])
                 .version(env!("CARGO_PKG_VERSION")),
         )
         .subcommand(
@@ -289,7 +311,7 @@ fn app(authors: &'static str, version: &'static str) -> clap::App<'static, 'stat
             clap::SubCommand::with_name("diff")
                 .args(&[
                     clap::Arg::with_name("source").multiple(true),
-                    clap::Arg::with_name("all").long("--all").short("a"),
+                    clap::Arg::with_name("all").long("--all").short('a'),
                 ])
                 .about("Show un-synced changes to files in this fpm package")
                 .version(env!("CARGO_PKG_VERSION")),

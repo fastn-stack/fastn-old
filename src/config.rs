@@ -35,7 +35,41 @@ impl Config {
     }
 
     pub fn cr_path(&self, cr_number: usize) -> camino::Utf8PathBuf {
-        self.root.join("-/").join(cr_number.to_string())
+        self.root.join(fpm::cr::cr_path(cr_number))
+    }
+
+    pub fn path_without_root(&self, path: &camino::Utf8PathBuf) -> fpm::Result<String> {
+        Ok(path.strip_prefix(&self.root)?.to_string())
+    }
+
+    pub fn cr_deleted_file_path(&self, cr_number: usize) -> camino::Utf8PathBuf {
+        self.cr_path(cr_number).join("-/deleted.ftd")
+    }
+
+    pub fn track_path(&self, path: &camino::Utf8PathBuf) -> camino::Utf8PathBuf {
+        let path_without_root = self
+            .path_without_root(path)
+            .unwrap_or_else(|_| path.to_string());
+        let track_path = format!("{}.track", path_without_root);
+        self.track_dir().join(track_path)
+    }
+
+    pub fn cr_track_dir(&self, cr_number: usize) -> camino::Utf8PathBuf {
+        self.track_dir().join(fpm::cr::cr_path(cr_number))
+    }
+
+    pub fn cr_track_path(
+        &self,
+        path: &camino::Utf8PathBuf,
+        cr_number: usize,
+    ) -> camino::Utf8PathBuf {
+        let path_without_root = self
+            .cr_path(cr_number)
+            .join(path)
+            .to_string()
+            .replace(self.root.to_string().as_str(), "");
+        let track_path = format!("{}.track", path_without_root);
+        self.track_dir().join(track_path)
     }
 
     pub fn cr_about_path(&self, cr_number: usize) -> camino::Utf8PathBuf {
@@ -46,12 +80,12 @@ impl Config {
         self.root.join(".remote-state")
     }
 
-    pub fn server_history_dir(&self) -> camino::Utf8PathBuf {
+    pub fn remote_history_dir(&self) -> camino::Utf8PathBuf {
         self.remote_dir().join("history")
     }
 
     /// location that stores lowest available cr number
-    pub fn server_cr(&self) -> camino::Utf8PathBuf {
+    pub fn remote_cr(&self) -> camino::Utf8PathBuf {
         self.remote_dir().join("cr")
     }
 
@@ -61,7 +95,7 @@ impl Config {
 
     pub(crate) fn history_path(&self, id: &str, version: i32) -> camino::Utf8PathBuf {
         let id_with_timestamp_extension = fpm::utils::snapshot_id(id, &(version as u128));
-        self.server_history_dir().join(id_with_timestamp_extension)
+        self.remote_history_dir().join(id_with_timestamp_extension)
     }
 
     pub(crate) fn document_name_with_default(&self, document_path: &str) -> String {
@@ -150,11 +184,9 @@ impl Config {
                 .parent()
                 .expect("Expect fpm_path parent. Panic!")
                 .to_owned()),
-            _ => {
-                return Err(fpm::Error::UsageError {
-                    message: format!("Unable to find `fpm_path` of the package {}", o.name),
-                })
-            }
+            _ => Err(fpm::Error::UsageError {
+                message: format!("Unable to find `fpm_path` of the package {}", o.name),
+            }),
         }
     }
 
@@ -387,14 +419,13 @@ impl Config {
 
     pub async fn get_file_by_id(&self, id: &str, package: &fpm::Package) -> fpm::Result<fpm::File> {
         let file_name = fpm::Config::get_file_name(&self.root, id)?;
-        return self
-            .get_files(package)
+        self.get_files(package)
             .await?
             .into_iter()
             .find(|v| v.get_id().eq(file_name.as_str()))
             .ok_or_else(|| fpm::Error::UsageError {
                 message: format!("No such file found: {}", id),
-            });
+            })
     }
 
     pub async fn get_file_and_package_by_id(&mut self, id: &str) -> fpm::Result<fpm::File> {
@@ -904,7 +935,7 @@ impl Config {
             .sitemap_temp
             .as_ref();
 
-            let sitemap = match sitemap {
+            match sitemap {
                 Some(sitemap_temp) => {
                     let mut s = fpm::sitemap::Sitemap::parse(
                         sitemap_temp.body.as_str(),
@@ -920,8 +951,7 @@ impl Config {
                     Some(s)
                 }
                 None => None,
-            };
-            sitemap
+            }
         };
 
         config.add_package(&package);
@@ -979,7 +1009,7 @@ impl Config {
             return fpm::usage_error("Can be used by remote only".to_string());
         }
         let value = fpm::cache::update(
-            self.server_cr().to_string().as_str(),
+            self.remote_cr().to_string().as_str(),
             number_of_crs_to_reserve,
         )
         .await? as i32;
