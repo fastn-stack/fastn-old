@@ -104,7 +104,7 @@ impl Config {
         self.fpm_dir().join("conflicted")
     }
 
-    /// every package's `.history` contains a file `.latest.ftd`. It looks a bit linke this:
+    /// every package's `.history` contains a file `.latest.ftd`. It looks a bit link this:
     ///
     /// ```ftd
     /// -- import: fpm
@@ -995,6 +995,7 @@ impl Config {
         document_path: &str,
     ) -> fpm::Result<bool> {
         use itertools::Itertools;
+        // Get identities from remote(sid)
         let access_identities = {
             if let Some(identity) = req.cookie("identities") {
                 fpm::user_group::parse_identities(identity.value())
@@ -1007,6 +1008,9 @@ impl Config {
         if let Some(sitemap) = &self.package.sitemap {
             // TODO: This can be buggy in case of: if groups are used directly in sitemap are foreign groups
             let document_readers = sitemap.readers(document_name.as_str(), &self.package.groups);
+            if document_readers.is_empty() {
+                return Ok(true);
+            }
             return fpm::user_group::belongs_to(
                 self,
                 document_readers.as_slice(),
@@ -1022,6 +1026,8 @@ impl Config {
         document_path: &str,
     ) -> fpm::Result<bool> {
         use itertools::Itertools;
+
+        // Get identities from remote(sid)
         let access_identities = {
             if let Some(identity) = req.cookie("identities") {
                 fpm::user_group::parse_identities(identity.value())
