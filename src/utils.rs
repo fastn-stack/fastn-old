@@ -443,9 +443,33 @@ where
     }
 }
 
-pub(crate) async fn http_get<T: reqwest::IntoUrl + std::fmt::Debug>(
-    url: T,
-) -> fpm::Result<Vec<u8>> {
+pub(crate) async fn get_json<T: serde::de::DeserializeOwned>(url: &str) -> fpm::Result<T> {
+    Ok(reqwest::Client::new()
+        .get(url)
+        .header(reqwest::header::CONTENT_TYPE, "application/json")
+        .header(reqwest::header::USER_AGENT, "fpm")
+        .send()
+        .await?
+        .json::<T>()
+        .await?)
+}
+
+pub(crate) async fn post_json<T: serde::de::DeserializeOwned, B: Into<reqwest::Body>>(
+    url: &str,
+    body: B,
+) -> fpm::Result<T> {
+    Ok(reqwest::Client::new()
+        .post(url)
+        .header(reqwest::header::CONTENT_TYPE, "application/json")
+        .header(reqwest::header::USER_AGENT, "fpm")
+        .body(body)
+        .send()
+        .await?
+        .json()
+        .await?)
+}
+
+pub(crate) async fn http_get(url: &str) -> fpm::Result<Vec<u8>> {
     let mut headers = reqwest::header::HeaderMap::new();
     headers.insert(
         reqwest::header::USER_AGENT,
@@ -467,9 +491,28 @@ pub(crate) async fn http_get<T: reqwest::IntoUrl + std::fmt::Debug>(
     Ok(res.bytes().await?.into())
 }
 
-pub(crate) async fn http_get_str<T: reqwest::IntoUrl + std::fmt::Debug>(
-    url: T,
-) -> fpm::Result<String> {
+pub async fn http_get_with_type<T: serde::de::DeserializeOwned>(
+    url: url::Url,
+    headers: reqwest::header::HeaderMap,
+    query: &[(String, String)],
+) -> fpm::Result<T> {
+    let c = reqwest::Client::builder()
+        .default_headers(headers)
+        .build()?;
+
+    let resp = c.get(url.to_string().as_str()).query(query).send().await?;
+    if !resp.status().eq(&reqwest::StatusCode::OK) {
+        return Err(fpm::Error::APIResponseError(format!(
+            "url: {}, response_status: {}, response: {:?}",
+            url,
+            resp.status(),
+            resp.text().await
+        )));
+    }
+    Ok(resp.json::<T>().await?)
+}
+
+pub(crate) async fn http_get_str(url: &str) -> fpm::Result<String> {
     let url_f = format!("{:?}", url);
     match http_get(url).await {
         Ok(bytes) => String::from_utf8(bytes).map_err(|e| fpm::Error::UsageError {
