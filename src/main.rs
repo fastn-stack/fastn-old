@@ -408,6 +408,12 @@ fn sub_command_serve() -> clap::App<'static> {
                 .long("--bind")
                 .takes_value(true)
                 .help("Specify the bind address to serve on"),
+        )
+        .arg(
+            clap::Arg::with_name("package-url")
+                .long("--package-url")
+                .takes_value(true)
+                .help("Base URL of Package where it is stored"),
         );
 
     if cfg!(feature = "remote") {
