@@ -109,8 +109,8 @@ pub async fn parse<'a>(
                 s = state.continue_after_variable(variable.as_str(), value)?
             }
             ftd::Interpreter::CheckID {
-                doc_index: index,
-                state: st,
+                doc_index: _index,
+                state: _st,
             } => {
                 // This function was used in build.rs
                 // Not using build.rs anymore (build2.rs is used currently)

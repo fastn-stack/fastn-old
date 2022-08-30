@@ -13,10 +13,10 @@ document id
 pub fn convert_to_document_id(doc_name: &str) -> String {
     const FILE_EXTENSION: &str = r".[a-z\d]+[/]?$";
     lazy_static::lazy_static!(
-        static ref ext: regex::Regex = regex::Regex::new(FILE_EXTENSION).unwrap();
+        static ref EXT: regex::Regex = regex::Regex::new(FILE_EXTENSION).unwrap();
     );
 
-    let doc_name = ext.replace_all(doc_name, "");
+    let doc_name = EXT.replace_all(doc_name, "");
 
     // Discard document suffix if there
     // Also discard trailing index

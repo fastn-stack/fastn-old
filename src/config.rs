@@ -309,7 +309,11 @@ impl Config {
 
     /// update the config.global_ids map from the contents of a file
     /// in case the user defines the id for any component in the document
-    pub async fn update_global_ids_from_file(&mut self, doc_id: &str, data: &str) -> fpm::Result<()> {
+    pub async fn update_global_ids_from_file(
+        &mut self,
+        doc_id: &str,
+        data: &str,
+    ) -> fpm::Result<()> {
         /// returns header key and value
         /// given header string
         fn segregate_key_value(
@@ -376,13 +380,13 @@ impl Config {
         }
 
         lazy_static::lazy_static!(
-            static ref id_regex = regex::Regex::new(r"(?m)^\s*id\s*:[\sA-Za-z\d]*$").unwrap();
+            static ref ID: regex::Regex = regex::Regex::new(r"(?m)^\s*id\s*:[\sA-Za-z\d]*$").unwrap();
         );
 
         // grep all lines where user defined `id` for the sections
         // and update the global_ids map
         for (ln, line) in itertools::enumerate(data.lines()) {
-            if id_regex.is_match(line) {
+            if ID.is_match(line) {
                 update_id_map(&mut self.global_ids, line, doc_id, ln)?;
             }
 
@@ -492,7 +496,8 @@ impl Config {
             fpm::paths_to_files(self.package.name.as_str(), all_files_path, &path).await?;
         for document in documents.iter() {
             if let fpm::File::Ftd(doc) = document {
-                self.update_global_ids_from_file(&doc.id, &doc.content).await?;
+                self.update_global_ids_from_file(&doc.id, &doc.content)
+                    .await?;
             }
         }
         Ok(())
