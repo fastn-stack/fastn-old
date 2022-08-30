@@ -111,16 +111,7 @@ async fn get_package(fpm_instance: &str, fpm_controller: &str) -> fpm::Result<Pa
         fpm_controller, fpm_instance
     );
 
-    let url = url::Url::parse(controller_api.as_str())?;
-
-    let mut headers = reqwest::header::HeaderMap::new();
-    headers.insert(
-        reqwest::header::USER_AGENT,
-        reqwest::header::HeaderValue::from_static("fpm"),
-    );
-
-    let resp: ApiResponse<PackageResult> = fpm::library::http::get_with_type(url, headers).await?;
-
+    let resp: ApiResponse<PackageResult> = fpm::utils::get_json(controller_api.as_str()).await?;
     if !resp.success {
         return Err(fpm::Error::APIResponseError(format!(
             "get_package api error: {:?}",
@@ -174,15 +165,10 @@ async fn fpm_ready(fpm_instance: &str, fpm_controller: &str) -> fpm::Result<()> 
 
     // This request should be put request for fpm_ready API to update the instance status to ready
     // Using http::_get() function to make request to this API for now
-    let mut headers = reqwest::header::HeaderMap::new();
-    headers.insert(
-        reqwest::header::USER_AGENT,
-        reqwest::header::HeaderValue::from_static("fpm"),
-    );
-
     // TODO: here Map is wrong,
     let resp: ApiResponse<std::collections::HashMap<String, String>> =
-        fpm::library::http::get_with_type(url, headers).await?;
+        fpm::utils::get_json(url.as_str()).await?;
+
     if !resp.success {
         return Err(fpm::Error::APIResponseError(format!(
             "fpm_ready api error: {:?}",
@@ -190,4 +176,64 @@ async fn fpm_ready(fpm_instance: &str, fpm_controller: &str) -> fpm::Result<()> 
         )));
     }
     Ok(())
+}
+
+// This API will be called from can_read and can_write functions
+
+pub async fn get_remote_identities(
+    remote_host: &str,
+    cookies: std::collections::HashMap<String, String>,
+    identities: &[(String, String)],
+) -> fpm::Result<Vec<fpm::user_group::UserIdentity>> {
+    use itertools::Itertools;
+
+    #[derive(serde::Deserialize)]
+    struct UserIdentities {
+        success: bool,
+        reason: Option<String>,
+        #[serde(rename = "user-identities")]
+        user_identities: Option<Vec<std::collections::HashMap<String, String>>>,
+    }
+    let url = format!("https://{}/-/dj/get-identities/", remote_host);
+    println!("remote url: {}", url);
+
+    let cookie = cookies
+        .iter()
+        .map(|c| format!("{}={}", c.0, c.1))
+        .collect::<Vec<_>>()
+        .join(";");
+
+    println!("cookies: {}", cookie);
+
+    let headers = reqwest::header::HeaderMap::from_iter([(
+        reqwest::header::COOKIE,
+        reqwest::header::HeaderValue::from_bytes(cookie.as_bytes()).unwrap(),
+    )]);
+
+    let resp: UserIdentities =
+        fpm::utils::http_get_with_type(url::Url::parse(url.as_str())?, headers, identities).await?;
+
+    if !resp.success {
+        return Err(fpm::Error::APIResponseError(format!(
+            "url: {}, error while getting controller: get-identities",
+            url,
+        )));
+    }
+
+    #[allow(clippy::or_fun_call)]
+    let remote_identities = resp.user_identities.ok_or({
+        fpm::Error::APIResponseError(format!(
+            "controller:get-identities api error: {:?}",
+            resp.reason
+        ))
+    })?;
+
+    Ok(remote_identities
+        .into_iter()
+        .flat_map(|identities| {
+            identities
+                .into_iter()
+                .map(|(key, value)| fpm::user_group::UserIdentity { key, value })
+        })
+        .collect_vec())
 }

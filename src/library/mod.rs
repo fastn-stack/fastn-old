@@ -1,3 +1,4 @@
+mod cr_meta;
 pub(crate) mod document;
 mod fetch_file;
 mod fpm_dot_ftd;
@@ -36,14 +37,14 @@ impl Library {
     ) -> ftd::p1::Result<String> {
         match self.get(name, packages).await {
             Some(v) => Ok(v),
-            None => ftd::e2(format!("library not found: {}", name), "", 0),
+            None => ftd::p2::utils::e2(format!("library not found: {}", name), "", 0),
         }
     }
 
     pub async fn get(&self, name: &str, packages: &mut Vec<fpm::Package>) -> Option<String> {
         if name == "fpm" {
             packages.push(packages.last()?.clone());
-            return Some(fpm_dot_ftd::get(self));
+            return Some(fpm_dot_ftd::get(self).await);
         }
         if name == "fpm-lib" {
             packages.push(packages.last()?.clone());
@@ -163,6 +164,7 @@ impl Library {
             .header
             .str(doc.name, section.line_number, "$processor$")?
         {
+            // These processors are implemented both in Rust and Python
             "http" => fpm::library::http::processor(section, doc).await,
             "package-query" => fpm::library::sqlite::processor(section, doc, &self.config).await,
             "fetch-file" => fpm::library::fetch_file::processor(section, doc, &self.config).await,
@@ -185,6 +187,8 @@ impl Library {
     }
 }
 
+/// process_sync implements a bunch of processors that are called from Python. We want sync
+/// API to expose to outside world and async functions do not work so well with them.
 pub fn process_sync<'a>(
     config: &fpm::Config,
     section: &ftd::p1::Section,
@@ -293,7 +297,7 @@ impl Library2 {
     pub async fn get_with_result(&mut self, name: &str) -> ftd::p1::Result<String> {
         match self.get(name).await {
             Some(v) => Ok(v),
-            None => ftd::e2(format!("library not found: {}", name), "", 0),
+            None => ftd::p2::utils::e2(format!("library not found: {}", name), "", 0),
         }
     }
 
@@ -301,7 +305,7 @@ impl Library2 {
         if name == "fpm" {
             self.packages_under_process
                 .push(self.get_current_package().ok()?.name);
-            return Some(fpm_dot_ftd::get2(self));
+            return Some(fpm_dot_ftd::get2(self).await);
         }
         if name == "fpm-lib" {
             self.packages_under_process
@@ -362,6 +366,7 @@ impl Library2 {
             None
         }
 
+        #[allow(clippy::await_holding_refcell_ref)]
         async fn get_data_from_package(
             name: &str,
             package: &fpm::Package,
@@ -439,6 +444,7 @@ impl Library2 {
                 )
                 .await
             }
+            "cr-meta" => fpm::library::cr_meta::processor(section, doc, &self.config).await,
             t => Err(ftd::p1::Error::NotFound {
                 doc_id: self.document_id.to_string(),
                 line_number: section.line_number,
@@ -454,10 +460,10 @@ pub struct FPMLibrary {}
 impl FPMLibrary {
     pub fn get(&self, name: &str, _doc: &ftd::p2::TDoc) -> Option<String> {
         if name == "fpm" {
-            return Some(format!(
+            Some(format!(
                 "{}\n\n-- optional package-data package:\n",
                 fpm::fpm_ftd()
-            ));
+            ))
         } else {
             // Note: currently we do not allow users to import other modules from FPM.ftd
             eprintln!("FPM.ftd can only import `fpm` module");
@@ -470,7 +476,7 @@ impl FPMLibrary {
         section: &ftd::p1::Section,
         doc: &ftd::p2::TDoc,
     ) -> ftd::p1::Result<ftd::Value> {
-        ftd::unknown_processor_error(
+        ftd::p2::utils::unknown_processor_error(
             format!("unimplemented for section {:?} and doc {:?}", section, doc),
             doc.name.to_string(),
             section.line_number,
@@ -480,7 +486,7 @@ impl FPMLibrary {
     pub fn get_with_result(&self, name: &str, doc: &ftd::p2::TDoc) -> ftd::p1::Result<String> {
         match self.get(name, doc) {
             Some(v) => Ok(v),
-            None => ftd::e2(format!("library not found: {}", name), "", 0),
+            None => ftd::p2::utils::e2(format!("library not found: {}", name), "", 0),
         }
     }
 }

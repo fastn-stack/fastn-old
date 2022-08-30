@@ -1,19 +1,90 @@
-async fn serve_files(config: &mut fpm::Config, path: &std::path::Path) -> actix_web::HttpResponse {
-    let path = match path.to_str() {
-        Some(s) => s,
-        None => {
-            eprintln!("handle_ftd: Not able to convert path");
-            return actix_web::HttpResponse::InternalServerError().body("".as_bytes());
-        }
-    };
-
-    let f = match config.get_file_and_package_by_id(path).await {
+async fn serve_file(
+    req: &actix_web::HttpRequest,
+    config: &mut fpm::Config,
+    path: &camino::Utf8Path,
+) -> actix_web::HttpResponse {
+    let f = match config.get_file_and_package_by_id(path.as_str()).await {
         Ok(f) => f,
         Err(e) => {
             eprintln!("FPM-Error: path: {}, {:?}", path, e);
             return actix_web::HttpResponse::InternalServerError().body(e.to_string());
         }
     };
+
+    // Auth Stuff
+    if !f.is_static() {
+        match config.can_read(req, path.as_str()).await {
+            Ok(can_read) => {
+                if !can_read {
+                    return actix_web::HttpResponse::Unauthorized()
+                        .body(format!("You are unauthorized to access: {}", path));
+                }
+            }
+            Err(e) => {
+                eprintln!("FPM-Error: can_read error: {}, {:?}", path, e);
+                return actix_web::HttpResponse::InternalServerError().body(e.to_string());
+            }
+        }
+    }
+
+    config.current_document = Some(f.get_id());
+    return match f {
+        fpm::File::Ftd(main_document) => {
+            return match fpm::package_doc::read_ftd(config, &main_document, "/", false).await {
+                Ok(r) => actix_web::HttpResponse::Ok().body(r),
+                Err(e) => {
+                    eprintln!("FPM-Error: path: {}, {:?}", path, e);
+                    actix_web::HttpResponse::InternalServerError().body(e.to_string())
+                }
+            };
+        }
+        fpm::File::Image(image) => {
+            return actix_web::HttpResponse::Ok()
+                .content_type(guess_mime_type(image.id.as_str()))
+                .body(image.content);
+        }
+        fpm::File::Static(s) => {
+            return actix_web::HttpResponse::Ok().body(s.content);
+        }
+        _ => {
+            eprintln!("FPM unknown handler");
+            actix_web::HttpResponse::InternalServerError().body("".as_bytes())
+        }
+    };
+}
+
+async fn serve_cr_file(
+    req: &actix_web::HttpRequest,
+    config: &mut fpm::Config,
+    path: &camino::Utf8Path,
+    cr_number: usize,
+) -> actix_web::HttpResponse {
+    let f = match config
+        .get_file_and_package_by_cr_id(path.as_str(), cr_number)
+        .await
+    {
+        Ok(f) => f,
+        Err(e) => {
+            eprintln!("FPM-Error: path: {}, {:?}", path, e);
+            return actix_web::HttpResponse::InternalServerError().body(e.to_string());
+        }
+    };
+
+    // Auth Stuff
+    if !f.is_static() {
+        match config.can_read(req, path.as_str()).await {
+            Ok(can_read) => {
+                if !can_read {
+                    return actix_web::HttpResponse::Unauthorized()
+                        .body(format!("You are unauthorized to access: {}", path));
+                }
+            }
+            Err(e) => {
+                eprintln!("FPM-Error: can_read error: {}, {:?}", path, e);
+                return actix_web::HttpResponse::InternalServerError().body(e.to_string());
+            }
+        }
+    }
 
     config.current_document = Some(f.get_id());
     return match f {
@@ -61,7 +132,7 @@ async fn serve_fpm_file(config: &fpm::Config) -> actix_web::HttpResponse {
 
 async fn static_file(
     req: &actix_web::HttpRequest,
-    file_path: std::path::PathBuf,
+    file_path: camino::Utf8PathBuf,
 ) -> actix_web::HttpResponse {
     if !file_path.exists() {
         return actix_web::HttpResponse::NotFound().body("".as_bytes());
@@ -75,33 +146,41 @@ async fn static_file(
         }
     }
 }
+
 async fn serve(req: actix_web::HttpRequest) -> actix_web::HttpResponse {
     // TODO: Need to remove unwrap
-    let mut config = fpm::Config::read(None, false).await.unwrap();
-    let path: std::path::PathBuf = req.match_info().query("path").parse().unwrap();
+    let r = format!("{} {}", req.method().as_str(), req.path());
+    let t = fpm::time(r.as_str());
+    println!("{r} started");
 
-    println!("request for path: {:?}", path);
-    let time = std::time::Instant::now();
-    let favicon = std::path::PathBuf::new().join("favicon.ico");
+    let path: camino::Utf8PathBuf = req.match_info().query("path").parse().unwrap();
+
+    let favicon = camino::Utf8PathBuf::new().join("favicon.ico");
     let response = if path.eq(&favicon) {
         static_file(&req, favicon).await
-    } else if path.eq(&std::path::PathBuf::new().join("FPM.ftd")) {
+    } else if path.eq(&camino::Utf8PathBuf::new().join("FPM.ftd")) {
+        let config = fpm::time("Config::read()").it(fpm::Config::read(None, false).await.unwrap());
         serve_fpm_file(&config).await
-    } else if path.eq(&std::path::PathBuf::new().join("")) {
-        serve_files(&mut config, &path.join("/")).await
+    } else if path.eq(&camino::Utf8PathBuf::new().join("")) {
+        let mut config =
+            fpm::time("Config::read()").it(fpm::Config::read(None, false).await.unwrap());
+        serve_file(&req, &mut config, &path.join("/")).await
+    } else if let Some(cr_number) = fpm::cr::get_cr_path_from_url(path.as_str()) {
+        let mut config =
+            fpm::time("Config::read()").it(fpm::Config::read(None, false).await.unwrap());
+        serve_cr_file(&req, &mut config, &path, cr_number).await
     } else {
-        serve_files(&mut config, &path).await
+        let mut config =
+            fpm::time("Config::read()").it(fpm::Config::read(None, false).await.unwrap());
+        serve_file(&req, &mut config, &path).await
     };
-    println!("response time: {:?} for path: {:?}", time.elapsed(), path);
-    response
+
+    t.it(response)
 }
 
-#[actix_web::main]
-pub async fn fpm_serve(
-    bind_address: &str,
-    port: Option<u16>,
-    _identities: Option<String>,
-) -> std::io::Result<()> {
+pub async fn fpm_serve(bind_address: &str, port: Option<u16>) -> std::io::Result<()> {
+    use colored::Colorize;
+
     if cfg!(feature = "controller") {
         // fpm-controller base path and ec2 instance id (hardcoded for now)
         let fpm_controller: String = std::env::var("FPM_CONTROLLER")
@@ -142,19 +221,21 @@ pub async fn fpm_serve(
             eprintln!(
                 "{}",
                 port.map(|x| format!(
-                    r#"provided port {} is not available,
-You can try without providing port, it will automatically pick unused port"#,
-                    x
+                    r#"Provided port {} is not available.
+
+You can try without providing port, it will automatically pick unused port."#,
+                    x.to_string().red()
                 ))
                 .unwrap_or_else(|| {
-                    "Tried picking port between port 8000 to 9000, not available -:(".to_string()
+                    "Tried picking port between port 8000 to 9000, none are available :-("
+                        .to_string()
                 })
             );
-            return Ok(());
+            std::process::exit(2);
         }
     };
 
-    let app = || {
+    let app = move || {
         {
             if cfg!(feature = "remote") {
                 let json_cfg = actix_web::web::JsonConfig::default()
@@ -182,6 +263,14 @@ You can try without providing port, it will automatically pick unused port"#,
         .route(
             "/-/editor-sync/",
             actix_web::web::get().to(fpm::apis::edit::sync),
+        )
+        .route(
+            "/-/create-cr/",
+            actix_web::web::post().to(fpm::apis::cr::create_cr),
+        )
+        .route(
+            "/-/create-cr/",
+            actix_web::web::get().to(fpm::apis::cr::create_cr_page),
         )
         .route("/{path:.*}", actix_web::web::get().to(serve))
     };

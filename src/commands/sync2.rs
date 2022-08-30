@@ -1,15 +1,28 @@
 use itertools::Itertools;
 
-pub async fn sync2(config: &fpm::Config, files: Option<Vec<String>>) -> fpm::Result<()> {
-    let file_list = config.read_workspace().await?;
-    let mut workspace: std::collections::BTreeMap<String, fpm::workspace::WorkspaceEntry> =
-        file_list
-            .iter()
-            .map(|v| (v.filename.to_string(), v.clone()))
-            .collect();
+pub async fn sync2(
+    config: &fpm::Config,
+    files: Option<Vec<String>>,
+    // cr_number: Option<&str>,
+) -> fpm::Result<()> {
+    simple_sync(config, files).await
+    /*if let Some(cr_number) = cr_number {
+        let cr_number = cr_number.parse::<usize>()?;
+        cr_sync(config, file, cr_number).await
+    } else {
+        simple_sync(config, files).await
+    }*/
+}
+
+/*async fn cr_sync(
+    config: &fpm::Config,
+    files: Option<Vec<String>>,
+    cr_number: usize,
+) -> fpm::Result<()> {
+    let mut cr_workspace = config.get_cr_workspace(cr_number).await?;
     let changed_files = {
         let mut changed_files = config
-            .get_files_status_with_workspace(&mut workspace)
+            .get_files_status_with_workspace(&mut cr_workspace.workspace)
             .await?;
         if let Some(ref files) = files {
             changed_files = changed_files
@@ -22,19 +35,48 @@ pub async fn sync2(config: &fpm::Config, files: Option<Vec<String>>) -> fpm::Res
             .filter_map(|v| v.sync_request())
             .collect_vec()
     };
+}*/
+
+async fn simple_sync(config: &fpm::Config, files: Option<Vec<String>>) -> fpm::Result<()> {
+    let mut workspace = config.get_clone_workspace().await?;
+    let changed_files = {
+        let mut changed_files = config
+            .get_files_status_with_workspace(&mut workspace)
+            .await?;
+        if let Some(ref files) = files {
+            changed_files = changed_files
+                .into_iter()
+                .filter(|v| files.contains(&v.get_file_path()))
+                .collect();
+        }
+        changed_files
+    };
+    let changed_files = changed_files
+        .into_iter()
+        .filter_map(|v| v.sync_request(None))
+        .collect_vec();
+
+    sync_(config, changed_files, &mut workspace).await?;
+    config
+        .update_workspace(workspace.into_values().collect_vec())
+        .await
+}
+
+pub(crate) async fn sync_(
+    config: &fpm::Config,
+    request_files: Vec<fpm::apis::sync2::SyncRequestFile>,
+    workspace: &mut std::collections::BTreeMap<String, fpm::workspace::WorkspaceEntry>,
+) -> fpm::Result<()> {
     let history = tokio::fs::read_to_string(config.history_file()).await?;
     let sync_request = fpm::apis::sync2::SyncRequest {
         package_name: config.package.name.to_string(),
-        files: changed_files,
+        files: request_files,
         history,
     };
     let response = send_to_fpm_serve(&sync_request).await?;
     update_current_directory(config, &response).await?;
     update_history(config, &response.dot_history, &response.latest_ftd).await?;
-    update_workspace(&response, &mut workspace).await?;
-    config
-        .write_workspace(workspace.into_values().collect_vec().as_slice())
-        .await?;
+    update_workspace(&response, workspace).await?;
     Ok(())
 }
 
@@ -42,9 +84,9 @@ async fn update_workspace(
     response: &fpm::apis::sync2::SyncResponse,
     workspace: &mut std::collections::BTreeMap<String, fpm::workspace::WorkspaceEntry>,
 ) -> fpm::Result<()> {
-    let server_history = fpm::history::FileHistory::from_ftd(response.latest_ftd.as_str())?;
-    let server_latest =
-        fpm::history::FileHistory::get_latest_file_edits(server_history.as_slice())?;
+    let remote_history = fpm::history::FileHistory::from_ftd(response.latest_ftd.as_str())?;
+    let remote_manifest =
+        fpm::history::FileHistory::get_remote_manifest(remote_history.as_slice(), true)?;
     let conflicted_files = response
         .files
         .iter()
@@ -56,7 +98,7 @@ async fn update_workspace(
             }
         })
         .collect_vec();
-    for (file, file_edit) in server_latest.into_iter() {
+    for (file, file_edit) in remote_manifest.into_iter() {
         if conflicted_files.contains(&file) || file_edit.is_deleted() {
             continue;
         }
@@ -81,7 +123,7 @@ async fn update_history(
 ) -> fpm::Result<()> {
     for file in files {
         fpm::utils::update(
-            &config.server_history_dir().join(file.path.as_str()),
+            &config.remote_history_dir().join(file.path.as_str()),
             &file.content,
         )
         .await?;
@@ -142,15 +184,12 @@ async fn send_to_fpm_serve(
         success: bool,
     }
 
-    let data = serde_json::to_string(&data)?;
-    let mut response = reqwest::Client::new()
-        .post("http://127.0.0.1:8000/-/sync2/")
-        .header(reqwest::header::CONTENT_TYPE, "application/json")
-        .body(data)
-        .send()?;
-    dbg!("send_to_fpm_serve", &response.status());
+    let response: ApiResponse = fpm::utils::post_json(
+        "http://127.0.0.1:8000/-/sync2/",
+        serde_json::to_string(&data)?,
+    )
+    .await?;
 
-    let response = response.json::<ApiResponse>()?;
     if !response.success {
         return Err(fpm::Error::APIResponseError(
             response

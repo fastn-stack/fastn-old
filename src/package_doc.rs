@@ -215,10 +215,17 @@ impl fpm::Package {
                 if mime_guess::MimeGuess::from_ext(ext)
                     .first_or_octet_stream()
                     .to_string()
-                    .starts_with("image/")
-                    && remaining.ends_with("-dark") =>
+                    .starts_with("image/") =>
             {
-                format!("{}.{}", remaining.trim_end_matches("-dark"), ext)
+                if remaining.ends_with("-dark") {
+                    format!(
+                        "{}.{}",
+                        remaining.trim_matches('/').trim_end_matches("-dark"),
+                        ext
+                    )
+                } else {
+                    format!("{}-dark.{}", remaining.trim_matches('/'), ext)
+                }
             }
             _ => {
                 return Err(fpm::Error::PackageError {
@@ -230,7 +237,7 @@ impl fpm::Package {
             }
         };
 
-        let root = if let Some(package_root) = package_root {
+        /*let root = if let Some(package_root) = package_root {
             package_root.to_owned()
         } else {
             match self.fpm_path.as_ref() {
@@ -242,9 +249,10 @@ impl fpm::Package {
                 }
             }
         };
+        let id = id.trim_matches('/');*/
 
         if let Ok(response) = self.fs_fetch_by_id(new_id.as_str(), package_root).await {
-            tokio::fs::copy(root.join(new_id), root.join(id)).await?;
+            // fpm::utils::copy(&root.join(new_id), &root.join(id)).await?;
             return Ok(response);
         }
 
@@ -253,7 +261,7 @@ impl fpm::Package {
             .await
         {
             Ok(response) => {
-                tokio::fs::copy(root.join(new_id), root.join(id)).await?;
+                // fpm::utils::copy(&root.join(new_id), &root.join(id)).await?;
                 Ok(response)
             }
             Err(e) => Err(e),
@@ -261,7 +269,7 @@ impl fpm::Package {
     }
 }
 
-fn file_id_to_names(id: &str) -> Vec<String> {
+pub(crate) fn file_id_to_names(id: &str) -> Vec<String> {
     let id = id.replace("/index.html", "/").replace("index.html", "/");
     if id.eq("/") {
         return vec![
@@ -285,6 +293,7 @@ fn file_id_to_names(id: &str) -> Vec<String> {
     ids
 }
 
+#[allow(clippy::await_holding_refcell_ref)]
 pub(crate) async fn read_ftd(
     config: &mut fpm::Config,
     main: &fpm::Document,
@@ -312,14 +321,14 @@ pub(crate) async fn read_ftd(
     // Fix aliased imports to full path (if any)
     doc_content = current_package.fix_imports_in_body(doc_content.as_str(), main.id.as_str())?;
 
-    let main_ftd_doc = match fpm::doc::parse2(
+    let main_ftd_doc = match fpm::time("parser2").it(fpm::doc::parse2(
         main.id_with_package().as_str(),
         doc_content.as_str(),
         &mut lib,
         base_url,
         download_assets,
     )
-    .await
+    .await)
     {
         Ok(v) => v,
         Err(e) => {
@@ -340,16 +349,16 @@ pub(crate) async fn read_ftd(
         Some(x) => x.original.clone(),
         _ => main.id.as_str().to_string(),
     };
-    let ftd_doc = main_ftd_doc.to_rt("main", &main.id);
+    let ftd_doc = fpm::time("to_rt()").it(main_ftd_doc.to_rt("main", &main.id));
 
-    let file_content = fpm::utils::replace_markers(
+    let file_content = fpm::time("replace_markers").it(fpm::utils::replace_markers(
         fpm::ftd_html(),
         config,
         main.id_to_path().as_str(),
         doc_title.as_str(),
         base_url,
         &ftd_doc,
-    );
+    ));
 
     Ok(file_content.into())
 }
@@ -378,14 +387,14 @@ pub(crate) async fn process_ftd(
             } else {
                 let package_info_package = match config
                     .package
-                    .get_dependency_for_interface(fpm::PACKAGE_INFO_INTERFACE)
+                    .get_dependency_for_interface(fpm::FPM_UI_INTERFACE)
                     .or_else(|| {
                         config
                             .package
                             .get_dependency_for_interface(fpm::PACKAGE_THEME_INTERFACE)
                     }) {
                     Some(dep) => dep.package.name.as_str(),
-                    None => fpm::PACKAGE_INFO_INTERFACE,
+                    None => fpm::FPM_UI_INTERFACE,
                 };
                 format!(
                     "-- import: {}/package-info as pi\n\n-- pi.package-info-page:",

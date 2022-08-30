@@ -1,13 +1,13 @@
 use itertools::Itertools;
 
-#[derive(serde::Serialize, serde::Deserialize, std::fmt::Debug, PartialEq, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, std::fmt::Debug, PartialEq, Eq, Clone)]
 pub struct FileHistory {
     pub filename: String,
     #[serde(rename = "file-edit")]
     pub file_edit: Vec<FileEdit>,
 }
 
-#[derive(serde::Serialize, serde::Deserialize, std::fmt::Debug, PartialEq, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, std::fmt::Debug, PartialEq, Eq, Clone)]
 pub struct FileEdit {
     pub message: Option<String>,
     pub timestamp: u128,
@@ -33,7 +33,7 @@ impl FileEdit {
     }
 }
 
-#[derive(serde::Serialize, serde::Deserialize, std::fmt::Debug, PartialEq, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, std::fmt::Debug, PartialEq, Eq, Clone)]
 pub struct FileEditTemp {
     pub message: Option<String>,
     pub author: Option<String>,
@@ -54,7 +54,7 @@ impl FileEditTemp {
     }
 }
 
-#[derive(serde::Serialize, serde::Deserialize, std::fmt::Debug, PartialEq, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, std::fmt::Debug, PartialEq, Eq, Clone)]
 pub enum FileOperation {
     Added,
     Updated,
@@ -75,21 +75,37 @@ impl fpm::Config {
         FileHistory::from_ftd(history_content.as_str())
     }
 
-    pub async fn get_latest_file_edits(
+    pub async fn get_remote_manifest(
         &self,
-    ) -> fpm::Result<std::collections::BTreeMap<String, FileEdit>> {
+        with_deleted: bool,
+    ) -> fpm::Result<std::collections::BTreeMap<String, fpm::history::FileEdit>> {
         let history_list = self.get_history().await?;
-        fpm::history::FileHistory::get_latest_file_edits(history_list.as_slice())
+        if with_deleted {
+            fpm::history::FileHistory::get_remote_manifest(history_list.as_slice(), with_deleted)
+        } else {
+            Ok(fpm::history::FileHistory::get_remote_manifest(
+                history_list.as_slice(),
+                with_deleted,
+            )?
+            .into_iter()
+            .filter(|(_, v)| !v.is_deleted())
+            .collect())
+        }
     }
 
-    pub async fn get_non_deleted_latest_file_edits(
+    pub async fn get_cr_manifest(
         &self,
-    ) -> fpm::Result<std::collections::BTreeMap<String, FileEdit>> {
+        cr_number: usize,
+    ) -> fpm::Result<std::collections::BTreeMap<String, fpm::history::FileEdit>> {
         let history_list = self.get_history().await?;
+        let cr_path_prefix = fpm::cr::cr_path(cr_number);
         Ok(
-            fpm::history::FileHistory::get_latest_file_edits(history_list.as_slice())?
+            fpm::history::FileHistory::get_remote_manifest(history_list.as_slice(), true)?
                 .into_iter()
-                .filter(|(_, v)| !v.is_deleted())
+                .filter(|(k, _)| {
+                    k.starts_with(cr_path_prefix.as_str())
+                        || k.starts_with(format!(".tracks/{}", cr_path_prefix).as_str())
+                })
                 .collect(),
         )
     }
@@ -98,7 +114,7 @@ impl fpm::Config {
         &self,
     ) -> fpm::Result<Vec<(String, camino::Utf8PathBuf)>> {
         Ok(self
-            .get_non_deleted_latest_file_edits()
+            .get_remote_manifest(false)
             .await?
             .iter()
             .map(|(file_name, file_edit)| {
@@ -112,45 +128,22 @@ impl fpm::Config {
 }
 
 impl FileHistory {
-    pub(crate) fn get_latest_file_edits(
+    pub(crate) fn get_remote_manifest(
         list: &[FileHistory],
+        with_deleted: bool,
     ) -> fpm::Result<std::collections::BTreeMap<String, FileEdit>> {
         Ok(list
             .iter()
             .filter_map(|v| {
-                v.get_latest_file_edit()
+                v.get_latest_file_edit(with_deleted)
                     .map(|file_edit| (v.filename.to_string(), file_edit))
             })
             .collect())
     }
 
-    pub(crate) fn get_non_deleted_latest_file_edits(
-        list: &[FileHistory],
-    ) -> fpm::Result<std::collections::BTreeMap<String, FileEdit>> {
-        Ok(list
-            .iter()
-            .filter_map(|v| {
-                v.get_non_deleted_latest_file()
-                    .map(|file_edit| (v.filename.to_string(), file_edit))
-            })
-            .collect())
-    }
-
-    fn get_latest_file_edit(&self) -> Option<FileEdit> {
+    fn get_latest_file_edit(&self, with_deleted: bool) -> Option<FileEdit> {
         for file_edit in self.file_edit.iter() {
-            if file_edit.operation.eq(&FileOperation::Merged) {
-                return Some(file_edit.clone());
-            }
-            if file_edit.src_cr.is_none() {
-                return Some(file_edit.clone());
-            }
-        }
-        None
-    }
-
-    fn get_non_deleted_latest_file(&self) -> Option<FileEdit> {
-        for file_edit in self.file_edit.iter() {
-            if file_edit.is_deleted() {
+            if file_edit.is_deleted() && !with_deleted {
                 return None;
             }
             if file_edit.operation.eq(&FileOperation::Merged) {
@@ -247,7 +240,8 @@ pub(crate) async fn insert_into_history_(
         if !file_op.operation.eq(&FileOperation::Deleted) {
             let new_file_path =
                 remote_state.join(fpm::utils::snapshot_id(file, &(version as u128)));
-            tokio::fs::copy(root.join(file), new_file_path).await?;
+            let content = tokio::fs::read(root.join(file)).await?;
+            fpm::utils::update(&new_file_path, content.as_slice()).await?;
         }
     }
 

@@ -5,14 +5,20 @@ on:
     branches: [ main ]
     paths:
      - '**.rs'
+     - 'ftd/**.ftd'
      - 'Cargo.*'
      - 'rust-toolchain'
+     - '.github/workflows/rust.yml'
+     - 'tests/**'
   pull_request:
     branches: [ main ]
     paths:
      - '**.rs'
+     - 'ftd/**.ftd'
      - 'Cargo.*'
      - 'rust-toolchain'
+     - '.github/workflows/rust.yml'
+     - 'tests/**'
 jobs:
   everything:
     name: Rust Checks

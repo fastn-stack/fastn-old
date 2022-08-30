@@ -1,12 +1,7 @@
 use itertools::Itertools;
 
 pub async fn revert(config: &fpm::Config, path: &str) -> fpm::Result<()> {
-    let mut workspace: std::collections::BTreeMap<String, fpm::workspace::WorkspaceEntry> = config
-        .read_workspace()
-        .await?
-        .iter()
-        .map(|v| (v.filename.to_string(), v.clone()))
-        .collect();
+    let mut workspace = config.get_workspace_map().await?;
     let get_files_status = config
         .get_files_status_with_workspace(&mut workspace)
         .await?;
@@ -24,8 +19,7 @@ pub async fn revert(config: &fpm::Config, path: &str) -> fpm::Result<()> {
 
     if let Some(server_version) = file_status.get_latest_version() {
         let server_path = config.history_path(path, server_version);
-        let content = tokio::fs::read(&server_path).await?;
-        fpm::utils::update(&config.root.join(path), content.as_slice()).await?;
+        fpm::utils::copy(&server_path, &config.root.join(path)).await?;
         if let Some(workspace_entry) = workspace.get_mut(path) {
             workspace_entry.version = Some(server_version);
             workspace_entry.deleted = None;
