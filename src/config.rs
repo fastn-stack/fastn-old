@@ -13,7 +13,7 @@ pub struct Config {
     pub current_document: Option<String>,
     pub all_packages: std::cell::RefCell<std::collections::BTreeMap<String, fpm::Package>>,
     pub downloaded_assets: std::collections::BTreeMap<String, String>,
-    pub terms: std::collections::HashMap<String, String>,
+    pub global_ids: std::collections::HashMap<String, String>,
 }
 
 impl Config {
@@ -224,13 +224,9 @@ impl Config {
         Ok(())
     }
 
-    /// update the config.terms map from the contents of a file
-    /// in case any 'term:' header is used within the file
-    pub async fn update_terms_from_file(
-        &mut self,
-        doc_id: &str,
-        data: &str,
-    ) -> ftd::p1::Result<()> {
+    /// update the config.global_ids map from the contents of a file
+    /// in case the user defined the id for any component in the document
+    pub async fn update_ids_from_file(&mut self, doc_id: &str, data: &str) -> fpm::Result<()> {
         /// returns header key and value
         /// given header string
         fn segregate_key_value(
@@ -269,6 +265,10 @@ impl Config {
         /// and returns it
         fn convert_to_document_id(doc_id: &str) -> String {
             // Todo use lazystatic! for this regex
+            // lazy_static::lazy_static!(
+            //     static ref ext: regex::Regex = regex::Regex::new(r".[a-z\d]+[/]?$").unwrap();
+            // );
+
             let ext: regex::Regex = regex::Regex::new(r".[a-z\d]+[/]?$").unwrap();
             let doc_id = ext.replace_all(doc_id, "");
 
@@ -287,48 +287,52 @@ impl Config {
             }
 
             // Attach /{doc_id}/ before returning
-            return format!("/{}/", document_id);
+            format!("/{}/", document_id)
         }
 
-        /// updates the config.terms map
+        /// updates the config.global_ids map
         ///
-        /// mapping from [term -> document_id]
-        fn update_terms(
-            terms_map: &mut std::collections::HashMap<String, String>,
-            term_string: &str,
-            doc_id: &str,
+        /// mapping from [id -> document_id]
+        fn update_id_map(
+            global_ids: &mut std::collections::HashMap<String, String>,
+            id_string: &str,
+            doc_name: &str,
             line_number: usize,
-        ) -> ftd::p1::Result<()> {
-            let (_header, term) = segregate_key_value(term_string, doc_id, line_number)?;
+        ) -> fpm::Result<()> {
+            let (_header, id) = segregate_key_value(id_string, doc_name, line_number)?;
+            let document_id = convert_to_document_id(doc_name);
 
-            // let slugified_term = slug::slugify(term);
-            // dbg!(doc_id);
-            let document_id = convert_to_document_id(doc_id);
-            // dbg!(&document_id);
-            // println!("updated map!!");
-            // dbg!(&slugified_term, &document_id);
+            if global_ids.contains_key(&id) {
+                return Err(fpm::Error::UsageError {
+                    message: format!(
+                        "id: \'{}\' already used in doc: \'{}\'",
+                        id, global_ids[&id]
+                    ),
+                });
+            }
 
-            terms_map.insert(term, document_id);
+            global_ids.insert(id, document_id);
             Ok(())
         }
 
-        let term_regex = regex::Regex::new(r"(?m)^\s*term\s*:[\sA-Za-z\d]*$").unwrap();
+        let id_regex = regex::Regex::new(r"(?m)^\s*id\s*:[\sA-Za-z\d]*$").unwrap();
         for (ln, line) in itertools::enumerate(data.lines()) {
-            if term_regex.is_match(line) {
-                update_terms(&mut self.terms, line, doc_id, ln)?;
+            if id_regex.is_match(line) {
+                update_id_map(&mut self.global_ids, line, doc_id, ln)?;
             }
 
             // In case if we want to
             // Avoid using regex here to reduce complexity as the pattern
             // to search itself is not that complex
-            // ^term: <some-alphanumeric-string>$
+            // ^id: <some-alphanumeric-string>$
             // if line.trim_start().starts_with("term") && line.contains(':'){
-            //     update_terms(&mut self.terms, line.trim_start(), doc_id, ln)?;
+            //     update_terms(&mut self.global_ids, line.trim_start(), doc_id, ln)?;
             // }
         }
 
         Ok(())
     }
+
 
     pub(crate) async fn get_versions(
         &self,
@@ -416,7 +420,7 @@ impl Config {
     }
 
     /// updates the terms map from the files of the current package
-    async fn update_terms_from_package(&mut self) -> fpm::Result<()> {
+    async fn update_ids_from_package(&mut self) -> fpm::Result<()> {
         let path = self.get_root_for_package(&self.package);
         let all_files_path = self.get_all_file_paths1(&self.package, true)?;
 
@@ -424,7 +428,7 @@ impl Config {
             fpm::paths_to_files(self.package.name.as_str(), all_files_path, &path).await?;
         for document in documents.iter() {
             if let fpm::File::Ftd(doc) = document {
-                self.update_terms_from_file(&doc.id, &doc.content).await?;
+                self.update_ids_from_file(&doc.id, &doc.content).await?;
             }
         }
         Ok(())
@@ -969,7 +973,7 @@ impl Config {
             current_document: None,
             all_packages: Default::default(),
             downloaded_assets: Default::default(),
-            terms: Default::default(),
+            global_ids: Default::default(),
         };
 
         let asset_documents = config.get_assets("/").await?;
@@ -1005,7 +1009,7 @@ impl Config {
         config.add_package(&package);
 
         // Update terms map from the current package files
-        config.update_terms_from_package().await?;
+        config.update_ids_from_package().await?;
 
         Ok(config)
     }
