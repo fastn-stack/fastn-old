@@ -108,14 +108,15 @@ pub async fn parse<'a>(
                 )?;
                 s = state.continue_after_variable(variable.as_str(), value)?
             }
-            ftd::Interpreter::StuckOnTerm {
+            ftd::Interpreter::CheckID {
                 doc_index: index,
                 state: st,
             } => {
                 // This function was used in build.rs
                 // Not using build.rs anymore (build2.rs is used currently)
                 // so ignoring processing terms here
-                s = st.continue_after_processing_terms(None, index)?;
+                // s = st.continue_after_checking_id(None, index)?;
+                unreachable!();
             }
         }
     }
@@ -166,11 +167,12 @@ pub async fn parse2<'a>(
                 .await?;
                 s = state.continue_after_variable(variable.as_str(), value)?
             }
-            ftd::Interpreter::StuckOnTerm {
+            ftd::Interpreter::CheckID {
                 doc_index: index,
                 state: st,
             } => {
-                s = st.continue_after_processing_terms(Some(&lib.config.terms), index)?;
+                // Using actual global id map
+                s = st.continue_after_checking_id(Some(&lib.config.global_ids), index)?;
             }
         }
     }
@@ -613,12 +615,12 @@ pub fn parse_ftd(
                 let value = resolve_ftd_foreign_variable(variable.as_str(), name)?;
                 s = state.continue_after_variable(variable.as_str(), value)?
             }
-            ftd::Interpreter::StuckOnTerm {
+            ftd::Interpreter::CheckID {
                 doc_index: index,
                 state: st,
             } => {
-                // No config in fpm::FPMLibrary ignoring processing terms for now
-                s = st.continue_after_processing_terms(None, index)?;
+                // No config in fpm::FPMLibrary ignoring processing terms here
+                s = st.continue_after_checking_id(None, index)?;
             }
         }
     }

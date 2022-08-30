@@ -225,8 +225,8 @@ impl Config {
     }
 
     /// update the config.global_ids map from the contents of a file
-    /// in case the user defined the id for any component in the document
-    pub async fn update_ids_from_file(&mut self, doc_id: &str, data: &str) -> fpm::Result<()> {
+    /// in case the user defines the id for any component in the document
+    pub async fn update_global_ids_from_file(&mut self, doc_id: &str, data: &str) -> fpm::Result<()> {
         /// returns header key and value
         /// given header string
         fn segregate_key_value(
@@ -261,38 +261,11 @@ impl Config {
             }
         }
 
-        /// converts the given string to document_id
-        /// and returns it
-        fn convert_to_document_id(doc_id: &str) -> String {
-            // Todo use lazystatic! for this regex
-            // lazy_static::lazy_static!(
-            //     static ref ext: regex::Regex = regex::Regex::new(r".[a-z\d]+[/]?$").unwrap();
-            // );
-
-            let ext: regex::Regex = regex::Regex::new(r".[a-z\d]+[/]?$").unwrap();
-            let doc_id = ext.replace_all(doc_id, "");
-
-            // Discard document suffix if there
-            // Also discard trailing index
-            let document_id = doc_id
-                .split_once("/-/")
-                .map(|x| x.0)
-                .unwrap_or_else(|| doc_id.as_ref())
-                .trim_end_matches("index")
-                .trim_matches('/');
-
-            // In case if doc_id = index.ftd
-            if document_id.is_empty() {
-                return "/".to_string();
-            }
-
-            // Attach /{doc_id}/ before returning
-            format!("/{}/", document_id)
-        }
-
         /// updates the config.global_ids map
         ///
-        /// mapping from [id -> document_id]
+        /// mapping from [id -> link]
+        ///
+        /// link: <document-id>#<slugified-id>
         fn update_id_map(
             global_ids: &mut std::collections::HashMap<String, String>,
             id_string: &str,
@@ -300,8 +273,10 @@ impl Config {
             line_number: usize,
         ) -> fpm::Result<()> {
             let (_header, id) = segregate_key_value(id_string, doc_name, line_number)?;
-            let document_id = convert_to_document_id(doc_name);
+            let document_id = fpm::library::document::convert_to_document_id(doc_name);
 
+            // check if the current id already exists in the map
+            // if it exists then throw error
             if global_ids.contains_key(&id) {
                 return Err(fpm::Error::UsageError {
                     message: format!(
@@ -311,11 +286,18 @@ impl Config {
                 });
             }
 
-            global_ids.insert(id, document_id);
+            // mapping id -> <document-id>#<slugified-id>
+            let link = format!("{}#{}", document_id, slug::slugify(&id));
+            global_ids.insert(id, link);
             Ok(())
         }
 
-        let id_regex = regex::Regex::new(r"(?m)^\s*id\s*:[\sA-Za-z\d]*$").unwrap();
+        lazy_static::lazy_static!(
+            static ref id_regex = regex::Regex::new(r"(?m)^\s*id\s*:[\sA-Za-z\d]*$").unwrap();
+        );
+
+        // grep all lines where user defined `id` for the sections
+        // and update the global_ids map
         for (ln, line) in itertools::enumerate(data.lines()) {
             if id_regex.is_match(line) {
                 update_id_map(&mut self.global_ids, line, doc_id, ln)?;
@@ -332,7 +314,6 @@ impl Config {
 
         Ok(())
     }
-
 
     pub(crate) async fn get_versions(
         &self,
@@ -428,7 +409,7 @@ impl Config {
             fpm::paths_to_files(self.package.name.as_str(), all_files_path, &path).await?;
         for document in documents.iter() {
             if let fpm::File::Ftd(doc) = document {
-                self.update_ids_from_file(&doc.id, &doc.content).await?;
+                self.update_global_ids_from_file(&doc.id, &doc.content).await?;
             }
         }
         Ok(())
