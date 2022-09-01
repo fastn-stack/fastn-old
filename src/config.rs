@@ -379,8 +379,9 @@ impl Config {
             Ok(())
         }
 
+        const ID_HEADER_PATTERN: &str = r"(?m)^\s*id\s*:[\sA-Za-z\d]*$";
         lazy_static::lazy_static!(
-            static ref ID: regex::Regex = regex::Regex::new(r"(?m)^\s*id\s*:[\sA-Za-z\d]*$").unwrap();
+            static ref ID: regex::Regex = regex::Regex::new(ID_HEADER_PATTERN).unwrap();
         );
 
         // grep all lines where user defined `id` for the sections
