@@ -22,7 +22,7 @@ document id
 ///assert_eq!(convert_to_document_id("README.md"), "/README/");
 /// ```
 pub fn convert_to_document_id(doc_name: &str) -> String {
-    const FILE_EXTENSION: &str = r".[a-z\d]+[/]?$";
+    const FILE_EXTENSION: &str = r"[.][a-z\d]+[/]?$";
     lazy_static::lazy_static!(
         static ref EXT: regex::Regex = regex::Regex::new(FILE_EXTENSION).unwrap();
     );
