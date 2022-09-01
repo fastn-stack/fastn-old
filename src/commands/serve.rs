@@ -180,10 +180,13 @@ async fn download_init_package(url: Option<&str>) -> std::io::Result<()> {
     package
         .http_download_by_id(
             "FPM.ftd",
-            Some(&camino::Utf8PathBuf::from_path_buf(std::env::current_dir().unwrap()).unwrap()),
+            Some(
+                &camino::Utf8PathBuf::from_path_buf(std::env::current_dir()?)
+                    .expect("FPM-Error: Unable to change path"),
+            ),
         )
         .await
-        .unwrap();
+        .expect("Unable to find FPM.ftd file");
     Ok(())
 }
 
@@ -194,7 +197,7 @@ pub async fn fpm_serve(
 ) -> std::io::Result<()> {
     use colored::Colorize;
 
-    if dbg!(package_download_base_url).is_some() {
+    if package_download_base_url.is_some() {
         download_init_package(package_download_base_url).await?;
     }
 
