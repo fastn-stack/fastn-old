@@ -8,8 +8,19 @@ document id
 /x/y/ - suffix
 */
 
-/// converts the document_name to document_id
+/// converts the document_name/document-full-id to document_id
 /// and returns it as String
+///
+///
+/// ## Examples
+/// ```rust
+///assert_eq!(convert_to_document_id("/bar/index.ftd/"), "/bar/");
+///assert_eq!(convert_to_document_id("index.ftd"), "/");
+///assert_eq!(convert_to_document_id("/foo/-/x/"), "/foo/");
+///assert_eq!(convert_to_document_id("/fpm.dev/doc.txt"), "/fpm.dev/doc/");
+///assert_eq!(convert_to_document_id("foo.png/"), "/foo/");
+///assert_eq!(convert_to_document_id("README.md"), "/README/");
+/// ```
 pub fn convert_to_document_id(doc_name: &str) -> String {
     const FILE_EXTENSION: &str = r".[a-z\d]+[/]?$";
     lazy_static::lazy_static!(
