@@ -174,8 +174,29 @@ async fn serve(req: actix_web::HttpRequest) -> actix_web::HttpResponse {
     t.it(response)
 }
 
-pub async fn fpm_serve(bind_address: &str, port: Option<u16>) -> std::io::Result<()> {
+async fn download_init_package(url: Option<&str>) -> std::io::Result<()> {
+    let mut package = fpm::Package::new("unknown-package");
+    package.download_base_url = url.map(ToString::to_string);
+    package
+        .http_download_by_id(
+            "FPM.ftd",
+            Some(&camino::Utf8PathBuf::from_path_buf(std::env::current_dir().unwrap()).unwrap()),
+        )
+        .await
+        .unwrap();
+    Ok(())
+}
+
+pub async fn fpm_serve(
+    bind_address: &str,
+    port: Option<u16>,
+    package_download_base_url: Option<&str>,
+) -> std::io::Result<()> {
     use colored::Colorize;
+
+    if dbg!(package_download_base_url).is_some() {
+        download_init_package(package_download_base_url).await?;
+    }
 
     if cfg!(feature = "controller") {
         // fpm-controller base path and ec2 instance id (hardcoded for now)

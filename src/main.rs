@@ -30,7 +30,9 @@ async fn async_main() -> fpm::Result<()> {
         });
 
         let bind = mark.value_of("bind").unwrap_or("127.0.0.1").to_string();
-        fpm::fpm_serve(bind.as_str(), port).await?;
+        let download_base_url = mark.value_of("download-base-url");
+
+        fpm::fpm_serve(bind.as_str(), port, download_base_url).await?;
         return Ok(());
     }
 
