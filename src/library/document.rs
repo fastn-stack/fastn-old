@@ -14,6 +14,7 @@ document id
 ///
 /// ## Examples
 /// ```rust
+/// # use fpm::library::convert_to_document_id;
 ///assert_eq!(convert_to_document_id("/bar/index.ftd/"), "/bar/");
 ///assert_eq!(convert_to_document_id("index.ftd"), "/");
 ///assert_eq!(convert_to_document_id("/foo/-/x/"), "/foo/");

@@ -3,14 +3,13 @@ caption name:
 boolean versioned: false
 optional body about:
 optional string zip:
-optional string base:
+optional string download-base-url:
 optional string favicon:
 optional string language:
 optional string translation-of:
 string list translation:
 optional string canonical-url:
 boolean inherit-auto-imports-from-original: true
-
 
 
 

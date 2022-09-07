@@ -360,7 +360,7 @@ impl Config {
             line_number: usize,
         ) -> fpm::Result<()> {
             let (_header, id) = segregate_key_value(id_string, doc_name, line_number)?;
-            let document_id = fpm::library::document::convert_to_document_id(doc_name);
+            let document_id = fpm::library::convert_to_document_id(doc_name);
 
             // check if the current id already exists in the map
             // if it exists then throw error
@@ -789,14 +789,14 @@ impl Config {
         let id = id.trim_start_matches(package.name.as_str());
 
         let base = package
-            .base
+            .download_base_url
             .clone()
             .ok_or_else(|| fpm::Error::PackageError {
                 message: "package base not found".to_string(),
             })?;
 
         if id.eq("/") {
-            if let Ok(string) = fpm::utils::http_get_str(
+            if let Ok(string) = crate::http::http_get_str(
                 format!("{}/index.ftd", base.trim_end_matches('/')).as_str(),
             )
             .await
@@ -809,7 +809,7 @@ impl Config {
                     .await?;
                 return Ok(format!(".packages/{}/index.ftd", package.name));
             }
-            if let Ok(string) = fpm::utils::http_get_str(
+            if let Ok(string) = crate::http::http_get_str(
                 format!("{}/README.md", base.trim_end_matches('/')).as_str(),
             )
             .await
@@ -829,7 +829,7 @@ impl Config {
 
         let id = id.trim_matches('/').to_string();
         if let Ok(string) =
-            fpm::utils::http_get_str(format!("{}/{}.ftd", base.trim_end_matches('/'), id).as_str())
+            crate::http::http_get_str(format!("{}/{}.ftd", base.trim_end_matches('/'), id).as_str())
                 .await
         {
             let (prefix, id) = match id.rsplit_once('/') {
@@ -847,7 +847,7 @@ impl Config {
                 .await?;
             return Ok(file_path.to_string());
         }
-        if let Ok(string) = fpm::utils::http_get_str(
+        if let Ok(string) = crate::http::http_get_str(
             format!("{}/{}/index.ftd", base.trim_end_matches('/'), id).as_str(),
         )
         .await
@@ -862,7 +862,7 @@ impl Config {
             return Ok(file_path.to_string());
         }
         if let Ok(string) =
-            fpm::utils::http_get_str(format!("{}/{}.md", base.trim_end_matches('/'), id).as_str())
+            crate::http::http_get_str(format!("{}/{}.md", base.trim_end_matches('/'), id).as_str())
                 .await
         {
             let base = root.join(".packages").join(package.name.as_str());
@@ -873,7 +873,7 @@ impl Config {
                 .await?;
             return Ok(format!(".packages/{}/{}.md", package.name, id));
         }
-        if let Ok(string) = fpm::utils::http_get_str(
+        if let Ok(string) = crate::http::http_get_str(
             format!("{}/{}/README.md", base.trim_end_matches('/'), id).as_str(),
         )
         .await
@@ -1244,6 +1244,14 @@ impl Config {
         req: &actix_web::HttpRequest,
         document_path: &str,
     ) -> fpm::Result<bool> {
+        self.can_read_(req, document_path).await
+    }
+
+    async fn can_read_(
+        &self,
+        req: &actix_web::HttpRequest,
+        document_path: &str,
+    ) -> fpm::Result<bool> {
         use itertools::Itertools;
         let document_name = self.document_name_with_default(document_path);
         let access_identities =
@@ -1319,7 +1327,8 @@ pub(crate) struct PackageTemp {
     pub language: Option<String>,
     pub about: Option<String>,
     pub zip: Option<String>,
-    pub base: Option<String>,
+    #[serde(rename = "download-base-url")]
+    pub download_base_url: Option<String>,
     #[serde(rename = "canonical-url")]
     pub canonical_url: Option<String>,
     #[serde(rename = "inherit-auto-imports-from-original")]
@@ -1349,7 +1358,7 @@ impl PackageTemp {
             language: self.language,
             about: self.about,
             zip: self.zip,
-            base: self.base,
+            download_base_url: self.download_base_url,
             translation_status_summary: None,
             canonical_url: self.canonical_url,
             dependencies: vec![],
@@ -1376,7 +1385,7 @@ pub struct Package {
     pub language: Option<String>,
     pub about: Option<String>,
     pub zip: Option<String>,
-    pub base: Option<String>,
+    pub download_base_url: Option<String>,
     pub translation_status_summary: Option<fpm::translation::TranslationStatusSummary>,
     pub canonical_url: Option<String>,
     /// `dependencies` keeps track of direct dependencies of a given package. This too should be
@@ -1422,7 +1431,7 @@ impl Package {
             language: None,
             about: None,
             zip: None,
-            base: None,
+            download_base_url: None,
             translation_status_summary: None,
             canonical_url: None,
             dependencies: vec![],
@@ -1482,7 +1491,7 @@ impl Package {
     }
 
     pub fn with_base(mut self, base: String) -> fpm::Package {
-        self.base = Some(base);
+        self.download_base_url = Some(base);
         self
     }
 
@@ -1695,7 +1704,7 @@ impl Package {
                     format!("-- import: {}", &import_content)
                 } else {
                     // No change in line push as it is
-                    line_string.to_string()
+                    line.to_string()
                 }
             };
 
@@ -1797,7 +1806,7 @@ impl Package {
     }
 
     pub(crate) async fn get_fpm(&self) -> fpm::Result<String> {
-        fpm::utils::construct_url_and_get_str(format!("{}/FPM.ftd", self.name).as_str()).await
+        crate::http::construct_url_and_get_str(format!("{}/FPM.ftd", self.name).as_str()).await
     }
 
     pub(crate) async fn resolve(&mut self, fpm_path: &camino::Utf8PathBuf) -> fpm::Result<()> {

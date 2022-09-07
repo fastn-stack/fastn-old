@@ -13,6 +13,7 @@ mod sqlite;
 mod toc;
 
 pub use full_sitemap::KeyValueData;
+pub use document::convert_to_document_id;
 
 #[derive(Debug)]
 pub struct Library {

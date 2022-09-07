@@ -41,7 +41,7 @@ impl fpm::Package {
     }
 
     async fn http_fetch_by_file_name(&self, name: &str) -> fpm::Result<Vec<u8>> {
-        let base = self.base.as_ref().ok_or_else(|| {
+        let base = self.download_base_url.as_ref().ok_or_else(|| {
             let message = format!(
                 "package base not found. Package: {}, File: {}",
                 &self.name, name
@@ -50,7 +50,7 @@ impl fpm::Package {
             fpm::Error::PackageError { message }
         })?;
 
-        fpm::utils::construct_url_and_get(
+        crate::http::construct_url_and_get(
             format!("{}/{}", base.trim_end_matches('/'), name).as_str(),
         )
         .await
