@@ -398,10 +398,29 @@ impl Config {
             static ref ID: regex::Regex = regex::Regex::new(ID_HEADER_PATTERN).unwrap();
         );
 
+        // Flag to ignore grepping for id under certain cases
+        let mut ignore_id: bool = true;
+
         // grep all lines where user defined `id` for the sections
         // and update the global_ids map
         for (ln, line) in itertools::enumerate(data.lines()) {
-            if ID.is_match(line) {
+
+            // Ignore for commented out section/subsection
+            // and for ftd code passed down as body to ft.code
+            if line.trim_start().starts_with("/--")
+                || line.trim_start().starts_with(r"/---")
+                || line.trim_start().starts_with(r"\--")
+                || line.trim_start().starts_with(r"\---")
+            {
+                ignore_id = true;
+            }
+
+            // Allow capturing id when it is a section/subsection
+            if line.trim_start().starts_with("--") || line.trim_start().starts_with("---") {
+                ignore_id = false;
+            }
+
+            if !ignore_id && ID.is_match(line) {
                 update_id_map(&mut self.global_ids, line, doc_id, ln)?;
             }
 
@@ -1189,6 +1208,8 @@ impl Config {
 
         // Update terms map from the current package files
         config.update_ids_from_package().await?;
+
+        dbg!(&config.global_ids);
 
         Ok(config)
     }
