@@ -393,31 +393,65 @@ impl Config {
             Ok(())
         }
 
+        /// returns true if the section-line refers to a component definition
+        /// otherwise false
+        fn is_component_definition(section_line: &str) -> bool {
+
+            // Strip out initial --
+            let section_line = section_line.trim_start_matches(r"-- ");
+
+            let before_caption = section_line.split_once(':').map(|s| s.0);
+            if let Some(section) = before_caption{
+                let mut parts = section.splitn(2,' ');
+
+                // in case of component definition, section-kind will be mandatory
+                // -- <optional: section-kind> section-name: <section-caption>
+                return match (parts.next(), parts.next()) {
+                    (Some(_kind), Some(_name)) => true,
+                    (_, _) => false
+                }
+
+            }
+            return false;
+        }
+
         const ID_HEADER_PATTERN: &str = r"(?m)^\s*id\s*:[\sA-Za-z\d]*$";
         lazy_static::lazy_static!(
             static ref ID: regex::Regex = regex::Regex::new(ID_HEADER_PATTERN).unwrap();
         );
 
-        // Flag to ignore grepping for id under certain cases
+        // Flags to ignore grepping for id under certain cases
         let mut ignore_id: bool = true;
+        let mut is_latest_section_definition = false;
 
         // grep all lines where user defined `id` for the sections
         // and update the global_ids map
         for (ln, line) in itertools::enumerate(data.lines()) {
 
+            // Trim initial whitespaces if any
+            let line = line.trim_start();
+
             // Ignore for commented out section/subsection
             // and for ftd code passed down as body to ft.code
-            if line.trim_start().starts_with("/--")
-                || line.trim_start().starts_with(r"/---")
-                || line.trim_start().starts_with(r"\--")
-                || line.trim_start().starts_with(r"\---")
+            if line.starts_with("/-- ")
+                || line.starts_with(r"/--- ")
+                || line.starts_with(r"\-- ")
+                || line.starts_with(r"\--- ")
             {
                 ignore_id = true;
             }
 
-            // Allow capturing id when it is a section/subsection
-            if line.trim_start().starts_with("--") || line.trim_start().starts_with("---") {
-                ignore_id = false;
+            // section could be component definition
+            // in that case ignore relevant id's defined under its definition
+            if line.starts_with("-- "){
+                is_latest_section_definition = is_component_definition(line);
+                ignore_id = is_latest_section_definition;
+            }
+
+            // Only allow register id's from invoked subsection components
+            // and not from within component definition
+            if line.starts_with("--- "){
+                ignore_id = is_latest_section_definition;
             }
 
             if !ignore_id && ID.is_match(line) {
