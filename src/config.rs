@@ -421,14 +421,17 @@ impl Config {
             false
         }
 
+        /// returns true if the line is commented or escaped out section, otherwise false
         fn is_section_commented_or_escaped(line: &str) -> bool {
             line.starts_with("/-- ") || line.starts_with(r"\-- ")
         }
 
+        /// returns true if the line is commented out section/subsection, otherwise false
         fn is_line_commented(line: &str) -> bool {
             line.starts_with("/-- ") || line.starts_with("/--- ")
         }
 
+        /// returns true if the line is escaped out section/subsection, otherwise false
         fn is_line_escaped(line: &str) -> bool {
             line.starts_with(r"\-- ") || line.starts_with(r"\--- ")
         }
@@ -1266,7 +1269,6 @@ impl Config {
         // Update terms map from the current package files
         config.update_ids_from_package().await?;
 
-        dbg!(&itertools::sorted(config.global_ids.clone()));
         Ok(config)
     }
 
