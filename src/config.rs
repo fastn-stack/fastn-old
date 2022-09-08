@@ -393,11 +393,17 @@ impl Config {
             Ok(())
         }
 
-        /// returns true if the section-line refers to a component definition
-        /// otherwise false
-        fn is_component_definition(section_line: &str) -> bool {
-            // Strip out initial --
-            let section_line = section_line.trim_start_matches(r"-- ");
+        /// returns true when the next occurrence of id header needs to be ignored
+        /// for cases when the section-line refers to a component definition
+        /// or if the section is a youtube type component
+        /// since user can put multiple instances of this component
+        /// in various places in the package referring to the same youtube video
+        /// having same id so ignoring these ids.
+        ///
+        /// in any other case returns false
+        fn ignore_next_id(section_line: &str) -> bool {
+            // Strip out initial '--' or '---'
+            let section_line = section_line.trim_start_matches('-').trim_start();
 
             let before_caption = section_line.split_once(':').map(|s| s.0);
             if let Some(section) = before_caption {
@@ -407,11 +413,24 @@ impl Config {
                 // -- <optional: section-kind> section-name: <section-caption>
                 return match (parts.next(), parts.next()) {
                     (Some(_kind), Some(_name)) => true,
+                    (Some(_name), None) if _name.contains("youtube") => true,
                     (_, _) => false,
                 };
             }
 
             false
+        }
+
+        fn is_section_commented_or_escaped(line: &str) -> bool {
+            line.starts_with("/-- ") || line.starts_with(r"\-- ")
+        }
+
+        fn is_line_commented(line: &str) -> bool {
+            line.starts_with("/-- ") || line.starts_with("/--- ")
+        }
+
+        fn is_line_escaped(line: &str) -> bool {
+            line.starts_with(r"\-- ") || line.starts_with(r"\--- ")
         }
 
         // id: <some-id>
@@ -425,37 +444,39 @@ impl Config {
 
         // Flags to ignore grepping for id under certain cases
         let mut ignore_id: bool = true;
-        let mut is_latest_section_definition = false;
+        let mut is_last_section_allowed: bool = false;
 
-        // grep all lines where user defined `id` for the sections
+        // grep all lines where user defined `id` for the sections/ subsecions
         // and update the global_ids map
         for (ln, line) in itertools::enumerate(data.lines()) {
-            // Trim initial whitespaces if any
+            // Trim leading whitespaces if any
             let line = line.trim_start();
 
             // Ignore for commented out section/subsection
             // and for ftd code passed down as body to ft.code
-            if line.starts_with("/-- ")
-                || line.starts_with(r"/--- ")
-                || line.starts_with(r"\-- ")
-                || line.starts_with(r"\--- ")
-            {
+            if is_line_commented(line) || is_line_escaped(line) {
+                if is_section_commented_or_escaped(line) {
+                    is_last_section_allowed = false;
+                }
                 ignore_id = true;
             }
 
             // section could be component definition
             // in that case ignore relevant id's defined under its definition
+            // including the ids defined on its subsections
             if line.starts_with("-- ") {
-                is_latest_section_definition = is_component_definition(line);
-                ignore_id = is_latest_section_definition;
+                ignore_id = ignore_next_id(line);
+                is_last_section_allowed = !ignore_id;
             }
 
-            // Only allow register id's from invoked subsection components
-            // and not from within component definition
-            if line.starts_with("--- ") {
-                ignore_id = is_latest_section_definition;
+            // In case, when youtube component is used
+            // within an invoked section/ container as a subsection
+            // then ignore its id
+            if line.starts_with("--- ") && is_last_section_allowed {
+                ignore_id = ignore_next_id(line);
             }
 
+            // match for id and update the id map (if found)
             if !ignore_id && ID.is_match(line) {
                 update_id_map(&mut self.global_ids, line, doc_id, ln)?;
             }
@@ -464,7 +485,7 @@ impl Config {
             // Avoid using regex here to reduce complexity as the pattern
             // to search itself is not that complex
             // ^id: <some-alphanumeric-string>$
-            // if line.trim_start().starts_with("term") && line.contains(':'){
+            // if line.trim_start().starts_with("term") && line.contains(':') && !ignore_id{
             //     update_terms(&mut self.global_ids, line.trim_start(), doc_id, ln)?;
             // }
         }
@@ -1245,6 +1266,7 @@ impl Config {
         // Update terms map from the current package files
         config.update_ids_from_package().await?;
 
+        dbg!(&itertools::sorted(config.global_ids.clone()));
         Ok(config)
     }
 
