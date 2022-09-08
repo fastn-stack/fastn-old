@@ -396,23 +396,22 @@ impl Config {
         /// returns true if the section-line refers to a component definition
         /// otherwise false
         fn is_component_definition(section_line: &str) -> bool {
-
             // Strip out initial --
             let section_line = section_line.trim_start_matches(r"-- ");
 
             let before_caption = section_line.split_once(':').map(|s| s.0);
-            if let Some(section) = before_caption{
-                let mut parts = section.splitn(2,' ');
+            if let Some(section) = before_caption {
+                let mut parts = section.splitn(2, ' ');
 
                 // in case of component definition, section-kind will be mandatory
                 // -- <optional: section-kind> section-name: <section-caption>
                 return match (parts.next(), parts.next()) {
                     (Some(_kind), Some(_name)) => true,
-                    (_, _) => false
-                }
-
+                    (_, _) => false,
+                };
             }
-            return false;
+
+            false
         }
 
         const ID_HEADER_PATTERN: &str = r"(?m)^\s*id\s*:[\sA-Za-z\d]*$";
@@ -427,7 +426,6 @@ impl Config {
         // grep all lines where user defined `id` for the sections
         // and update the global_ids map
         for (ln, line) in itertools::enumerate(data.lines()) {
-
             // Trim initial whitespaces if any
             let line = line.trim_start();
 
@@ -443,14 +441,14 @@ impl Config {
 
             // section could be component definition
             // in that case ignore relevant id's defined under its definition
-            if line.starts_with("-- "){
+            if line.starts_with("-- ") {
                 is_latest_section_definition = is_component_definition(line);
                 ignore_id = is_latest_section_definition;
             }
 
             // Only allow register id's from invoked subsection components
             // and not from within component definition
-            if line.starts_with("--- "){
+            if line.starts_with("--- ") {
                 ignore_id = is_latest_section_definition;
             }
 
@@ -1242,8 +1240,6 @@ impl Config {
 
         // Update terms map from the current package files
         config.update_ids_from_package().await?;
-
-        dbg!(&config.global_ids);
 
         Ok(config)
     }
