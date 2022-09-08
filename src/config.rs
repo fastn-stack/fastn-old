@@ -414,7 +414,11 @@ impl Config {
             false
         }
 
-        const ID_HEADER_PATTERN: &str = r"(?m)^\s*id\s*:[\sA-Za-z\d]*$";
+        // id: <some-id>
+        // <some-id> could be any string using this character set
+        // character set = [A-Z, a-z, 0-9, whitespace, '_' , '-' ]
+        // leading and trailing whitespace characters are ignored
+        const ID_HEADER_PATTERN: &str = r"(?m)^\s*id\s*:[-_\sA-Za-z\d]*$";
         lazy_static::lazy_static!(
             static ref ID: regex::Regex = regex::Regex::new(ID_HEADER_PATTERN).unwrap();
         );
