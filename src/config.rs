@@ -402,7 +402,7 @@ impl Config {
         ///
         /// in any other case returns false
         fn ignore_next_id(section_line: &str) -> bool {
-            // Strip out initial '--' or '---'
+            // Strip out initial '-- ' or '--- '
             let section_line = section_line.trim_start_matches('-').trim_start();
 
             let before_caption = section_line.split_once(':').map(|s| s.0);
@@ -447,7 +447,7 @@ impl Config {
 
         // Flags to ignore grepping for id under certain cases
         let mut ignore_id: bool = true;
-        let mut is_last_section_allowed: bool = false;
+        let mut register_id_for_last_section: bool = false;
 
         // grep all lines where user defined `id` for the sections/ subsecions
         // and update the global_ids map
@@ -459,7 +459,7 @@ impl Config {
             // and for ftd code passed down as body to ft.code
             if is_line_commented(line) || is_line_escaped(line) {
                 if is_section_commented_or_escaped(line) {
-                    is_last_section_allowed = false;
+                    register_id_for_last_section = false;
                 }
                 ignore_id = true;
             }
@@ -469,13 +469,14 @@ impl Config {
             // including the ids defined on its subsections
             if line.starts_with("-- ") {
                 ignore_id = ignore_next_id(line);
-                is_last_section_allowed = !ignore_id;
+                register_id_for_last_section = !ignore_id;
             }
 
-            // In case, when youtube component is used
+            // In cases, where youtube component is used
             // within an invoked section/ container as a subsection
-            // then ignore its id
-            if line.starts_with("--- ") && is_last_section_allowed {
+            // or when there are uncommented subsections
+            // under commented section then ignore their id's
+            if line.starts_with("--- ") && register_id_for_last_section {
                 ignore_id = ignore_next_id(line);
             }
 
