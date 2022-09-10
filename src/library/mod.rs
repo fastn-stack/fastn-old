@@ -11,6 +11,7 @@ mod package_tree;
 mod sitemap;
 mod sqlite;
 mod toc;
+mod internal_link;
 
 pub use document::convert_to_document_id;
 pub use full_sitemap::KeyValueData;
@@ -201,6 +202,7 @@ pub fn process_sync<'a>(
         .str(doc.name, section.line_number, "$processor$")?
     {
         "toc" => fpm::library::toc::processor(section, doc, config),
+        "internal_link" => fpm::library::internal_link::processor(section, doc, config),
         "include" => fpm::library::include::processor(section, doc, config),
         "get-data" => fpm::library::get_data::processor(section, doc, config),
         "sitemap" => fpm::library::sitemap::processor(section, doc, config),
@@ -404,6 +406,7 @@ impl Library2 {
             "http" => fpm::library::http::processor(section, doc).await,
             "package-query" => fpm::library::sqlite::processor(section, doc, &self.config).await,
             "toc" => fpm::library::toc::processor(section, doc, &self.config),
+            "internal_link" => fpm::library::internal_link::processor(section, doc, &self.config),
             "include" => fpm::library::include::processor(section, doc, &self.config),
             "get-data" => fpm::library::get_data::processor(section, doc, &self.config),
             "sitemap" => fpm::library::sitemap::processor(section, doc, &self.config),
