@@ -2,121 +2,15 @@ use crate::library::toc::TocItem;
 use crate::library::toc::TocParser;
 use crate::library::toc::TocItemCompat;
 use crate::library::toc::ParseError;
-use crate::library::toc::ToC;
 use crate::library::toc::processor;
+use crate::library::toc::ParsingState;
+use crate::library::toc::construct_tree;
+use crate::library::toc::construct_tree_util;
+use crate::library::toc::LevelTree;
+use crate::library::toc::get_top_level;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-enum ParsingState {
-    WaitingForNextItem,
-    WaitingForAttributes,
-}
-#[derive(Debug)]
-struct LevelTree {
-    level: usize,
-    item: TocItem,
-}
-
-impl LevelTree {
-    fn new(level: usize, item: TocItem) -> Self {
-        Self { level, item }
-    }
-}
-
-fn construct_tree_util(mut elements: Vec<(TocItem, usize)>) -> Vec<TocItem> {
-    if elements.is_empty() {
-        return vec![];
-    }
-    let smallest_level = elements.get(0).unwrap().1;
-    elements.push((TocItem::default(), smallest_level));
-    // println!("Elements: {:#?}", elements);
-    let mut tree = construct_tree(elements, smallest_level);
-    let _garbage = tree.pop();
-    tree.into_iter().map(|x| x.item).collect()
-}
-
-fn get_top_level(stack: &[LevelTree]) -> usize {
-    stack.last().map(|x| x.level).unwrap()
-}
-
-fn construct_tree(elements: Vec<(TocItem, usize)>, smallest_level: usize) -> Vec<LevelTree> {
-    let mut stack_tree = vec![];
-    let mut num: Vec<u8> = vec![0];
-    for (toc_item, level) in elements.into_iter() {
-        if level < smallest_level {
-            panic!("Level should not be lesser than smallest level");
-        }
-
-        if !(stack_tree.is_empty() || get_top_level(&stack_tree) <= level) {
-            let top = stack_tree.pop().unwrap();
-            let mut top_level = top.level;
-            let mut children = vec![top];
-            while level < top_level {
-                loop {
-                    if stack_tree.is_empty() {
-                        panic!("Tree should not be empty here")
-                    }
-                    let mut cur_element = stack_tree.pop().unwrap();
-                    if stack_tree.is_empty() || cur_element.level < top_level {
-                        // Means found children's parent, needs to append children to its parents
-                        // and update top level accordingly
-                        // parent level should equal to top_level - 1
-                        assert_eq!(cur_element.level as i32, (top_level as i32) - 1);
-                        cur_element
-                            .item
-                            .children
-                            .append(&mut children.into_iter().rev().map(|x| x.item).collect());
-                        top_level = cur_element.level;
-                        children = vec![];
-                        stack_tree.push(cur_element);
-                        break;
-                    } else if cur_element.level == top_level {
-                        // if popped element is same as already popped element it is adjacent
-                        // element, needs to push into children and find parent in stack
-                        children.push(cur_element);
-                    } else {
-                        panic!(
-                            "Stacked elements level should never be greater than top element level"
-                        );
-                    }
-                }
-            }
-            assert!(level >= top_level);
-        }
-        let new_toc_item = match &toc_item.is_heading {
-            true => {
-                // Level reset. Remove all elements > level
-                if level < (num.len() - 1) {
-                    num = num[0..level + 1].to_vec();
-                } else if let Some(i) = num.get_mut(level) {
-                    *i = 0;
-                }
-                toc_item
-            }
-            false => {
-                if level < (num.len() - 1) {
-                    // Level reset. Remove all elements > level
-                    num = num[0..level + 1].to_vec();
-                }
-                if let Some(i) = num.get_mut(level) {
-                    *i += 1;
-                } else {
-                    num.insert(level, 1);
-                };
-                TocItem {
-                    number: num.clone(),
-                    ..toc_item
-                }
-            }
-        };
-        let node = LevelTree::new(level, new_toc_item);
-
-        stack_tree.push(node);
-    }
-    stack_tree
-}
-
-impl TocParser {
-    pub fn read_line(&mut self, line: &str) -> Result<(), ParseError> {
+impl TocListParser {
+    pub fn read_toc(&mut self, line: &str) -> Result<(), ParseError> {
         // The row could be one of the 4 things:
 
         // - Heading
@@ -148,7 +42,7 @@ impl TocParser {
                         },
                         depth,
                     ));
-                    self.state = fpm::library::toc::WaitingForNextItem;
+                    self.state = fpm::library::toc::ParsingState::WaitingForNextItem;
                     return Ok(());
                 }
                 Some(k) => {

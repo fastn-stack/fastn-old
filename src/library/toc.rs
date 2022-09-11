@@ -104,9 +104,9 @@ pub enum ParseError {
 }
 
 #[derive(Debug)]
-struct LevelTree {
-    level: usize,
-    item: TocItem,
+pub struct LevelTree {
+    pub(crate) level: usize,
+    pub(crate) item: TocItem,
 }
 
 impl LevelTree {
@@ -115,7 +115,7 @@ impl LevelTree {
     }
 }
 
-fn construct_tree_util(mut elements: Vec<(TocItem, usize)>) -> Vec<TocItem> {
+pub fn construct_tree_util(mut elements: Vec<(TocItem, usize)>) -> Vec<TocItem> {
     if elements.is_empty() {
         return vec![];
     }
@@ -127,11 +127,11 @@ fn construct_tree_util(mut elements: Vec<(TocItem, usize)>) -> Vec<TocItem> {
     tree.into_iter().map(|x| x.item).collect()
 }
 
-fn get_top_level(stack: &[LevelTree]) -> usize {
+pub fn get_top_level(stack: &[LevelTree]) -> usize {
     stack.last().map(|x| x.level).unwrap()
 }
 
-fn construct_tree(elements: Vec<(TocItem, usize)>, smallest_level: usize) -> Vec<LevelTree> {
+pub fn construct_tree(elements: Vec<(TocItem, usize)>, smallest_level: usize) -> Vec<LevelTree> {
     let mut stack_tree = vec![];
     let mut num: Vec<u8> = vec![0];
     for (toc_item, level) in elements.into_iter() {
@@ -271,7 +271,7 @@ impl TocParser {
         Ok(())
     }
 
-    fn eval_temp_item(&mut self) -> Result<(), ParseError> {
+    pub fn eval_temp_item(&mut self) -> Result<(), ParseError> {
         if let Some((toc_item, depth)) = self.temp_item.clone() {
             // Split the line by `:`. title = 0, url = Option<1>
             let resp_item = if toc_item.url.is_none() && toc_item.title.is_some() {
@@ -327,7 +327,7 @@ impl TocParser {
         self.temp_item = None;
         Ok(())
     }
-    fn read_attrs(&mut self, line: &str) -> Result<(), ParseError> {
+    pub fn read_attrs(&mut self, line: &str) -> Result<(), ParseError> {
         if line.trim().is_empty() {
             // Empty line found. Process the temp_item
             self.eval_temp_item()?;
@@ -387,7 +387,7 @@ impl TocParser {
         Ok(())
     }
 
-    fn finalize(self) -> Result<Vec<(TocItem, usize)>, ParseError> {
+    pub fn finalize(self) -> Result<Vec<(TocItem, usize)>, ParseError> {
         Ok(self.sections)
     }
 }
