@@ -7,11 +7,11 @@ mod get_data;
 mod get_version_data;
 pub(crate) mod http;
 mod include;
+mod internal_link;
 mod package_tree;
 mod sitemap;
 mod sqlite;
 mod toc;
-mod internal_link;
 
 pub use document::convert_to_document_id;
 pub use full_sitemap::KeyValueData;

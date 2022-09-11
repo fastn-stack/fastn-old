@@ -1,3 +1,5 @@
+use crate::library::toc::{ToC, TocParser};
+
 pub fn processor(
     section: &ftd::p1::Section,
     doc: &ftd::p2::TDoc,
@@ -7,19 +9,19 @@ pub fn processor(
         section.body(section.line_number, doc.name)?.as_str(),
         doc.name,
     )
-        .map_err(|e| ftd::p1::Error::fpm::library::toc::ParseError {
-            message: format!("Cannot parse body: {:?}", e),
-            doc_id: doc.name.to_string(),
-            line_number: section.line_number,
-        })?
-        .items
-        .iter()
-        .map(|item| item.to_toc_item_compat())
-        .collect::<Vec<fpm::library::toc::TocItemCompat>>();
+    .map_err(|e| ftd::p1::Error::ParseError {
+        message: format!("Cannot parse body: {:?}", e),
+        doc_id: doc.name.to_string(),
+        line_number: section.line_number,
+    })?
+    .items
+    .iter()
+    .map(|item| item.to_toc_item_compat())
+    .collect::<Vec<fpm::library::toc::TocItemCompat>>();
     doc.from_json(&toc_items, section)
 }
 
-impl TocListParser {
+impl TocParser {
     pub fn read_toc(&mut self, line: &str) -> Result<(), fpm::library::toc::ParseError> {
         // The row could be one of the 4 things:
 
@@ -138,71 +140,7 @@ impl TocListParser {
         self.temp_item = None;
         Ok(())
     }
-    fn read_attrs(&mut self, line: &str) -> Result<(), fpm::library::toc::ParseError> {
-        if line.trim().is_empty() {
-            // Empty line found. Process the temp_item
-            self.eval_temp_item()?;
-        } else {
-            match self.temp_item.clone() {
-                Some((i, d)) => match line.split_once(':') {
-                    Some(("url", v)) => {
-                        self.temp_item = Some((
-                            fpm::library::toc::TocItem {
-                                url: Some(v.trim().to_string()),
-                                ..i
-                            },
-                            d,
-                        ));
-                    }
-                    Some(("id", v)) => {
-                        self.temp_item = Some((
-                            fpm::library::toc::TocItem {
-                                url: Some(v.trim().to_string()),
-                                ..i
-                            },
-                            d,
-                        ));
-                    }
-                    Some(("font-icon", v)) => {
-                        self.temp_item = Some((
-                            fpm::library::toc::TocItem {
-                                font_icon: Some(v.trim().to_string()),
-                                ..i
-                            },
-                            d,
-                        ));
-                    }
-                    Some(("is-disabled", v)) => {
-                        self.temp_item = Some((
-                            fpm::library::toc::TocItem {
-                                is_disabled: v.trim() == "true",
-                                ..i
-                            },
-                            d,
-                        ));
-                    }
-                    Some(("src", v)) => {
-                        self.temp_item = Some((
-                            fpm::library::toc::TocItem {
-                                img_src: Some(v.trim().to_string()),
-                                ..i
-                            },
-                            d,
-                        ));
-                    }
-                    _ => todo!(),
-                },
-                _ => panic!("State mismatch"),
-            };
-        };
-        Ok(())
-    }
-
-    fn finalize(self) -> Result<Vec<(fpm::library::toc::TocItem, usize)>, fpm::library::toc::ParseError> {
-        Ok(self.sections)
-    }
 }
-
 
 #[cfg(test)]
 mod test {
@@ -258,25 +196,21 @@ mod test {
         "
             ),
             super::ToC {
-                items: vec![
-                    super::TocItem {
-                        title: Some(format!("Title1")),
-                        id: t1,
-                        url: Some("Title1".to_string()),
-                        number: vec![],
+                items: vec![super::TocItem {
+                    title: Some(format!("Title1")),
+                    id: t1,
+                    url: Some("Title1".to_string()),
+                    number: vec![],
+                    is_heading: true,
+                    children: vec![super::TocItem {
+                        title: Some(format!("Title2")),
+                        id: t2,
+                        url: Some("Title2".to_string()),
+                        number: vec![1, 1],
                         is_heading: true,
-                        children: vec![
-                            super::TocItem {
-                                title: Some(format!("Title2")),
-                                id: t2,
-                                url: Some("Title2".to_string()),
-                                number: vec![1,1],
-                                is_heading: true,
-                                children: vec![],
-                            }
-                        ],
-                    }
-                ]
+                        children: vec![],
+                    }],
+                }]
             }
         );
     }
