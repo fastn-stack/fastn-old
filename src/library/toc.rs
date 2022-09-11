@@ -25,6 +25,7 @@ pub struct TocItemCompat {
     pub number: Option<String>,
     pub title: Option<String>,
     pub path: Option<String>,
+    pub id: Option<String>,
     #[serde(rename = "is-heading")]
     pub is_heading: bool,
     // TODO: Font icon mapping to html?
@@ -63,6 +64,7 @@ impl TocItem {
             number: Some(self.number.iter().map(|x| format!("{}.", x)).collect()),
             title: self.title.clone(),
             path: self.path.clone(),
+            id: None,
             is_heading: self.is_heading,
             children: self
                 .children
@@ -79,16 +81,16 @@ impl TocItem {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-enum ParsingState {
+pub enum ParsingState {
     WaitingForNextItem,
     WaitingForAttributes,
 }
 #[derive(Debug)]
 pub struct TocParser {
-    state: ParsingState,
-    sections: Vec<(TocItem, usize)>,
-    temp_item: Option<(TocItem, usize)>,
-    doc_name: String,
+    pub(crate) state: ParsingState,
+    pub(crate) sections: Vec<(TocItem, usize)>,
+    pub(crate) temp_item: Option<(TocItem, usize)>,
+    pub(crate) doc_name: String,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -230,7 +232,7 @@ impl TocParser {
                 }
                 Some('#') => {
                     // Heading can not have any attributes. Append the item and look for the next input
-                    self.eval_temp_item()?;
+                    dbg!(self.eval_temp_item())?;
                     self.sections.push((
                         TocItem {
                             title: Some(iter.collect::<String>().trim().to_string()),
@@ -333,6 +335,15 @@ impl TocParser {
             match self.temp_item.clone() {
                 Some((i, d)) => match line.split_once(':') {
                     Some(("url", v)) => {
+                        self.temp_item = Some((
+                            TocItem {
+                                url: Some(v.trim().to_string()),
+                                ..i
+                            },
+                            d,
+                        ));
+                    }
+                    Some(("id", v)) => {
                         self.temp_item = Some((
                             TocItem {
                                 url: Some(v.trim().to_string()),

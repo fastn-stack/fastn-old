@@ -1,85 +1,15 @@
-pub fn processor(
-    section: &ftd::p1::Section,
-    doc: &ftd::p2::TDoc,
-    _config: &fpm::Config,
-) -> ftd::p1::Result<ftd::Value> {
-    let toc_items = ToC::parse(
-        section.body(section.line_number, doc.name)?.as_str(),
-        doc.name,
-    )
-        .map_err(|e| ftd::p1::Error::ParseError {
-            message: format!("Cannot parse body: {:?}", e),
-            doc_id: doc.name.to_string(),
-            line_number: section.line_number,
-        })?
-        .items
-        .iter()
-        .map(|item| item.to_toc_item_compat())
-        .collect::<Vec<TocItemCompat>>();
-    doc.from_json(&toc_items, section)
-}
-
-#[derive(Debug, serde::Serialize)]
-pub struct TocItemCompat {
-    pub url: Option<String>,
-    pub number: Option<String>,
-    pub title: Option<String>,
-    #[serde(rename = "is-heading")]
-    pub is_heading: bool,
-    #[serde(rename = "img-src")]
-    pub children: Vec<TocItemCompat>,
-}
-
-#[derive(PartialEq, Eq, Debug, Default, Clone)]
-pub struct TocItem {
-    pub id: Option<String>,
-    pub title: Option<String>,
-    pub url: Option<String>,
-    pub number: Vec<u8>,
-    pub is_heading: bool,
-    pub children: Vec<TocItem>,
-}
-
-impl TocItem {
-    pub(crate) fn to_toc_item_compat(&self) -> TocItemCompat {
-        // TODO: num converting to ol and li in ftd.???
-        TocItemCompat {
-            url: dbg!(self.url.clone()),
-            number: dbg!(Some(self.number.iter().map(|x| format!("{}.", x)).collect())),
-            title: self.title.clone(),
-            is_heading: self.is_heading,
-            children: self
-                .children
-                .iter()
-                .map(|item| item.to_toc_item_compat())
-                .collect(),
-        }
-    }
-}
+use crate::library::toc::TocItem;
+use crate::library::toc::TocParser;
+use crate::library::toc::TocItemCompat;
+use crate::library::toc::ParseError;
+use crate::library::toc::ToC;
+use crate::library::toc::processor;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum ParsingState {
     WaitingForNextItem,
     WaitingForAttributes,
 }
-#[derive(Debug)]
-pub struct TocParser {
-    state: ParsingState,
-    sections: Vec<(TocItem, usize)>,
-    temp_item: Option<(TocItem, usize)>,
-    doc_name: String,
-}
-
-#[derive(thiserror::Error, Debug)]
-pub enum ParseError {
-    #[error("{doc_id} -> {message} -> Row Content: {row_content}")]
-    InvalidTOCItem {
-        doc_id: String,
-        message: String,
-        row_content: String,
-    },
-}
-
 #[derive(Debug)]
 struct LevelTree {
     level: usize,
@@ -196,31 +126,33 @@ impl TocParser {
         if line.trim().is_empty() {
             return Ok(());
         }
-
-        let mut iter = line.clone();
+        let mut iter = line.chars();
         let mut depth = 0;
         loop {
             match iter.next() {
-                Some(" ") => {
-                    depth += 0;
+                Some(' ') => {
+                    depth += 1;
                     iter.next();
                 }
-                Some("-- h") => {
+                Some('-') => {
+                    break;
+                }
+                Some('#') => {
                     // Heading can not have any attributes. Append the item and look for the next input
-                    self.eval_temp_item()?;
+                    dbg!(self.eval_temp_item())?;
                     self.sections.push((
                         TocItem {
-                            title: Some(iter.collect::<String>().to_string()),
+                            title: Some(iter.collect::<String>().trim().to_string()),
                             is_heading: true,
                             ..Default::default()
                         },
                         depth,
                     ));
-                    self.state = ParsingState::WaitingForNextItem;
+                    self.state = fpm::library::toc::WaitingForNextItem;
                     return Ok(());
                 }
                 Some(k) => {
-                    let l = format!("{}{}", k, iter);
+                    let l = format!("{}{}", k, iter.collect::<String>());
                     self.read_attrs(l.as_str())?;
                     return Ok(());
                     // panic!()
@@ -230,7 +162,7 @@ impl TocParser {
                 }
             }
         }
-        let rest: String = iter.parse().unwrap();
+        let rest: String = iter.collect();
         self.eval_temp_item()?;
 
         // Stop eager checking, Instead of split and evaluate URL/title, first push
@@ -242,7 +174,7 @@ impl TocParser {
             },
             depth,
         ));
-        self.state = ParsingState::WaitingForAttributes;
+        self.state = fpm::library::toc::ParsingState::WaitingForAttributes;
         Ok(())
     }
 
@@ -292,7 +224,6 @@ impl TocParser {
                 TocItem {
                     title,
                     url,
-                    id,
                     ..toc_item
                 }
             } else {
@@ -310,6 +241,15 @@ impl TocParser {
         } else {
             match self.temp_item.clone() {
                 Some((i, d)) => match line.split_once(':') {
+                    Some(("url", v)) => {
+                        self.temp_item = Some((
+                            TocItem {
+                                url: Some(v.trim().to_string()),
+                                ..i
+                            },
+                            d,
+                        ));
+                    }
                     Some(("id", v)) => {
                         self.temp_item = Some((
                             TocItem {
@@ -319,10 +259,28 @@ impl TocParser {
                             d,
                         ));
                     }
-                    Some(("url", v)) => {
+                    Some(("font-icon", v)) => {
                         self.temp_item = Some((
                             TocItem {
-                                url: Some(v.trim().to_string()),
+                                font_icon: Some(v.trim().to_string()),
+                                ..i
+                            },
+                            d,
+                        ));
+                    }
+                    Some(("is-disabled", v)) => {
+                        self.temp_item = Some((
+                            TocItem {
+                                is_disabled: v.trim() == "true",
+                                ..i
+                            },
+                            d,
+                        ));
+                    }
+                    Some(("src", v)) => {
+                        self.temp_item = Some((
+                            TocItem {
+                                img_src: Some(v.trim().to_string()),
                                 ..i
                             },
                             d,
@@ -341,30 +299,6 @@ impl TocParser {
     }
 }
 
-impl ToC {
-    pub fn parse(s: &str, doc_name: &str) -> Result<Self, ParseError> {
-        let mut parser = TocParser {
-            state: ParsingState::WaitingForNextItem,
-            sections: vec![],
-            temp_item: None,
-            doc_name: doc_name.to_string(),
-        };
-        for line in s.split('\n') {
-            parser.read_line(line)?;
-        }
-        if parser.temp_item.is_some() {
-            parser.eval_temp_item()?;
-        }
-        Ok(ToC {
-            items: construct_tree_util(parser.finalize()?),
-        })
-    }
-}
-
-#[derive(PartialEq, Eq, Debug, Default, Clone)]
-pub struct ToC {
-    pub items: Vec<TocItem>,
-}
 
 #[cfg(test)]
 mod test {
