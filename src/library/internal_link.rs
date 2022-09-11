@@ -1,16 +1,26 @@
-use crate::library::toc::TocItem;
-use crate::library::toc::TocParser;
-use crate::library::toc::TocItemCompat;
-use crate::library::toc::ParseError;
-use crate::library::toc::processor;
-use crate::library::toc::ParsingState;
-use crate::library::toc::construct_tree;
-use crate::library::toc::construct_tree_util;
-use crate::library::toc::LevelTree;
-use crate::library::toc::get_top_level;
+pub fn processor(
+    section: &ftd::p1::Section,
+    doc: &ftd::p2::TDoc,
+    _config: &fpm::Config,
+) -> ftd::p1::Result<ftd::Value> {
+    let toc_items = fpm::library::toc::Toc::parse(
+        section.body(section.line_number, doc.name)?.as_str(),
+        doc.name,
+    )
+        .map_err(|e| ftd::p1::Error::fpm::library::toc::ParseError {
+            message: format!("Cannot parse body: {:?}", e),
+            doc_id: doc.name.to_string(),
+            line_number: section.line_number,
+        })?
+        .items
+        .iter()
+        .map(|item| item.to_toc_item_compat())
+        .collect::<Vec<fpm::library::toc::TocItemCompat>>();
+    doc.from_json(&toc_items, section)
+}
 
 impl TocListParser {
-    pub fn read_toc(&mut self, line: &str) -> Result<(), ParseError> {
+    pub fn read_toc(&mut self, line: &str) -> Result<(), fpm::library::toc::ParseError> {
         // The row could be one of the 4 things:
 
         // - Heading
@@ -35,7 +45,7 @@ impl TocListParser {
                     // Heading can not have any attributes. Append the item and look for the next input
                     dbg!(self.eval_temp_item())?;
                     self.sections.push((
-                        TocItem {
+                        fpm::library::toc::TocItem {
                             title: Some(iter.collect::<String>().trim().to_string()),
                             is_heading: true,
                             ..Default::default()
@@ -62,7 +72,7 @@ impl TocListParser {
         // Stop eager checking, Instead of split and evaluate URL/title, first push
         // The complete string, postprocess if url doesn't exist
         self.temp_item = Some((
-            TocItem {
+            fpm::library::toc::TocItem {
                 title: Some(rest.as_str().trim().to_string()),
                 ..Default::default()
             },
@@ -72,7 +82,7 @@ impl TocListParser {
         Ok(())
     }
 
-    fn eval_temp_item(&mut self) -> Result<(), ParseError> {
+    fn eval_temp_item(&mut self) -> Result<(), fpm::library::toc::ParseError> {
         if let Some((toc_item, depth)) = self.temp_item.clone() {
             // Split the line by `:`. title = 0, url = Option<1>
             let resp_item = if toc_item.url.is_none() && toc_item.title.is_some() {
@@ -107,7 +117,7 @@ impl TocListParser {
                                 ),
                             )
                         } else {
-                            return Err(ParseError::InvalidTOCItem {
+                            return Err(fpm::library::toc::ParseError::InvalidTOCItem {
                                 doc_id: self.doc_name.clone(),
                                 message: "Ambiguous <title>: <URL> evaluation. Multiple colons found. Either specify the complete URL or specify the url as an attribute".to_string(),
                                 row_content: current_title.as_str().to_string(),
@@ -115,7 +125,7 @@ impl TocListParser {
                         }
                     }
                 };
-                TocItem {
+                fpm::library::toc::TocItem {
                     title,
                     url,
                     ..toc_item
@@ -128,7 +138,7 @@ impl TocListParser {
         self.temp_item = None;
         Ok(())
     }
-    fn read_attrs(&mut self, line: &str) -> Result<(), ParseError> {
+    fn read_attrs(&mut self, line: &str) -> Result<(), fpm::library::toc::ParseError> {
         if line.trim().is_empty() {
             // Empty line found. Process the temp_item
             self.eval_temp_item()?;
@@ -137,7 +147,7 @@ impl TocListParser {
                 Some((i, d)) => match line.split_once(':') {
                     Some(("url", v)) => {
                         self.temp_item = Some((
-                            TocItem {
+                            fpm::library::toc::TocItem {
                                 url: Some(v.trim().to_string()),
                                 ..i
                             },
@@ -146,7 +156,7 @@ impl TocListParser {
                     }
                     Some(("id", v)) => {
                         self.temp_item = Some((
-                            TocItem {
+                            fpm::library::toc::TocItem {
                                 url: Some(v.trim().to_string()),
                                 ..i
                             },
@@ -155,7 +165,7 @@ impl TocListParser {
                     }
                     Some(("font-icon", v)) => {
                         self.temp_item = Some((
-                            TocItem {
+                            fpm::library::toc::TocItem {
                                 font_icon: Some(v.trim().to_string()),
                                 ..i
                             },
@@ -164,7 +174,7 @@ impl TocListParser {
                     }
                     Some(("is-disabled", v)) => {
                         self.temp_item = Some((
-                            TocItem {
+                            fpm::library::toc::TocItem {
                                 is_disabled: v.trim() == "true",
                                 ..i
                             },
@@ -173,7 +183,7 @@ impl TocListParser {
                     }
                     Some(("src", v)) => {
                         self.temp_item = Some((
-                            TocItem {
+                            fpm::library::toc::TocItem {
                                 img_src: Some(v.trim().to_string()),
                                 ..i
                             },
@@ -188,7 +198,7 @@ impl TocListParser {
         Ok(())
     }
 
-    fn finalize(self) -> Result<Vec<(TocItem, usize)>, ParseError> {
+    fn finalize(self) -> Result<Vec<(fpm::library::toc::TocItem, usize)>, fpm::library::toc::ParseError> {
         Ok(self.sections)
     }
 }
