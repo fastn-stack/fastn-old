@@ -24,7 +24,6 @@ pub struct TocItemCompat {
     pub url: Option<String>,
     pub number: Option<String>,
     pub title: Option<String>,
-    pub path: Option<String>,
     #[serde(rename = "is-heading")]
     pub is_heading: bool,
     #[serde(rename = "img-src")]
@@ -36,7 +35,6 @@ pub struct TocItem {
     pub id: Option<String>,
     pub title: Option<String>,
     pub url: Option<String>,
-    pub path: Option<String>,
     pub number: Vec<u8>,
     pub is_heading: bool,
     pub children: Vec<TocItem>,
@@ -49,7 +47,6 @@ impl TocItem {
             url: dbg!(self.url.clone()),
             number: dbg!(Some(self.number.iter().map(|x| format!("{}.", x)).collect())),
             title: self.title.clone(),
-            path: self.path.clone(),
             is_heading: self.is_heading,
             children: self
                 .children
@@ -199,23 +196,21 @@ impl TocParser {
         if line.trim().is_empty() {
             return Ok(());
         }
-        let mut iter = line.chars();
+
+        let mut iter = line.clone();
         let mut depth = 0;
         loop {
             match iter.next() {
-                Some(' ') => {
-                    depth += 1;
+                Some(" ") => {
+                    depth += 0;
                     iter.next();
                 }
-                Some('-') => {
-                    break;
-                }
-                Some(ftd::Region::to_string()) => {
+                Some("-- h") => {
                     // Heading can not have any attributes. Append the item and look for the next input
                     self.eval_temp_item()?;
                     self.sections.push((
                         TocItem {
-                            title: Some(iter.collect::<String>().trim().to_string()),
+                            title: Some(iter.collect::<String>().to_string()),
                             is_heading: true,
                             ..Default::default()
                         },
@@ -225,7 +220,7 @@ impl TocParser {
                     return Ok(());
                 }
                 Some(k) => {
-                    let l = format!("{}{}", k, iter.collect::<String>());
+                    let l = format!("{}{}", k, iter);
                     self.read_attrs(l.as_str())?;
                     return Ok(());
                     // panic!()
@@ -235,7 +230,7 @@ impl TocParser {
                 }
             }
         }
-        let rest: String = iter.collect();
+        let rest: String = iter.parse().unwrap();
         self.eval_temp_item()?;
 
         // Stop eager checking, Instead of split and evaluate URL/title, first push
@@ -297,6 +292,7 @@ impl TocParser {
                 TocItem {
                     title,
                     url,
+                    id,
                     ..toc_item
                 }
             } else {
@@ -314,6 +310,15 @@ impl TocParser {
         } else {
             match self.temp_item.clone() {
                 Some((i, d)) => match line.split_once(':') {
+                    Some(("id", v)) => {
+                        self.temp_item = Some((
+                            TocItem {
+                                url: Some(v.trim().to_string()),
+                                ..i
+                            },
+                            d,
+                        ));
+                    }
                     Some(("url", v)) => {
                         self.temp_item = Some((
                             TocItem {
@@ -430,7 +435,6 @@ mod test {
                                 number: vec![1,1],
                                 is_heading: true,
                                 children: vec![],
-                                path: None
                             }
                         ],
                     }
@@ -456,7 +460,6 @@ mod test {
                     number: vec![],
                     is_heading: true,
                     children: vec![],
-                    path: None
                 }]
             }
         );
@@ -483,7 +486,6 @@ mod test {
                         url: Some("Title1".to_string()),
                         number: vec![1],
                         children: vec![],
-                        path: None
                     },
                     super::TocItem {
                         title: Some(format!("Title2")),
@@ -492,7 +494,6 @@ mod test {
                         url: Some("Title2".to_string()),
                         number: vec![1],
                         children: vec![],
-                        path: None
                     }
                 ]
             }
