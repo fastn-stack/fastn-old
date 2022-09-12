@@ -1,11 +1,11 @@
-use crate::library::toc::{ToC, TocParser};
+use crate::library::toc::{ToC, TocItem, TocParser, ParseError};
 
 pub fn processor(
     section: &ftd::p1::Section,
     doc: &ftd::p2::TDoc,
     _config: &fpm::Config,
 ) -> ftd::p1::Result<ftd::Value> {
-    let toc_items = fpm::library::toc::Toc::parse(
+    let toc_items = fpm::Toc::parse(
         section.body(section.line_number, doc.name)?.as_str(),
         doc.name,
     )
@@ -21,8 +21,91 @@ pub fn processor(
     doc.from_json(&toc_items, section)
 }
 
-impl TocParser {
-    pub fn read_toc(&mut self, line: &str) -> Result<(), fpm::library::toc::ParseError> {
+pub struct TocListParser {
+    pub(crate) state: fpm::library::toc::ParsingState,
+    pub(crate) sections: Vec<(fpm::library::toc::TocItem, usize)>,
+    pub(crate) temp_item: Option<(fpm::library::toc::TocItem, usize)>,
+    pub(crate) doc_name: String,
+    pub(crate) content: String,
+    pub(crate) id: String,
+
+
+}
+
+impl TocListParser {
+    pub fn access_id_map(
+        url_ids: &mut std::collections::HashMap<String, String>,
+        id_string: &str,
+        doc_name: &str,
+        line_number: usize,
+    ) -> fpm::Result<()> {
+        // returns doc-id from link as String
+        fn fetch_doc_id_from_link(link: &str) -> fpm::Result<String> {
+            // link = <document-id>#<slugified-id>
+            let doc_id = link.split_once('#').map(|s| s.0);
+            match doc_id {
+                Some(id) => Ok(id.to_string()),
+                None => Err(fpm::Error::PackageError {
+                    message: format!("Invalid link format {}", link),
+                }),
+            }
+        }
+
+        pub fn segregate_key_value(
+            header: &str,
+            doc_id: &str,
+            line_number: usize,
+        ) -> ftd::p1::Result<(String, String)> {
+            if !header.contains(':') {
+                return Err(ftd::p1::Error::ParseError {
+                    message: format!(": is missing in: {}", header),
+                    doc_id: doc_id.to_string(),
+                    line_number,
+                });
+            }
+
+            let mut parts = header.splitn(2, ':');
+            match (parts.next(), parts.next()) {
+                (Some(name), Some(value)) => {
+                    // some header and some non-empty value
+                    Ok((name.trim().to_string(), value.trim().to_string()))
+                }
+                (Some(name), None) => Err(ftd::p1::Error::ParseError {
+                    message: format!("Unknown header value for header \'{}\'", name),
+                    doc_id: doc_id.to_string(),
+                    line_number,
+                }),
+                _ => Err(ftd::p1::Error::ParseError {
+                    message: format!("Unknown header found \'{}\'", header),
+                    doc_id: doc_id.to_string(),
+                    line_number,
+                }),
+            }
+        }
+
+        let (_header, id) = segregate_key_value(id_string, doc_name, line_number)?;
+        let document_id = fpm::library::convert_to_document_id(doc_name);
+
+        // check if the current id already exists in the map
+        // if it exists then throw error
+        if url_ids.contains_key(&id) {
+            return Err(fpm::Error::UsageError {
+                message: format!(
+                    "conflicting id: \'{}\' used in doc: \'{}\' and doc: \'{}\'",
+                    id,
+                    fetch_doc_id_from_link(&url_ids[&id])?,
+                    document_id
+                ),
+            });
+        }
+
+        // mapping id -> <document-id>#<slugified-id>
+        let link = format!("{}#{}", document_id, slug::slugify(&id));
+        url_ids.insert(id, link);
+        Ok(())
+    }
+
+    pub fn read_line(&mut self, line: &str, doc_name: &str) -> Result<(), fpm::library::toc::ParseError> {
         // The row could be one of the 4 things:
 
         // - Heading
@@ -59,7 +142,7 @@ impl TocParser {
                 }
                 Some(k) => {
                     let l = format!("{}{}", k, iter.collect::<String>());
-                    self.read_attrs(l.as_str())?;
+                    self.read_id(l.as_str())?;
                     return Ok(());
                     // panic!()
                 }
@@ -81,6 +164,39 @@ impl TocParser {
             depth,
         ));
         self.state = fpm::library::toc::ParsingState::WaitingForAttributes;
+        Ok(())
+    }
+
+    pub fn read_id(&mut self, line: &str) -> Result<(), ParseError> {
+        if line.trim().is_empty() {
+            // Empty line found. Process the temp_item
+            self.eval_temp_item()?;
+        } else {
+            match self.temp_item.clone() {
+                Some((i, d)) => match line.split_once(':') {
+                    Some(("url", v)) => {
+                        self.temp_item = Some((
+                            TocItem {
+                                url: Some(v.trim().to_string()),
+                                ..i
+                            },
+                            d,
+                        ));
+                    }
+                    Some(("id", v)) => {
+                        self.temp_item = Some((
+                            TocItem {
+                                url: Some(v.trim().to_string()),
+                                ..i
+                            },
+                            d,
+                        ));
+                    }
+                    _ => todo!(),
+                },
+                _ => panic!("State mismatch"),
+            };
+        };
         Ok(())
     }
 
@@ -198,17 +314,25 @@ mod test {
             super::ToC {
                 items: vec![super::TocItem {
                     title: Some(format!("Title1")),
-                    id: t1,
+                    id: doc/#t1,
                     url: Some("Title1".to_string()),
                     number: vec![],
-                    is_heading: true,
+                    is_heading: false,
+                    is_disabled: false,
+                    img_src: None,
+                    font_icon: None,
+                    path: None,
                     children: vec![super::TocItem {
                         title: Some(format!("Title2")),
-                        id: t2,
+                        id: doc/#t2,
                         url: Some("Title2".to_string()),
                         number: vec![1, 1],
-                        is_heading: true,
+                        is_heading: false,
+                        is_disabled: false,
+                        img_src: None,
+                        font_icon: None,
                         children: vec![],
+                        path: None
                     }],
                 }]
             }
@@ -227,11 +351,15 @@ mod test {
             super::ToC {
                 items: vec![super::TocItem {
                     title: Some(format!("Title1")),
-                    id: t1,
+                    id: doc/#t1,
                     url: Some("Title1".to_string()),
                     number: vec![],
+                    is_disabled: false,
                     is_heading: true,
+                    img_src: None,
+                    font_icon: None,
                     children: vec![],
+                    path: None
                 }]
             }
         );
@@ -254,18 +382,26 @@ mod test {
                     super::TocItem {
                         title: Some(format!("Title1")),
                         is_heading: true,
-                        id: t1,
+                        id: doc/#t1,
                         url: Some("Title1".to_string()),
                         number: vec![1],
+                        is_disabled: false,
+                        img_src: None,
+                        font_icon: None,
                         children: vec![],
+                        path: None
                     },
                     super::TocItem {
                         title: Some(format!("Title2")),
                         is_heading: true,
-                        id: t2,
+                        id: doc/#t2,
                         url: Some("Title2".to_string()),
                         number: vec![1],
+                        is_disabled: false,
+                        img_src: None,
+                        font_icon: None,
                         children: vec![],
+                        path: None
                     }
                 ]
             }
