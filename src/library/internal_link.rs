@@ -1,4 +1,4 @@
-use crate::library::toc::{TocItem, ParseError};
+use crate::library::toc::{TocItem, ToC};
 
 pub fn processor(
     section: &ftd::p1::Section,
@@ -22,22 +22,8 @@ pub fn processor(
     doc.from_json(&toc_items, section)
 }
 
-
-pub struct ToCList {
-    pub items: Vec<TocItem>,
-}
-
-#[derive(PartialEq, Debug, Clone)]
-pub struct TocListParser {
-    pub(crate) state: fpm::library::toc::ParsingState,
-    pub(crate) sections: Vec<(fpm::library::toc::TocItem, usize)>,
-    pub(crate) temp_item: Option<(fpm::library::toc::TocItem, usize)>,
-    pub(crate) doc_name: String,
-    pub(crate) file_ids: std::collections::HashMap<String, String>,
-}
-
 impl ToCList {
-    pub fn parse(s: &str, doc_name: &str, global_ids: &std::collections::HashMap<String, String>) -> Result<Self, ParseError> {
+    pub fn parse(s: &str, doc_name: &str, global_ids: &std::collections::HashMap<String, String>) -> Result<Self, fpm::library::toc::ParseError> {
         let mut parser = TocListParser {
             state: fpm::library::toc::ParsingState::WaitingForNextItem,
             sections: vec![],
@@ -57,8 +43,21 @@ impl ToCList {
     }
 }
 
+pub struct ToCList {
+    pub items: Vec<TocItem>,
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub struct TocListParser {
+    pub(crate) state: fpm::library::toc::ParsingState,
+    pub(crate) sections: Vec<(fpm::library::toc::TocItem, usize)>,
+    pub(crate) temp_item: Option<(fpm::library::toc::TocItem, usize)>,
+    pub(crate) doc_name: String,
+    pub(crate) file_ids: std::collections::HashMap<String, String>,
+}
+
 impl TocListParser {
-    pub fn read_line(&mut self, line: &str, doc_name: &str, ln: usize, global_ids: &std::collections::HashMap<String, String>) -> Result<(), fpm::library::toc::ParseError> {
+    pub fn read_line(&mut self, line: &str, doc_name: &str, _ln: usize, global_ids: &std::collections::HashMap<String, String>) -> Result<(), fpm::library::toc::ParseError> {
         // The row could be one of the 4 things:
 
         // - Heading
@@ -69,12 +68,12 @@ impl TocListParser {
             return Ok(());
         }
 
-        fn fetch_doc_id_from_link(link: &str) -> fpm::Result<String> {
+        fn fetch_doc_id_from_link(link: &str) -> Result<String, fpm::library::toc::ParseError> {
             // link = <document-id>#<slugified-id>
             let doc_id = link.split_once('#').map(|s| s.0);
             match doc_id {
                 Some(id) => Ok(id.to_string()),
-                None => Err(fpm::Error::PackageError {
+                None => Err(fpm::library::toc::ParseError::PackageError {
                     message: format!("Invalid link format {}", link),
                 }),
             }
@@ -105,7 +104,7 @@ impl TocListParser {
                     self.sections.push((
                         fpm::library::toc::TocItem {
                             title: Some(iter.collect::<String>().trim().to_string()),
-                            is_heading: true,
+                            is_heading: false,
                             ..Default::default()
                         },
                         depth,
@@ -141,7 +140,7 @@ impl TocListParser {
         Ok(())
     }
 
-    pub fn read_id(&mut self, line: &str) -> Result<(), ParseError> {
+    pub fn read_id(&mut self, line: &str) -> Result<(), fpm::library::toc::ParseError> {
         if line.trim().is_empty() {
             // Empty line found. Process the temp_item
             self.eval_temp_item()?;
@@ -231,7 +230,7 @@ impl TocListParser {
         self.temp_item = None;
         Ok(())
     }
-    pub fn finalize(self) -> Result<Vec<(TocItem, usize)>, ParseError> {
+    pub fn finalize(self) -> Result<Vec<(TocItem, usize)>, fpm::library::toc::ParseError> {
         Ok(self.sections)
     }
 }
@@ -291,9 +290,9 @@ mod test {
             ),
             super::ToC {
                 items: vec![super::TocItem {
-                    title: Some(format!("Title1")),
-                    id: doc#t1,
-                    url: Some("Title1".to_string()),
+                    title: Some(format!("- h0: Title1")),
+                    id: None,
+                    url: Some("t1".to_string()),
                     number: vec![],
                     is_heading: false,
                     is_disabled: false,
@@ -301,9 +300,9 @@ mod test {
                     font_icon: None,
                     path: None,
                     children: vec![super::TocItem {
-                        title: Some(format!("Title2")),
-                        id: doc#t2,
-                        url: Some("Title2".to_string()),
+                        title: Some(format!("- h0: Title2")),
+                        id: None,
+                        url: Some("t2".to_string()),
                         number: vec![1, 1],
                         is_heading: false,
                         is_disabled: false,
@@ -328,12 +327,12 @@ mod test {
             ),
             super::ToC {
                 items: vec![super::TocItem {
-                    title: Some(format!("Title1")),
-                    id: doc#t1,
-                    url: Some("Title1".to_string()),
+                    title: Some(format!("- h0: Title1")),
+                    id: None,
+                    url: Some("t1".to_string()),
                     number: vec![],
                     is_disabled: false,
-                    is_heading: true,
+                    is_heading: false,
                     img_src: None,
                     font_icon: None,
                     children: vec![],
@@ -358,10 +357,10 @@ mod test {
             super::ToC {
                 items: vec![
                     super::TocItem {
-                        title: Some(format!("Title1")),
-                        is_heading: true,
-                        id: doc#t1,
-                        url: Some("Title1".to_string()),
+                        title: Some(format!("- h0: Title1")),
+                        is_heading: false,
+                        id: None,
+                        url: Some("t1".to_string()),
                         number: vec![1],
                         is_disabled: false,
                         img_src: None,
@@ -370,11 +369,11 @@ mod test {
                         path: None
                     },
                     super::TocItem {
-                        title: Some(format!("Title2")),
-                        is_heading: true,
-                        id: doc#t2,
-                        url: Some("Title2".to_string()),
-                        number: vec![1],
+                        title: Some(format!("- h0: Title2")),
+                        is_heading: false,
+                        id: None,
+                        url: Some("t2".to_string()),
+                        number: vec![2],
                         is_disabled: false,
                         img_src: None,
                         font_icon: None,

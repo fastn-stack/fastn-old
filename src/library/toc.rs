@@ -95,6 +95,9 @@ pub struct TocParser {
 
 #[derive(thiserror::Error, Debug)]
 pub enum ParseError {
+    #[error("PackageError: {message}")]
+    PackageError { message: String },
+
     #[error("{doc_id} -> {message} -> Row Content: {row_content}")]
     InvalidTOCItem {
         doc_id: String,
