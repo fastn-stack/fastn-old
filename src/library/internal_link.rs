@@ -5,7 +5,7 @@ pub fn processor(
     doc: &ftd::p2::TDoc,
     _config: &fpm::Config,
 ) -> ftd::p1::Result<ftd::Value> {
-    let toc_items = fpm::Toc::parse(
+    let toc_items = ToC::parse(
         section.body(section.line_number, doc.name)?.as_str(),
         doc.name,
     )
@@ -40,7 +40,7 @@ impl TocListParser {
         line_number: usize,
     ) -> fpm::Result<()> {
         // returns doc-id from link as String
-        fn fetch_doc_id_from_link(link: &str) -> fpm::Result<String> {
+        pub fn get_doc_id_from_link(link: &str) -> fpm::Result<String> {
             // link = <document-id>#<slugified-id>
             let doc_id = link.split_once('#').map(|s| s.0);
             match doc_id {
@@ -93,7 +93,7 @@ impl TocListParser {
                 message: format!(
                     "conflicting id: \'{}\' used in doc: \'{}\' and doc: \'{}\'",
                     id,
-                    fetch_doc_id_from_link(&url_ids[&id])?,
+                    get_doc_id_from_link(&url_ids[&id])?,
                     document_id
                 ),
             });
