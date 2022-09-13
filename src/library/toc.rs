@@ -100,6 +100,7 @@ pub enum ParseError {
         doc_id: String,
         message: String,
         row_content: String,
+        line_number: usize
     },
 }
 
@@ -310,6 +311,7 @@ impl TocParser {
                                 doc_id: self.doc_name.clone(),
                                 message: "Ambiguous <title>: <URL> evaluation. Multiple colons found. Either specify the complete URL or specify the url as an attribute".to_string(),
                                 row_content: current_title.as_str().to_string(),
+                                line_number: 0
                             });
                         }
                     }
