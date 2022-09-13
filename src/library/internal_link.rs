@@ -1,6 +1,5 @@
 use crate::library::toc::{ToC, TocItem, ParseError};
-use config::Package;
-use fpm::Package;
+use crate::config::Package;
 
 pub fn processor(
     section: &ftd::p1::Section,
@@ -22,6 +21,7 @@ pub fn processor(
     .collect::<Vec<fpm::library::toc::TocItemCompat>>();
     doc.from_json(&toc_items, section)
 }
+
 
 pub struct ToCList {
     pub items: Vec<TocItem>,
@@ -49,8 +49,8 @@ impl ToCList {
             id: "".to_string(),
             file_ids: Default::default(),
         };
-        for line in s.split("\n") {
-            parser.read_line(line, doc_name)?;
+        for (ln, line) in itertools::enumerate(s.split("\n")) {
+            parser.read_line(line, doc_name,ln)?;
         }
         if parser.temp_item.is_some() {
             parser.eval_temp_item()?;
@@ -62,7 +62,7 @@ impl ToCList {
 }
 
 impl TocListParser {
-    pub fn read_line(&mut self, line: &str, doc_name: &str) -> Result<(), fpm::library::toc::ParseError> {
+    pub fn read_line(&mut self, line: &str, doc_name: &str, ln: usize) -> Result<(), fpm::library::toc::ParseError> {
         // The row could be one of the 4 things:
 
         // - Heading
@@ -125,7 +125,7 @@ impl TocListParser {
         );
 
         if ID.is_match(line) {
-            update_id_map(&mut self.file_ids, line, doc_id, ln)?;
+            update_id_map(&mut self.file_ids, line, doc_name, ln);
         }
 
         let mut iter = line.chars();
@@ -141,7 +141,7 @@ impl TocListParser {
                 }
                 Some('#') => {
                     // Heading can not have any attributes. Append the item and look for the next input
-                    dbg!(self.eval_temp_item())?;
+                    self.eval_temp_item()?;
                     self.sections.push((
                         fpm::library::toc::TocItem {
                             title: Some(iter.collect::<String>().trim().to_string()),
@@ -252,6 +252,7 @@ impl TocListParser {
                                 doc_id: self.doc_name.clone(),
                                 message: "Ambiguous <title>: <URL> evaluation. Multiple colons found. Either specify the complete URL or specify the url as an attribute".to_string(),
                                 row_content: current_title.as_str().to_string(),
+                                line_number: 0
                             });
                         }
                     }
