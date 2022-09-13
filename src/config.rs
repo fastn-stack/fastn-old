@@ -314,39 +314,6 @@ impl Config {
         doc_id: &str,
         data: &str,
     ) -> fpm::Result<()> {
-        /// returns header key and value
-        /// given header string
-        fn segregate_key_value(
-            header: &str,
-            doc_id: &str,
-            line_number: usize,
-        ) -> ftd::p1::Result<(String, String)> {
-            if !header.contains(':') {
-                return Err(ftd::p1::Error::ParseError {
-                    message: format!(": is missing in: {}", header),
-                    doc_id: doc_id.to_string(),
-                    line_number,
-                });
-            }
-
-            let mut parts = header.splitn(2, ':');
-            match (parts.next(), parts.next()) {
-                (Some(name), Some(value)) => {
-                    // some header and some non-empty value
-                    Ok((name.trim().to_string(), value.trim().to_string()))
-                }
-                (Some(name), None) => Err(ftd::p1::Error::ParseError {
-                    message: format!("Unknown header value for header \'{}\'", name),
-                    doc_id: doc_id.to_string(),
-                    line_number,
-                }),
-                _ => Err(ftd::p1::Error::ParseError {
-                    message: format!("Unknown header found \'{}\'", header),
-                    doc_id: doc_id.to_string(),
-                    line_number,
-                }),
-            }
-        }
 
         /// updates the config.global_ids map
         ///
@@ -371,25 +338,28 @@ impl Config {
                 }
             }
 
-            let (_header, id) = segregate_key_value(id_string, doc_name, line_number)?;
+            let (_header, value) = ftd::identifier::segregate_key_value(id_string, doc_name, line_number)?;
             let document_id = fpm::library::convert_to_document_id(doc_name);
 
-            // check if the current id already exists in the map
-            // if it exists then throw error
-            if global_ids.contains_key(&id) {
-                return Err(fpm::Error::UsageError {
-                    message: format!(
-                        "conflicting id: \'{}\' used in doc: \'{}\' and doc: \'{}\'",
-                        id,
-                        fetch_doc_id_from_link(&global_ids[&id])?,
-                        document_id
-                    ),
-                });
+            if let Some(id) = value{
+                // check if the current id already exists in the map
+                // if it exists then throw error
+                if global_ids.contains_key(&id) {
+                    return Err(fpm::Error::UsageError {
+                        message: format!(
+                            "conflicting id: \'{}\' used in doc: \'{}\' and doc: \'{}\'",
+                            id,
+                            fetch_doc_id_from_link(&global_ids[&id])?,
+                            document_id
+                        ),
+                    });
+                }
+
+                // mapping id -> <document-id>#<slugified-id>
+                let link = format!("{}#{}", document_id, slug::slugify(&id));
+                global_ids.insert(id, link);
             }
 
-            // mapping id -> <document-id>#<slugified-id>
-            let link = format!("{}#{}", document_id, slug::slugify(&id));
-            global_ids.insert(id, link);
             Ok(())
         }
 
@@ -467,7 +437,7 @@ impl Config {
             // section could be component definition
             // in that case ignore relevant id's defined under its definition
             // including the ids defined on its subsections
-            if line.starts_with("-- ") {
+            if ftd::identifier::is_section(line) {
                 ignore_id = ignore_next_id(line);
                 register_id_for_last_section = !ignore_id;
             }
@@ -476,7 +446,7 @@ impl Config {
             // within an invoked section/ container as a subsection
             // or when there are uncommented subsections
             // under commented section then ignore their id's
-            if line.starts_with("--- ") && register_id_for_last_section {
+            if ftd::identifier::is_subsection(line) && register_id_for_last_section {
                 ignore_id = ignore_next_id(line);
             }
 
@@ -1270,6 +1240,7 @@ impl Config {
         // Update terms map from the current package files
         config.update_ids_from_package().await?;
 
+        dbg!(&config.global_ids);
         Ok(config)
     }
 
