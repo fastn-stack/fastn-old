@@ -233,7 +233,7 @@ impl TocParser {
                 }
                 Some('#') => {
                     // Heading can not have any attributes. Append the item and look for the next input
-                    dbg!(self.eval_temp_item())?;
+                    self.eval_temp_item()?;
                     self.sections.push((
                         TocItem {
                             title: Some(iter.collect::<String>().trim().to_string()),

@@ -969,7 +969,6 @@ dependencies = [
 [[package]]
 name = "ftd"
 version = "0.2.0"
-source = "git+https://github.com/FifthTry/ftd?rev=ccbe863#ccbe863a3be8a1de946adff069e180c97671a6c2"
 dependencies = [
  "comrak",
  "css-color-parser",

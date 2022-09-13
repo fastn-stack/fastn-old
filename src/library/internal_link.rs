@@ -1,14 +1,14 @@
-use crate::library::toc::{ToC, TocItem, ParseError};
-use crate::config::Package;
+use crate::library::toc::{TocItem, ParseError};
 
 pub fn processor(
     section: &ftd::p1::Section,
     doc: &ftd::p2::TDoc,
-    _config: &fpm::Config,
+    config: &fpm::Config,
 ) -> ftd::p1::Result<ftd::Value> {
     let toc_items = ToCList::parse(
         section.body(section.line_number, doc.name)?.as_str(),
         doc.name,
+        &config.global_ids,
     )
     .map_err(|e| ftd::p1::Error::ParseError {
         message: format!("Cannot parse body: {:?}", e),
@@ -33,24 +33,20 @@ pub struct TocListParser {
     pub(crate) sections: Vec<(fpm::library::toc::TocItem, usize)>,
     pub(crate) temp_item: Option<(fpm::library::toc::TocItem, usize)>,
     pub(crate) doc_name: String,
-    pub(crate) content: String,
-    pub(crate) id: String,
     pub(crate) file_ids: std::collections::HashMap<String, String>,
 }
 
 impl ToCList {
-    pub fn parse(s: &str, doc_name: &str) -> Result<Self, ParseError> {
+    pub fn parse(s: &str, doc_name: &str, global_ids: &std::collections::HashMap<String, String>) -> Result<Self, ParseError> {
         let mut parser = TocListParser {
             state: fpm::library::toc::ParsingState::WaitingForNextItem,
             sections: vec![],
             temp_item: None,
             doc_name: doc_name.to_string(),
-            content: s.to_string(),
-            id: "".to_string(),
             file_ids: Default::default(),
         };
         for (ln, line) in itertools::enumerate(s.split("\n")) {
-            parser.read_line(line, doc_name,ln)?;
+            parser.read_line(line, doc_name,ln, global_ids)?;
         }
         if parser.temp_item.is_some() {
             parser.eval_temp_item()?;
@@ -62,7 +58,7 @@ impl ToCList {
 }
 
 impl TocListParser {
-    pub fn read_line(&mut self, line: &str, doc_name: &str, ln: usize) -> Result<(), fpm::library::toc::ParseError> {
+    pub fn read_line(&mut self, line: &str, doc_name: &str, ln: usize, global_ids: &std::collections::HashMap<String, String>) -> Result<(), fpm::library::toc::ParseError> {
         // The row could be one of the 4 things:
 
         // - Heading
@@ -72,61 +68,28 @@ impl TocListParser {
         if line.trim().is_empty() {
             return Ok(());
         }
-        pub fn separate_key_value(
-            header: &str,
-            doc_id: &str,
-            line_number: usize,
-        ) -> ftd::p1::Result<(String, String)> {
-            if !header.contains(':') {
-                return Err(ftd::p1::Error::ParseError {
-                    message: format!(": is missing in: {}", header),
-                    doc_id: doc_id.to_string(),
-                    line_number,
-                });
-            }
 
-            let mut parts = header.splitn(2, ':');
-            match (parts.next(), parts.next()) {
-                (Some(name), Some(value)) => {
-                    // some header and some non-empty value
-                    Ok((name.trim().to_string(), value.trim().to_string()))
-                }
-                (Some(name), None) => Err(ftd::p1::Error::ParseError {
-                    message: format!("Unknown header value for header \'{}\'", name),
-                    doc_id: doc_id.to_string(),
-                    line_number,
-                }),
-                _ => Err(ftd::p1::Error::ParseError {
-                    message: format!("Unknown header found \'{}\'", header),
-                    doc_id: doc_id.to_string(),
-                    line_number,
+        fn fetch_doc_id_from_link(link: &str) -> fpm::Result<String> {
+            // link = <document-id>#<slugified-id>
+            let doc_id = link.split_once('#').map(|s| s.0);
+            match doc_id {
+                Some(id) => Ok(id.to_string()),
+                None => Err(fpm::Error::PackageError {
+                    message: format!("Invalid link format {}", link),
                 }),
             }
         }
 
-        fn update_id_map(
-            file_ids: &mut std::collections::HashMap<String, String>,
-            id_string: &str,
-            doc_name: &str,
-            line_number: usize,
-        ) -> fpm::Result<()> {
+        let document_id = fpm::library::convert_to_document_id(doc_name);
 
-            let (_header, id) = separate_key_value(id_string, doc_name, line_number)?;
-            let document_id = fpm::library::convert_to_document_id(doc_name);
-
-            let link = format!("{}#{}", document_id, slug::slugify(&id));
-            file_ids.insert(id, link);
-            Ok(())
+        for (id, link) in global_ids.iter() {
+            if document_id.eq(fetch_doc_id_from_link(link)?.as_str()){
+                self.file_ids.insert(id.to_string(), link.to_string());
+            }
         }
 
-        const ID_HEADER_PATTERN: &str = r"(?m)^\s*id\s*:[\sA-Za-z\d]*$";
-        lazy_static::lazy_static!(
-            static ref ID: regex::Regex = regex::Regex::new(ID_HEADER_PATTERN).unwrap();
-        );
 
-        if ID.is_match(line) {
-            update_id_map(&mut self.file_ids, line, doc_name, ln);
-        }
+
 
         let mut iter = line.chars();
         let mut depth = 0;
@@ -177,6 +140,7 @@ impl TocListParser {
             depth,
         ));
         self.state = fpm::library::toc::ParsingState::WaitingForAttributes;
+        println!("meow");
         Ok(())
     }
 
@@ -331,7 +295,7 @@ mod test {
             super::ToC {
                 items: vec![super::TocItem {
                     title: Some(format!("Title1")),
-                    id: doc/#t1,
+                    id: doc#t1,
                     url: Some("Title1".to_string()),
                     number: vec![],
                     is_heading: false,
@@ -341,7 +305,7 @@ mod test {
                     path: None,
                     children: vec![super::TocItem {
                         title: Some(format!("Title2")),
-                        id: doc/#t2,
+                        id: doc#t2,
                         url: Some("Title2".to_string()),
                         number: vec![1, 1],
                         is_heading: false,
@@ -368,7 +332,7 @@ mod test {
             super::ToC {
                 items: vec![super::TocItem {
                     title: Some(format!("Title1")),
-                    id: doc/#t1,
+                    id: doc#t1,
                     url: Some("Title1".to_string()),
                     number: vec![],
                     is_disabled: false,
@@ -399,7 +363,7 @@ mod test {
                     super::TocItem {
                         title: Some(format!("Title1")),
                         is_heading: true,
-                        id: doc/#t1,
+                        id: doc#t1,
                         url: Some("Title1".to_string()),
                         number: vec![1],
                         is_disabled: false,
@@ -411,7 +375,7 @@ mod test {
                     super::TocItem {
                         title: Some(format!("Title2")),
                         is_heading: true,
-                        id: doc/#t2,
+                        id: doc#t2,
                         url: Some("Title2".to_string()),
                         number: vec![1],
                         is_disabled: false,

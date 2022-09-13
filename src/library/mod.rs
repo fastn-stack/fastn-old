@@ -202,7 +202,7 @@ pub fn process_sync<'a>(
         .str(doc.name, section.line_number, "$processor$")?
     {
         "toc" => fpm::library::toc::processor(section, doc, config),
-        "internal_link" => fpm::library::internal_link::processor(section, doc, config),
+        "internal-link" => fpm::library::internal_link::processor(section, doc, config),
         "include" => fpm::library::include::processor(section, doc, config),
         "get-data" => fpm::library::get_data::processor(section, doc, config),
         "sitemap" => fpm::library::sitemap::processor(section, doc, config),
