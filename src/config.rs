@@ -316,7 +316,7 @@ impl Config {
     ) -> fpm::Result<()> {
         /// returns header key and value
         /// given header string
-        pub fn segregate_key_value(
+        fn segregate_key_value(
             header: &str,
             doc_id: &str,
             line_number: usize,

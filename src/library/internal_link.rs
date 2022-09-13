@@ -88,9 +88,6 @@ impl TocListParser {
             }
         }
 
-
-
-
         let mut iter = line.chars();
         let mut depth = 0;
         loop {
