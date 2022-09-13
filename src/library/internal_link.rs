@@ -1,11 +1,13 @@
-use crate::library::toc::{ToC, TocItem, TocParser, ParseError};
+use crate::library::toc::{ToC, TocItem, ParseError};
+use config::Package;
+use fpm::Package;
 
 pub fn processor(
     section: &ftd::p1::Section,
     doc: &ftd::p2::TDoc,
     _config: &fpm::Config,
 ) -> ftd::p1::Result<ftd::Value> {
-    let toc_items = ToC::parse(
+    let toc_items = ToCList::parse(
         section.body(section.line_number, doc.name)?.as_str(),
         doc.name,
     )
@@ -21,6 +23,11 @@ pub fn processor(
     doc.from_json(&toc_items, section)
 }
 
+pub struct ToCList {
+    pub items: Vec<TocItem>,
+}
+
+#[derive(PartialEq, Debug, Clone)]
 pub struct TocListParser {
     pub(crate) state: fpm::library::toc::ParsingState,
     pub(crate) sections: Vec<(fpm::library::toc::TocItem, usize)>,
@@ -28,30 +35,44 @@ pub struct TocListParser {
     pub(crate) doc_name: String,
     pub(crate) content: String,
     pub(crate) id: String,
+    pub(crate) file_ids: std::collections::HashMap<String, String>,
+}
 
-
+impl ToCList {
+    pub fn parse(s: &str, doc_name: &str) -> Result<Self, ParseError> {
+        let mut parser = TocListParser {
+            state: fpm::library::toc::ParsingState::WaitingForNextItem,
+            sections: vec![],
+            temp_item: None,
+            doc_name: doc_name.to_string(),
+            content: s.to_string(),
+            id: "".to_string(),
+            file_ids: Default::default(),
+        };
+        for line in s.split("\n") {
+            parser.read_line(line, doc_name)?;
+        }
+        if parser.temp_item.is_some() {
+            parser.eval_temp_item()?;
+        }
+        Ok(ToCList {
+            items: fpm::library::toc::construct_tree_util(parser.finalize()?),
+        })
+    }
 }
 
 impl TocListParser {
-    pub fn access_id_map(
-        url_ids: &mut std::collections::HashMap<String, String>,
-        id_string: &str,
-        doc_name: &str,
-        line_number: usize,
-    ) -> fpm::Result<()> {
-        // returns doc-id from link as String
-        pub fn get_doc_id_from_link(link: &str) -> fpm::Result<String> {
-            // link = <document-id>#<slugified-id>
-            let doc_id = link.split_once('#').map(|s| s.0);
-            match doc_id {
-                Some(id) => Ok(id.to_string()),
-                None => Err(fpm::Error::PackageError {
-                    message: format!("Invalid link format {}", link),
-                }),
-            }
-        }
+    pub fn read_line(&mut self, line: &str, doc_name: &str) -> Result<(), fpm::library::toc::ParseError> {
+        // The row could be one of the 4 things:
 
-        pub fn segregate_key_value(
+        // - Heading
+        // - Prefix/suffix item
+        // - Separator
+        // - ToC item
+        if line.trim().is_empty() {
+            return Ok(());
+        }
+        pub fn separate_key_value(
             header: &str,
             doc_id: &str,
             line_number: usize,
@@ -83,38 +104,30 @@ impl TocListParser {
             }
         }
 
-        let (_header, id) = segregate_key_value(id_string, doc_name, line_number)?;
-        let document_id = fpm::library::convert_to_document_id(doc_name);
+        fn update_id_map(
+            file_ids: &mut std::collections::HashMap<String, String>,
+            id_string: &str,
+            doc_name: &str,
+            line_number: usize,
+        ) -> fpm::Result<()> {
 
-        // check if the current id already exists in the map
-        // if it exists then throw error
-        if url_ids.contains_key(&id) {
-            return Err(fpm::Error::UsageError {
-                message: format!(
-                    "conflicting id: \'{}\' used in doc: \'{}\' and doc: \'{}\'",
-                    id,
-                    get_doc_id_from_link(&url_ids[&id])?,
-                    document_id
-                ),
-            });
+            let (_header, id) = separate_key_value(id_string, doc_name, line_number)?;
+            let document_id = fpm::library::convert_to_document_id(doc_name);
+
+            let link = format!("{}#{}", document_id, slug::slugify(&id));
+            file_ids.insert(id, link);
+            Ok(())
         }
 
-        // mapping id -> <document-id>#<slugified-id>
-        let link = format!("{}#{}", document_id, slug::slugify(&id));
-        url_ids.insert(id, link);
-        Ok(())
-    }
+        const ID_HEADER_PATTERN: &str = r"(?m)^\s*id\s*:[\sA-Za-z\d]*$";
+        lazy_static::lazy_static!(
+            static ref ID: regex::Regex = regex::Regex::new(ID_HEADER_PATTERN).unwrap();
+        );
 
-    pub fn read_line(&mut self, line: &str, doc_name: &str) -> Result<(), fpm::library::toc::ParseError> {
-        // The row could be one of the 4 things:
-
-        // - Heading
-        // - Prefix/suffix item
-        // - Separator
-        // - ToC item
-        if line.trim().is_empty() {
-            return Ok(());
+        if ID.is_match(line) {
+            update_id_map(&mut self.file_ids, line, doc_id, ln)?;
         }
+
         let mut iter = line.chars();
         let mut depth = 0;
         loop {
@@ -255,6 +268,9 @@ impl TocListParser {
         }
         self.temp_item = None;
         Ok(())
+    }
+    pub fn finalize(self) -> Result<Vec<(TocItem, usize)>, ParseError> {
+        Ok(self.sections)
     }
 }
 
