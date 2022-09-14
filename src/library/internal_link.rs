@@ -23,7 +23,11 @@ pub fn processor(
 }
 
 impl ToCList {
-    pub fn parse(s: &str, doc_name: &str, global_ids: &std::collections::HashMap<String, String>) -> Result<Self, fpm::library::toc::ParseError> {
+    pub fn parse(
+        s: &str,
+        doc_name: &str,
+        global_ids: &std::collections::HashMap<String, String>,
+    ) -> Result<Self, fpm::library::toc::ParseError> {
         let mut parser = TocListParser {
             state: fpm::library::toc::ParsingState::WaitingForNextItem,
             sections: vec![],
@@ -31,8 +35,8 @@ impl ToCList {
             doc_name: doc_name.to_string(),
             file_ids: Default::default(),
         };
-        for (ln, line) in itertools::enumerate(s.split("\n")) {
-            parser.read_line(line, doc_name,ln, global_ids)?;
+        for (ln, line) in itertools::enumerate(s.split('\n')) {
+            parser.read_line(line, doc_name, ln, global_ids)?;
         }
         if parser.temp_item.is_some() {
             parser.eval_temp_item()?;
@@ -47,7 +51,8 @@ pub struct ToCList {
     pub items: Vec<TocItem>,
 }
 
-#[derive(PartialEq, Debug, Clone)]
+
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub struct TocListParser {
     pub(crate) state: fpm::library::toc::ParsingState,
     pub(crate) sections: Vec<(fpm::library::toc::TocItem, usize)>,
@@ -57,7 +62,13 @@ pub struct TocListParser {
 }
 
 impl TocListParser {
-    pub fn read_line(&mut self, line: &str, doc_name: &str, _ln: usize, global_ids: &std::collections::HashMap<String, String>) -> Result<(), fpm::library::toc::ParseError> {
+    pub fn read_line(
+        &mut self,
+        line: &str,
+        doc_name: &str,
+        _ln: usize,
+        global_ids: &std::collections::HashMap<String, String>,
+    ) -> Result<(), fpm::library::toc::ParseError> {
         // The row could be one of the 4 things:
 
         // - Heading
@@ -82,7 +93,7 @@ impl TocListParser {
         let document_id = fpm::library::convert_to_document_id(doc_name);
 
         for (id, link) in global_ids.iter() {
-            if document_id.eq(fetch_doc_id_from_link(link)?.as_str()){
+            if document_id.eq(fetch_doc_id_from_link(link)?.as_str()) {
                 self.file_ids.insert(id.to_string(), link.to_string());
             }
         }
@@ -321,7 +332,7 @@ mod test {
         p!(
             &indoc!(
                 "
-       -- h0: Title1
+        -- h0: Title1
         id: t1
         "
             ),
@@ -330,7 +341,7 @@ mod test {
                     title: Some(format!("- h0: Title1")),
                     id: None,
                     url: Some("t1".to_string()),
-                    number: vec![],
+                    number: vec![1],
                     is_disabled: false,
                     is_heading: false,
                     img_src: None,

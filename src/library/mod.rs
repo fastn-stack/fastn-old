@@ -406,7 +406,7 @@ impl Library2 {
             "http" => fpm::library::http::processor(section, doc).await,
             "package-query" => fpm::library::sqlite::processor(section, doc, &self.config).await,
             "toc" => fpm::library::toc::processor(section, doc, &self.config),
-            "internal_link" => fpm::library::internal_link::processor(section, doc, &self.config),
+            "internal-link" => fpm::library::internal_link::processor(section, doc, &self.config),
             "include" => fpm::library::include::processor(section, doc, &self.config),
             "get-data" => fpm::library::get_data::processor(section, doc, &self.config),
             "sitemap" => fpm::library::sitemap::processor(section, doc, &self.config),

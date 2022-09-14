@@ -103,7 +103,7 @@ pub enum ParseError {
         doc_id: String,
         message: String,
         row_content: String,
-        line_number: usize
+        line_number: usize,
     },
 }
 
