@@ -196,7 +196,7 @@ impl TocListParser {
                             let url_id = format!("{}/#{}", document_id, second);
                             (
                                 Some(first.trim().to_string()),
-                                Some(url_id),
+                                Some(dbg!(url_id)),
                             )
                         } else {
                             // No matches, i.e. return the current string as title, url as none
@@ -258,7 +258,7 @@ mod test {
         };
         ($s:expr, $t: expr) => {
             assert_eq!(
-                super::fpm::library::toc::ToC::parse($s, "test_doc").unwrap_or_else(|e| panic!("{}", e)),
+                fpm::library::toc::ToC::parse($s, "test_doc").unwrap_or_else(|e| panic!("{}", e)),
                 $t
             )
         };
@@ -300,8 +300,8 @@ mod test {
 
         "
             ),
-            super::fpm::library::toc::ToC {
-                items: vec![super::fpm::library::toc::TocItem {
+            fpm::library::toc::ToC {
+                items: vec![fpm::library::toc::TocItem {
                     title: Some(format!("- h0: Title1")),
                     id: None,
                     url: Some("t1".to_string()),
@@ -311,7 +311,7 @@ mod test {
                     img_src: None,
                     font_icon: None,
                     path: None,
-                    children: vec![super::fpm::library::toc::TocItem {
+                    children: vec![fpm::library::toc::TocItem {
                         title: Some(format!("- h0: Title2")),
                         id: None,
                         url: Some("t2".to_string()),
@@ -337,8 +337,8 @@ mod test {
         id: t1
         "
             ),
-            super::fpm::library::toc::ToC {
-                items: vec![super::fpm::library::toc::TocItem {
+            fpm::library::toc::ToC {
+                items: vec![fpm::library::toc::TocItem {
                     title: Some(format!("- h0: Title1")),
                     id: None,
                     url: Some("t1".to_string()),
@@ -366,9 +366,9 @@ mod test {
         id: t2
         "
             ),
-            super::fpm::library::toc::ToC{
+            fpm::library::toc::ToC{
                 items: vec![
-                    super::fpm::library::toc::TocItem {
+                    fpm::library::toc::TocItem {
                         title: Some(format!("- h0: Title1")),
                         is_heading: false,
                         id: None,
@@ -380,7 +380,7 @@ mod test {
                         children: vec![],
                         path: None
                     },
-                    super::fpm::library::toc::TocItem {
+                    fpm::library::toc::TocItem {
                         title: Some(format!("- h0: Title2")),
                         is_heading: false,
                         id: None,
