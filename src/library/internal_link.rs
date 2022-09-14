@@ -196,8 +196,8 @@ impl TocListParser {
                 let (title, url) = match current_title.as_str().matches(':').count() {
                     1 | 0 => {
                         if let Some((first, second)) = current_title.rsplit_once(':') {
-                            let url_id = format!("{}/#{}", document_id, second.trim().to_string());
-                            (Some(first.trim().to_string()), Some(dbg!(url_id.to_string())))
+                            let url_id = format!("{}#{}", document_id, second.trim().to_string());
+                            (Some(first.trim().to_string()), Some(url_id.to_string()))
                         } else {
                             // No matches, i.e. return the current string as title, url as none
                             (Some(current_title), None)
@@ -304,9 +304,9 @@ mod test {
             ),
             fpm::library::toc::ToC {
                 items: vec![fpm::library::toc::TocItem {
-                    title: Some(format!("- h0: Title1")),
-                    id: None,
-                    url: Some("t1".to_string()),
+                    title: Some(format!("- h0")),
+                    id: Some(format!("t1")),
+                    url: Some("Title1".to_string()),
                     number: vec![],
                     is_heading: false,
                     is_disabled: false,
@@ -314,9 +314,9 @@ mod test {
                     font_icon: None,
                     path: None,
                     children: vec![fpm::library::toc::TocItem {
-                        title: Some(format!("- h0: Title2")),
-                        id: None,
-                        url: Some("t2".to_string()),
+                        title: Some(format!("- h0")),
+                        id: Some(format!("t1")),
+                        url: Some("Title1".to_string()),
                         number: vec![1, 1],
                         is_heading: false,
                         is_disabled: false,
