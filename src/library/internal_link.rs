@@ -49,7 +49,6 @@ pub struct ToCList {
     pub items: Vec<fpm::library::toc::TocItem>,
 }
 
-
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct TocListParser {
     pub(crate) state: fpm::library::toc::ParsingState,
@@ -149,7 +148,11 @@ impl TocListParser {
         Ok(())
     }
 
-    pub fn read_id(&mut self, line: &str, doc_name: &str) -> Result<(), fpm::library::toc::ParseError> {
+    pub fn read_id(
+        &mut self,
+        line: &str,
+        doc_name: &str,
+    ) -> Result<(), fpm::library::toc::ParseError> {
         let document_id = fpm::library::convert_to_document_id(doc_name);
         if line.trim().is_empty() {
             // Empty line found. Process the temp_item
@@ -193,11 +196,8 @@ impl TocListParser {
                 let (title, url) = match current_title.as_str().matches(':').count() {
                     1 | 0 => {
                         if let Some((first, second)) = current_title.rsplit_once(':') {
-                            let url_id = format!("{}/#{}", document_id, second);
-                            (
-                                Some(first.trim().to_string()),
-                                Some(dbg!(url_id)),
-                            )
+                            let url_id = format!("{}/#{}", document_id, second.trim().to_string());
+                            (Some(first.trim().to_string()), Some(dbg!(url_id.to_string())))
                         } else {
                             // No matches, i.e. return the current string as title, url as none
                             (Some(current_title), None)
@@ -242,7 +242,9 @@ impl TocListParser {
         self.temp_item = None;
         Ok(())
     }
-    pub fn finalize(self) -> Result<Vec<(fpm::library::toc::TocItem, usize)>, fpm::library::toc::ParseError> {
+    pub fn finalize(
+        self,
+    ) -> Result<Vec<(fpm::library::toc::TocItem, usize)>, fpm::library::toc::ParseError> {
         Ok(self.sections)
     }
 }
@@ -284,7 +286,7 @@ mod test {
         --- ftd.text: $title
 
         --- ftd.column:
-        id: foo1
+        id: foo
 
 
 
@@ -296,7 +298,7 @@ mod test {
         --- ftd.text: $title
 
         --- ftd.column:
-        id: foo2
+        id: foo
 
         "
             ),
@@ -339,9 +341,9 @@ mod test {
             ),
             fpm::library::toc::ToC {
                 items: vec![fpm::library::toc::TocItem {
-                    title: Some(format!("- h0: Title1")),
-                    id: None,
-                    url: Some("t1".to_string()),
+                    title: Some(format!("- h0")),
+                    id: Some(format!("t1")),
+                    url: Some("Title1".to_string()),
                     number: vec![1],
                     is_disabled: false,
                     is_heading: false,
@@ -366,13 +368,13 @@ mod test {
         id: t2
         "
             ),
-            fpm::library::toc::ToC{
+            fpm::library::toc::ToC {
                 items: vec![
                     fpm::library::toc::TocItem {
-                        title: Some(format!("- h0: Title1")),
+                        title: Some(format!("- h0")),
+                        id: Some(format!("t1")),
+                        url: Some("Title1".to_string()),
                         is_heading: false,
-                        id: None,
-                        url: Some("doc/#t1".to_string()),
                         number: vec![1],
                         is_disabled: false,
                         img_src: None,
@@ -381,10 +383,10 @@ mod test {
                         path: None
                     },
                     fpm::library::toc::TocItem {
-                        title: Some(format!("- h0: Title2")),
+                        title: Some(format!("- h0")),
+                        id: Some(format!("t2")),
+                        url: Some("Title2".to_string()),
                         is_heading: false,
-                        id: None,
-                        url: Some("t2".to_string()),
                         number: vec![2],
                         is_disabled: false,
                         img_src: None,
