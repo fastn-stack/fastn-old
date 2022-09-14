@@ -1145,7 +1145,6 @@ impl Config {
         // Update terms map from the current package files
         config.update_ids_from_package().await?;
 
-        dbg!(&config.global_ids);
         Ok(config)
     }
 
