@@ -314,7 +314,6 @@ impl Config {
         doc_id: &str,
         data: &str,
     ) -> fpm::Result<()> {
-
         /// updates the config.global_ids map
         ///
         /// mapping from [id -> link]
@@ -338,10 +337,11 @@ impl Config {
                 }
             }
 
-            let (_header, value) = ftd::identifier::segregate_key_value(id_string, doc_name, line_number)?;
+            let (_header, value) =
+                ftd::identifier::segregate_key_value(id_string, doc_name, line_number)?;
             let document_id = fpm::library::convert_to_document_id(doc_name);
 
-            if let Some(id) = value{
+            if let Some(id) = value {
                 // check if the current id already exists in the map
                 // if it exists then throw error
                 if global_ids.contains_key(&id) {

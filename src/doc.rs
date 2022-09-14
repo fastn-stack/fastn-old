@@ -173,7 +173,9 @@ pub async fn parse2<'a>(
                 // No config in ftd::ExampleLibrary ignoring processing terms for now
                 // using dummy id map for debugging
 
-                let link = lib.config.global_ids
+                let link = lib
+                    .config
+                    .global_ids
                     .get(captured_id.as_str())
                     .ok_or_else(|| ftd::p1::Error::ForbiddenUsage {
                         message: format!("id: {} not found while linking", captured_id),
