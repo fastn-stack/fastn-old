@@ -351,7 +351,7 @@ impl TocParser {
                     Some(("id", v)) => {
                         self.temp_item = Some((
                             TocItem {
-                                url: Some(v.trim().to_string()),
+                                id: Some(v.trim().to_string()),
                                 ..i
                             },
                             d,
