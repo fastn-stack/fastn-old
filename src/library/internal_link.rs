@@ -1,22 +1,21 @@
 pub fn processor(
     section: &ftd::p1::Section,
     doc: &ftd::p2::TDoc,
-    config: &fpm::Config,
+    _config: &fpm::Config,
 ) -> ftd::p1::Result<ftd::Value> {
     let toc_items = ToCList::parse(
         section.body(section.line_number, doc.name)?.as_str(),
         doc.name,
-        &config.global_ids,
     )
-    .map_err(|e| ftd::p1::Error::ParseError {
-        message: format!("Cannot parse body: {:?}", e),
-        doc_id: doc.name.to_string(),
-        line_number: section.line_number,
-    })?
-    .items
-    .iter()
-    .map(|item| item.to_toc_item_compat())
-    .collect::<Vec<fpm::library::toc::TocItemCompat>>();
+        .map_err(|e| ftd::p1::Error::ParseError {
+            message: format!("Cannot parse body: {:?}", e),
+            doc_id: doc.name.to_string(),
+            line_number: section.line_number,
+        })?
+        .items
+        .iter()
+        .map(|item| item.to_toc_item_compat())
+        .collect::<Vec<fpm::library::toc::TocItemCompat>>();
     doc.from_json(&toc_items, section)
 }
 
@@ -24,7 +23,6 @@ impl ToCList {
     pub fn parse(
         s: &str,
         doc_name: &str,
-        global_ids: &std::collections::HashMap<String, String>,
     ) -> Result<Self, fpm::library::toc::ParseError> {
         let mut parser = TocListParser {
             state: fpm::library::toc::ParsingState::WaitingForNextItem,
@@ -34,7 +32,7 @@ impl ToCList {
             file_ids: Default::default(),
         };
         for (ln, line) in itertools::enumerate(s.split('\n')) {
-            parser.read_line(line, doc_name, ln, global_ids)?;
+            parser.read_line(line, doc_name, ln)?;
         }
         if parser.temp_item.is_some() {
             parser.eval_temp_item(doc_name)?;
@@ -45,6 +43,7 @@ impl ToCList {
     }
 }
 
+#[derive(PartialEq, Debug)]
 pub struct ToCList {
     pub items: Vec<fpm::library::toc::TocItem>,
 }
@@ -64,7 +63,6 @@ impl TocListParser {
         line: &str,
         doc_name: &str,
         _ln: usize,
-        global_ids: &std::collections::HashMap<String, String>,
     ) -> Result<(), fpm::library::toc::ParseError> {
         // The row could be one of the 4 things:
 
@@ -76,24 +74,18 @@ impl TocListParser {
             return Ok(());
         }
 
-        fn fetch_doc_id_from_link(link: &str) -> Result<String, fpm::library::toc::ParseError> {
-            // link = <document-id>#<slugified-id>
-            let doc_id = link.split_once('#').map(|s| s.0);
-            match doc_id {
-                Some(id) => Ok(id.to_string()),
-                None => Err(fpm::library::toc::ParseError::PackageError {
-                    message: format!("Invalid link format {}", link),
-                }),
-            }
-        }
+        // fn fetch_doc_id_from_link(link: &str) -> Result<String, fpm::library::toc::ParseError> {
+        //     // link = <document-id>#<slugified-id>
+        //     let doc_id = link.split_once('#').map(|s| s.0);
+        //     match doc_id {
+        //         Some(id) => Ok(id.to_string()),
+        //         None => Err(fpm::library::toc::ParseError::PackageError {
+        //             message: format!("Invalid link format {}", link),
+        //         }),
+        //     }
+        // }
 
-        let document_id = fpm::library::convert_to_document_id(doc_name);
-
-        for (id, link) in global_ids.iter() {
-            if document_id.eq(fetch_doc_id_from_link(link)?.as_str()) {
-                self.file_ids.insert(id.to_string(), link.to_string());
-            }
-        }
+        let _document_id = fpm::library::convert_to_document_id(doc_name);
 
         let mut iter = line.chars();
         let mut depth = 0;
@@ -144,7 +136,6 @@ impl TocListParser {
             depth,
         ));
         self.state = fpm::library::toc::ParsingState::WaitingForAttributes;
-        println!("meow");
         Ok(())
     }
 
@@ -177,6 +168,17 @@ impl TocListParser {
                             },
                             d,
                         ));
+                    }
+                    Some((k, v)) => {
+                        if k.contains("h0")||k.contains("h1")||k.contains("h2")||k.contains("h3")||k.contains("h4")||k.contains("h5")||k.contains("h6")||k.contains("h7"){
+                            self.temp_item = Some((
+                                fpm::library::toc::TocItem {
+                                    title: Some(v.trim().to_string()),
+                                    ..i
+                                },
+                                d,
+                            ))
+                        };
                     }
                     _ => todo!(),
                 },
@@ -260,7 +262,7 @@ mod test {
         };
         ($s:expr, $t: expr) => {
             assert_eq!(
-                fpm::library::toc::ToC::parse($s, "test_doc").unwrap_or_else(|e| panic!("{}", e)),
+                super::ToCList::parse($s, "test_doc").unwrap_or_else(|e| panic!("{}", e)),
                 $t
             )
         };
@@ -302,31 +304,33 @@ mod test {
 
         "
             ),
-            fpm::library::toc::ToC {
+            super::ToCList {
                 items: vec![fpm::library::toc::TocItem {
                     title: Some(format!("- h0")),
                     id: Some(format!("t1")),
-                    url: Some("Title1".to_string()),
-                    number: vec![],
+                    url: Some("/test_doc/#Title1".to_string()),
+                    number: vec![1],
                     is_heading: false,
                     is_disabled: false,
                     img_src: None,
                     font_icon: None,
                     path: None,
-                    children: vec![fpm::library::toc::TocItem {
-                        title: Some(format!("- h0")),
-                        id: Some(format!("t1")),
-                        url: Some("Title1".to_string()),
-                        number: vec![1, 1],
-                        is_heading: false,
-                        is_disabled: false,
-                        img_src: None,
-                        font_icon: None,
-                        children: vec![],
-                        path: None
-                    }],
-                }]
-            }
+                    children: vec![],
+                    },
+                    fpm::library::toc::TocItem {
+                    title: Some(format!("- h1")),
+                    id: Some(format!("t2")),
+                    url: Some("/test_doc/#Title2".to_string()),
+                    is_heading: false,
+                    number: vec![2],
+                    is_disabled: false,
+                    img_src: None,
+                    font_icon: None,
+                    children: vec![],
+                    path: None
+                    }
+                ]
+            },
         );
     }
 
@@ -339,11 +343,11 @@ mod test {
         id: t1
         "
             ),
-            fpm::library::toc::ToC {
+            super::ToCList {
                 items: vec![fpm::library::toc::TocItem {
                     title: Some(format!("- h0")),
                     id: Some(format!("t1")),
-                    url: Some("Title1".to_string()),
+                    url: Some("/test_doc/#Title1".to_string()),
                     number: vec![1],
                     is_disabled: false,
                     is_heading: false,
@@ -368,12 +372,12 @@ mod test {
         id: t2
         "
             ),
-            fpm::library::toc::ToC {
+            super::ToCList {
                 items: vec![
                     fpm::library::toc::TocItem {
                         title: Some(format!("- h0")),
                         id: Some(format!("t1")),
-                        url: Some("Title1".to_string()),
+                        url: Some("/test_doc/#Title1".to_string()),
                         is_heading: false,
                         number: vec![1],
                         is_disabled: false,
@@ -385,7 +389,7 @@ mod test {
                     fpm::library::toc::TocItem {
                         title: Some(format!("- h0")),
                         id: Some(format!("t2")),
-                        url: Some("Title2".to_string()),
+                        url: Some("/test_doc/#Title2".to_string()),
                         is_heading: false,
                         number: vec![2],
                         is_disabled: false,
