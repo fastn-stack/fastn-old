@@ -165,31 +165,30 @@ pub async fn parse2<'a>(
                 s = state.continue_after_variable(variable.as_str(), value)?
             }
             ftd::Interpreter::CheckID {
-                id: captured_id,
+                captured_ids,
                 source,
-                is_from_section,
+                line_number,
                 state: st,
             } => {
                 // No config in ftd::ExampleLibrary ignoring processing terms for now
                 // using dummy id map for debugging
+                let mut id_map: std::collections::HashMap<String, String> =
+                    std::collections::HashMap::new();
+                for id in captured_ids {
+                    let link = lib
+                        .config
+                        .global_ids
+                        .get(id.as_str())
+                        .ok_or_else(|| ftd::p1::Error::ForbiddenUsage {
+                            message: format!("id: {} not found while linking", id),
+                            doc_id: st.id.clone(),
+                            line_number,
+                        })?
+                        .to_string();
+                    id_map.insert(id, link);
+                }
 
-                let link = lib
-                    .config
-                    .global_ids
-                    .get(captured_id.as_str())
-                    .ok_or_else(|| ftd::p1::Error::ForbiddenUsage {
-                        message: format!("id: {} not found while linking", captured_id),
-                        doc_id: st.id.clone(),
-                        line_number: 0,
-                    })?
-                    .to_string();
-
-                s = st.continue_after_checking_id(
-                    captured_id.as_str(),
-                    &source,
-                    is_from_section,
-                    link,
-                )?;
+                s = st.continue_after_checking_id(&id_map, &source.0, source.1)?;
             }
         }
     }
