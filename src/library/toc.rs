@@ -95,8 +95,8 @@ pub struct TocParser {
 
 #[derive(thiserror::Error, Debug)]
 pub enum ParseError {
-    #[error("PackageError: {message}")]
-    PackageError { message: String },
+    // #[error("PackageError: {message}")]
+    // PackageError { message: String },
 
     #[error("{doc_id} -> {message} -> Row Content: {row_content}")]
     InvalidTOCItem {
@@ -236,7 +236,7 @@ impl TocParser {
                 }
                 Some('#') => {
                     // Heading can not have any attributes. Append the item and look for the next input
-                    self.eval_temp_item()?;
+                    dbg!(self.eval_temp_item()?);
                     self.sections.push((
                         TocItem {
                             title: Some(iter.collect::<String>().trim().to_string()),

@@ -84,27 +84,24 @@ impl TocListParser {
         //         }),
         //     }
         // }
+        let mut k = "";
+        let mut value = "";
 
-        let _document_id = fpm::library::convert_to_document_id(doc_name);
 
         let mut iter = line.chars();
         let mut depth = 0;
-        loop {
-            match iter.next() {
-                Some(' ') => {
-                    depth += 1;
-                    iter.next();
-                }
-                Some('-') => {
-                    break;
-                }
-                Some('#') => {
+
+        if let Some((first,second)) = line.split_once(':') {
+            value = second;
+            k = first;
+            match k {
+                "-- h0" => {
                     // Heading can not have any attributes. Append the item and look for the next input
-                    self.eval_temp_item(doc_name)?;
+                    dbg!(self.eval_temp_item(doc_name)?);
                     self.sections.push((
                         fpm::library::toc::TocItem {
-                            title: Some(iter.collect::<String>().trim().to_string()),
-                            is_heading: false,
+                            title: Some(second.trim().to_string()),
+                            is_heading: true,
                             ..Default::default()
                         },
                         depth,
@@ -112,17 +109,17 @@ impl TocListParser {
                     self.state = fpm::library::toc::ParsingState::WaitingForNextItem;
                     return Ok(());
                 }
-                Some(k) => {
-                    let l = format!("{}{}", k, iter.collect::<String>());
+                k => {
+                    let l = format!("{}{}", k, second);
                     self.read_id(l.as_str(), doc_name)?;
-                    return Ok(());
                     // panic!()
                 }
-                None => {
-                    break;
-                }
+                _ => {}
             }
         }
+
+        let _document_id = fpm::library::convert_to_document_id(doc_name);
+
         let rest: String = iter.collect();
         self.eval_temp_item(doc_name)?;
 
@@ -182,7 +179,7 @@ impl TocListParser {
                     }
                     _ => todo!(),
                 },
-                _ => panic!("State mismatch"),
+                _ => (),
             };
         };
         Ok(())
