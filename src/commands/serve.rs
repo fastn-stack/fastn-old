@@ -206,6 +206,54 @@ pub async fn clear_cache(req: actix_web::HttpRequest) -> actix_web::HttpResponse
     fpm::apis::cache::clear(&req).await
 }
 
+pub async fn handle_wasm(
+    // config: fpm::config::Config,
+    req: actix_web::HttpRequest,
+) -> actix_web::HttpResponse {
+    let _lock = LOCK.write().await;
+    // let config = fpm::time("Config::read()").it(fpm::Config::read(None, false).await.unwrap());
+    let mut config = wit_bindgen_host_wasmtime_rust::wasmtime::Config::new();
+    config.cache_config_load_default().unwrap();
+    config.wasm_backtrace_details(
+        wit_bindgen_host_wasmtime_rust::wasmtime::WasmBacktraceDetails::Disable,
+    );
+
+    // TODO: resolve the path dynamically on the basis of the route
+    let wasm_module_path = "/Users/shobhitsharma/repos/playground/hello-wasmer/wit-supabase/target/wasm32-unknown-unknown/release/guest.wasm";
+    let engine = wit_bindgen_host_wasmtime_rust::wasmtime::Engine::new(&config).unwrap();
+    let module =
+        wit_bindgen_host_wasmtime_rust::wasmtime::Module::from_file(&engine, wasm_module_path)
+            .unwrap();
+
+    let mut linker: wit_bindgen_host_wasmtime_rust::wasmtime::Linker<
+        fpm::wasm_exports::Context<
+            fpm::wasm_exports::HostExports,
+            fpm_utils::guest::guest::GuestData,
+        >,
+    > = wit_bindgen_host_wasmtime_rust::wasmtime::Linker::new(&engine);
+    let mut store = wit_bindgen_host_wasmtime_rust::wasmtime::Store::new(
+        &engine,
+        fpm::wasm_exports::Context {
+            imports: fpm::wasm_exports::HostExports {},
+            exports: fpm_utils::guest::guest::GuestData {},
+        },
+    );
+    fpm_utils::host::host::add_to_linker(&mut linker, |cx| &mut cx.imports);
+    fpm_utils::guest::guest::Guest::add_to_linker(&mut linker, |cx| &mut cx.exports);
+
+    let (import, _i) =
+        fpm_utils::guest::guest::Guest::instantiate(&mut store, &module, &mut linker, |cx| {
+            &mut cx.exports
+        })
+        .expect("Unable to run");
+    let resp = import
+        .run(&mut store, "Shobhit")
+        .expect("Fn did not execute correctly");
+
+    actix_web::HttpResponse::Ok().body(resp)
+    // fpm::apis::cache::clear(&req).await
+}
+
 // TODO: Move them to routes folder
 async fn sync(
     req: actix_web::web::Json<fpm::apis::sync::SyncRequest>,
@@ -328,6 +376,8 @@ You can try without providing port, it will automatically pick unused port."#,
         }
     };
 
+    let config = fpm::time("Config::read()").it(fpm::Config::read(None, false).await.unwrap());
+
     let app = move || {
         {
             if cfg!(feature = "remote") {
@@ -354,6 +404,7 @@ You can try without providing port, it will automatically pick unused port."#,
         .route("/-/create-cr/", actix_web::web::post().to(create_cr))
         .route("/-/create-cr/", actix_web::web::get().to(create_cr_page))
         .route("/-/clear-cache/", actix_web::web::post().to(clear_cache))
+        .route("/wasm-hello/", actix_web::web::get().to(handle_wasm))
         .route("/{path:.*}", actix_web::web::get().to(serve))
     };
 

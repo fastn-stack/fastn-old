@@ -1080,6 +1080,26 @@ impl Config {
 
         fpm::utils::validate_base_url(&package)?;
 
+        // Validate WASM backend and processor availability
+
+        if package.backends.is_some() {
+            if let Some(ref backends) = package.backends {
+                let error_files: Vec<String> =
+                    backends.iter().fold(vec![], |mut aggregate, backend| {
+                        if !root.join(format!("{backend}.wasm")).exists() {
+                            aggregate.push(format!("{backend}.wasm"));
+                        }
+                        aggregate
+                    });
+                if !error_files.is_empty() {
+                    let missing_files = error_files.join(", ");
+                    return Err(fpm::Error::PackageError {
+                        message: format!("WASM files do not exist. {missing_files}"),
+                    });
+                }
+            }
+        }
+
         if package.import_auto_imports_from_original {
             if let Some(ref original_package) = *package.translation_of {
                 if !package.auto_import.is_empty() {
@@ -1304,6 +1324,8 @@ pub(crate) struct PackageTemp {
     pub import_auto_imports_from_original: bool,
     #[serde(rename = "favicon")]
     pub favicon: Option<String>,
+    #[serde(rename = "backend")]
+    pub backends: Option<Vec<String>>,
 }
 
 impl PackageTemp {
@@ -1340,6 +1362,7 @@ impl PackageTemp {
             sitemap: None,
             sitemap_temp: None,
             favicon: self.favicon,
+            backends: self.backends,
         }
     }
 }
@@ -1388,6 +1411,8 @@ pub struct Package {
     /// If more than one favicon.* file is present, we will use them
     /// in following priority: .ico > .svg > .png > .jpg.
     pub favicon: Option<String>,
+
+    pub backends: Option<Vec<String>>,
 }
 
 impl Package {
@@ -1413,6 +1438,7 @@ impl Package {
             sitemap_temp: None,
             sitemap: None,
             favicon: None,
+            backends: None,
         }
     }
 
