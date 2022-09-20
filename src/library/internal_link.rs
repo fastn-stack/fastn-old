@@ -31,6 +31,41 @@ pub enum ParsingState {
     ReadingHeader,
 }
 
+#[derive(Debug, PartialEq, Clone, Default, serde::Serialize, serde::Deserialize)]
+pub struct Section {
+    pub name: String,
+    pub caption: Option<String>,
+    pub header: Header,
+    pub is_commented: bool,
+    pub line_number: usize,
+}
+
+fn colon_separated_values(
+    ln: usize,
+    line: &str,
+    doc_id: &str,
+) -> Result<(String, Option<String>)> {
+    if !line.contains(':') {
+        return Err(ftd::p1::Error::ParseError {
+            message: format!(": is missing in: {}", line),
+            // TODO: context should be a few lines before and after the input
+            doc_id: doc_id.to_string(),
+            line_number,
+        });
+    }
+
+    let mut parts = line.splitn(2, ':');
+    let name = parts.next().unwrap().trim().to_string();
+
+    let caption = match parts.next() {
+        Some(c) if c.trim().is_empty() => None,
+        Some(c) => Some(c.trim().to_string()),
+        None => None,
+    };
+
+    Ok((name, caption))
+}
+
 
 impl ToCList {
     pub fn parse(
@@ -90,7 +125,7 @@ pub struct TocListParser {
 }
 
 impl State {
-    fn waiting_for_section(&mut self, line_number: usize, line: &str, doc_id: &str) -> Result<()> {
+    fn waiting_for_section(&mut self, ln: usize, line: &str, doc_id: &str) -> Result<()> {
         if line.trim().is_empty() {
             return Ok(());
         }
@@ -102,29 +137,17 @@ impl State {
                 message: format!("Expecting -- , found: {}", line, ),
                 // TODO: context should be a few lines before and after the input
                 doc_id: doc_id.to_string(),
-                line_number,
+                ln,
             });
         }
 
-        if let Some(mut s) = self.section.take() {
-            if let Some(mut sub) = self.sub_section.take() {
-                sub.body = to_body(sub.body.take());
-                s.sub_sections.0.push(sub)
-            }
-
-            s.body = to_body(s.body.take());
-            self.sections.push(s);
-        }
-
         let line = if is_commented { &line[3..] } else { &line[2..] };
-        let (name, caption) = colon_separated_values(line_number, line, doc_id)?;
+        let (name, caption) = colon_separated_values(ln, line, doc_id)?;
 
         self.section = Some(Section {
             name,
             caption,
             header: Default::default(),
-            body: None,
-            sub_sections: Default::default(),
             is_commented,
             line_number,
         });
@@ -134,7 +157,7 @@ impl State {
         Ok(())
     }
 
-    fn reading_header(&mut self, line_number: usize, line: &str, doc_id: &str) -> Result<()> {
+    fn reading_header(&mut self, ln: usize, line: &str, doc_id: &str) -> Result<()> {
         // change state to reading body iff after an empty line is found
         if line.trim().is_empty() {
             self.state = ParsingState::ReadingBody;
@@ -142,7 +165,7 @@ impl State {
         }
 
         if line.starts_with("-- ") || line.starts_with("/-- ") {
-            return self.waiting_for_section(line_number, line, doc_id);
+            return self.waiting_for_section(ln, line, doc_id);
         }
 
         // If no empty line or start of next section/subsection found
