@@ -338,7 +338,7 @@ impl Config {
             }
 
             let (_header, value) =
-                ftd::identifier::segregate_key_value(id_string, doc_name, line_number)?;
+                ftd::p2::utils::split_once(id_string, doc_name, line_number)?;
             let document_id = fpm::library::convert_to_document_id(doc_name);
 
             if let Some(id) = value {
