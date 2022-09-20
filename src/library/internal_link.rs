@@ -16,24 +16,55 @@ pub fn processor(
         .iter()
         .map(|item| item.to_toc_item_compat())
         .collect::<Vec<fpm::library::toc::TocItemCompat>>();
-    doc.from_json(&toc_items, section)
+    dbg!(doc.from_json(&toc_items, section))
 }
+
+#[derive(Debug)]
+pub struct State {
+    state: ParsingState,
+    section: Option<Section>,
+    sections: Vec<Section>,
+}
+
+pub enum ParsingState {
+    WaitingForSection,
+    ReadingHeader,
+}
+
 
 impl ToCList {
     pub fn parse(
         s: &str,
         doc_name: &str,
     ) -> Result<Self, fpm::library::toc::ParseError> {
+        // let mut state = State {
+        //     state: ParsingState::WaitingForSection,
+        //     section: None,
+        //     sections: vec![],
+        // };
         let mut parser = TocListParser {
-            state: fpm::library::toc::ParsingState::WaitingForNextItem,
+            state: ftd::p1::parser::ParsingState::WaitingForSection,
             sections: vec![],
             temp_item: None,
             doc_name: doc_name.to_string(),
             file_ids: Default::default(),
         };
-        for (ln, line) in itertools::enumerate(s.split('\n')) {
+        for (ln, mut line) in s.split('\n').enumerate() {
+            let ln = ln + 1;
+            if line.starts_with(';') {
+                continue;
+            }
+            if line.starts_with("\\;") {
+                line = &line[1..];
+            }
+            match state.state {
+                ParsingState::WaitingForSection => {
+                    state.waiting_for_section(ln, line, doc_id)?
+                }
+                ParsingState::ReadingHeader => state.reading_header(ln, line, doc_id)?,
+                }
             parser.read_line(line, doc_name, ln)?;
-        }
+            }
         if parser.temp_item.is_some() {
             parser.eval_temp_item(doc_name)?;
         }
@@ -48,13 +79,110 @@ pub struct ToCList {
     pub items: Vec<fpm::library::toc::TocItem>,
 }
 
+
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct TocListParser {
-    pub(crate) state: fpm::library::toc::ParsingState,
+    pub(crate) state: ftd::p1::parser::ParsingState,
     pub(crate) sections: Vec<(fpm::library::toc::TocItem, usize)>,
     pub(crate) temp_item: Option<(fpm::library::toc::TocItem, usize)>,
     pub(crate) doc_name: String,
     pub(crate) file_ids: std::collections::HashMap<String, String>,
+}
+
+impl State {
+    fn waiting_for_section(&mut self, line_number: usize, line: &str, doc_id: &str) -> Result<()> {
+        if line.trim().is_empty() {
+            return Ok(());
+        }
+
+        let is_commented = line.starts_with("/-- ");
+
+        if !line.starts_with("-- ") && !line.starts_with("/-- ") {
+            return Err(ftd::p1::Error::ParseError {
+                message: format!("Expecting -- , found: {}", line, ),
+                // TODO: context should be a few lines before and after the input
+                doc_id: doc_id.to_string(),
+                line_number,
+            });
+        }
+
+        if let Some(mut s) = self.section.take() {
+            if let Some(mut sub) = self.sub_section.take() {
+                sub.body = to_body(sub.body.take());
+                s.sub_sections.0.push(sub)
+            }
+
+            s.body = to_body(s.body.take());
+            self.sections.push(s);
+        }
+
+        let line = if is_commented { &line[3..] } else { &line[2..] };
+        let (name, caption) = colon_separated_values(line_number, line, doc_id)?;
+
+        self.section = Some(Section {
+            name,
+            caption,
+            header: Default::default(),
+            body: None,
+            sub_sections: Default::default(),
+            is_commented,
+            line_number,
+        });
+
+        self.state = ParsingState::ReadingHeader;
+
+        Ok(())
+    }
+
+    fn reading_header(&mut self, line_number: usize, line: &str, doc_id: &str) -> Result<()> {
+        // change state to reading body iff after an empty line is found
+        if line.trim().is_empty() {
+            self.state = ParsingState::ReadingBody;
+            return Ok(());
+        }
+
+        if line.starts_with("-- ") || line.starts_with("/-- ") {
+            return self.waiting_for_section(line_number, line, doc_id);
+        }
+
+        // If no empty line or start of next section/subsection found
+        // immediately after reading all possible headers for the current section/subsection
+        // then throw error
+        if !line.contains(':') {
+            return Err(ftd::p1::Error::ParseError {
+                message: format!("start section body \'{}\' after a newline!!", line),
+                doc_id: doc_id.to_string(),
+                line_number,
+            });
+        }
+
+        let (name, value) = colon_separated_values(line_number, line, doc_id)?;
+        if let Some(mut s) = self.section.take() {
+            s.header.add(
+                &line_number,
+                name.as_str(),
+                value.unwrap_or_else(|| "".to_string()).as_str(),
+            );
+            self.section = Some(s);
+        }
+
+        Ok(())
+    }
+
+    fn finalize(mut self) -> Result<Vec<(fpm::library::toc::TocItem, usize)>, fpm::library::toc::ParseError> {
+        if let Some(mut s) = self.section.take() {
+            if let Some(mut sub) = self.sub_section.take() {
+                sub.body = to_body(sub.body.take());
+                s.sub_sections.0.push(sub)
+            }
+            s.body = to_body(s.body.take());
+            self.sections.push(s)
+        } else if self.sub_section.is_some() {
+            unreachable!("subsection without section!")
+        };
+
+        Ok(self.sections)
+    }
 }
 
 impl TocListParser {
@@ -84,42 +212,46 @@ impl TocListParser {
         //         }),
         //     }
         // }
-        let mut k = "";
-        let mut value = "";
 
+        let _document_id = fpm::library::convert_to_document_id(doc_name);
 
         let mut iter = line.chars();
         let mut depth = 0;
-
-        if let Some((first,second)) = line.split_once(':') {
-            value = second;
-            k = first;
-            match k {
-                "-- h0" => {
+        loop {
+            match iter.next() {
+                Some(' ') => {
+                    depth += 1;
+                    iter.next();
+                }
+                Some('-') => {
+                    break;
+                }
+                Some('#') => {
                     // Heading can not have any attributes. Append the item and look for the next input
-                    dbg!(self.eval_temp_item(doc_name)?);
+                    self.eval_temp_item(doc_name)?;
                     self.sections.push((
                         fpm::library::toc::TocItem {
-                            title: Some(second.trim().to_string()),
-                            is_heading: true,
+                            title: Some(iter.collect::<String>().trim().to_string()),
+                            is_heading: false,
                             ..Default::default()
                         },
                         depth,
                     ));
-                    self.state = fpm::library::toc::ParsingState::WaitingForNextItem;
+                    self.state = ftd::p1::parser::ParsingState::WaitingForNextItem;
                     return Ok(());
                 }
-                k => {
-                    let l = format!("{}{}", k, second);
-                    self.read_id(l.as_str(), doc_name)?;
+                Some(k) => {
+                    let l = format!("{}{}", k, iter.collect::<String>());
+                    dbg!(&l);
+                    dbg!(self.read_id(l.as_str(), doc_name)?);
+                    return Ok(());
                     // panic!()
                 }
-                _ => {}
+                None => {
+                    break;
+                }
             }
         }
-
-        let _document_id = fpm::library::convert_to_document_id(doc_name);
-
         let rest: String = iter.collect();
         self.eval_temp_item(doc_name)?;
 
@@ -132,7 +264,7 @@ impl TocListParser {
             },
             depth,
         ));
-        self.state = fpm::library::toc::ParsingState::WaitingForAttributes;
+        self.state = ftd::p1::parser::ParsingState::ReadingHeader;
         Ok(())
     }
 
@@ -179,7 +311,7 @@ impl TocListParser {
                     }
                     _ => todo!(),
                 },
-                _ => (),
+                _ => panic!("State mismatch"),
             };
         };
         Ok(())
@@ -336,8 +468,9 @@ mod test {
         p!(
             &indoc!(
                 "
-        -- h0: Title1
+        - h0: Title1
         id: t1
+
         "
             ),
             super::ToCList {
