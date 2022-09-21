@@ -15,8 +15,8 @@ pub fn processor(
         .items
         .iter()
         .map(|item| item.to_toc_item_compat())
-        .collect::<Vec<TocListItemCompat>>();
-   dbg!(doc.from_json(&toc_items, section))
+        .collect::<Vec<fpm::library::toc::TocItemCompat>>();
+    dbg!(doc.from_json(&toc_items, section))
 }
 
 impl ToCList {
@@ -45,54 +45,16 @@ impl ToCList {
 
 #[derive(PartialEq, Debug)]
 pub struct ToCList {
-    pub items: Vec<TocListItem>,
+    pub items: Vec<fpm::library::toc::TocItem>,
 }
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct TocListParser {
     pub(crate) state: fpm::library::toc::ParsingState,
-    pub(crate) sections: Vec<(TocListItem, usize)>,
-    pub(crate) temp_item: Option<(TocListItem, usize)>,
+    pub(crate) sections: Vec<(fpm::library::toc::TocItem, usize)>,
+    pub(crate) temp_item: Option<(fpm::library::toc::TocItem, usize)>,
     pub(crate) doc_name: String,
     pub(crate) file_ids: std::collections::HashMap<String, String>,
-}
-
-#[derive(Debug, serde::Serialize)]
-pub struct TocListItemCompat {
-    pub url: Option<String>,
-    pub number: Option<String>,
-    pub title: Option<String>,
-    pub id: Option<String>,
-    #[serde(rename = "is-heading")]
-    pub is_heading: bool,
-    pub children: Vec<TocListItemCompat>,
-}
-
-pub struct TocListItem {
-    pub id: Option<String>,
-    pub title: Option<String>,
-    pub url: Option<String>,
-    pub number: Vec<u8>,
-    pub is_heading: bool,
-    pub children: Vec<TocListItem>,
-}
-
-impl TocListItem {
-    pub(crate) fn to_toc_item_compat(&self) -> TocListItemCompat {
-        // TODO: num converting to ol and li in ftd.???
-        TocListItemCompat {
-            url: self.url.clone(),
-            number: Some(self.number.iter().map(|x| format!("{}.", x)).collect()),
-            title: self.title.clone(),
-            id: self.id.clone(),
-            is_heading: self.is_heading,
-            children: self
-                .children
-                .iter()
-                .map(|item| item.to_toc_item_compat())
-                .collect(),
-        }
-    }
 }
 
 impl TocListParser {
@@ -122,27 +84,24 @@ impl TocListParser {
         //         }),
         //     }
         // }
+        let mut k = "";
+        let mut value = "";
 
-        let _document_id = fpm::library::convert_to_document_id(doc_name);
 
         let mut iter = line.chars();
         let mut depth = 0;
-        loop {
-            match iter.next() {
-                Some(' ') => {
-                    depth += 1;
-                    iter.next();
-                }
-                Some('-') => {
-                    break;
-                }
-                Some('#') => {
+
+        if let Some((first,second)) = line.split_once(':') {
+            value = second;
+            k = first;
+            match k {
+                "-- h0" => {
                     // Heading can not have any attributes. Append the item and look for the next input
-                    self.eval_temp_item(doc_name)?;
+                    dbg!(self.eval_temp_item(doc_name)?);
                     self.sections.push((
-                        TocListItem {
-                            title: Some(iter.collect::<String>().trim().to_string()),
-                            is_heading: false,
+                        fpm::library::toc::TocItem {
+                            title: Some(second.trim().to_string()),
+                            is_heading: true,
                             ..Default::default()
                         },
                         depth,
@@ -150,26 +109,25 @@ impl TocListParser {
                     self.state = fpm::library::toc::ParsingState::WaitingForNextItem;
                     return Ok(());
                 }
-                Some(k) => {
-                    let l = format!("{}{}", k, iter.collect::<String>());
-                    dbg!(&l);
-                    dbg!(self.read_id(l.as_str(), doc_name)?);
-                    return Ok(());
+                k => {
+                    let l = format!("{}{}", k, second);
+                    self.read_id(l.as_str(), doc_name)?;
                     // panic!()
                 }
-                None => {
-                    break;
-                }
+                _ => {}
             }
         }
+
+        let _document_id = fpm::library::convert_to_document_id(doc_name);
+
         let rest: String = iter.collect();
         self.eval_temp_item(doc_name)?;
 
         // Stop eager checking, Instead of split and evaluate URL/title, first push
         // The complete string, postprocess if url doesn't exist
         self.temp_item = Some((
-            TocListItem {
-                title: Some(rest.as_str().trim().to_string()),
+            fpm::library::toc::TocItem {
+                title: dbg!(Some(rest.as_str().trim().to_string())),
                 ..Default::default()
             },
             depth,
@@ -192,7 +150,7 @@ impl TocListParser {
                 Some((i, d)) => match line.split_once(':') {
                     Some(("url", v)) => {
                         self.temp_item = Some((
-                            TocListItem {
+                            fpm::library::toc::TocItem {
                                 url: Some(v.trim().to_string()),
                                 ..i
                             },
@@ -201,7 +159,7 @@ impl TocListParser {
                     }
                     Some(("id", v)) => {
                         self.temp_item = Some((
-                            TocListItem {
+                            fpm::library::toc::TocItem {
                                 id: Some(v.trim().to_string()),
                                 ..i
                             },
@@ -211,7 +169,7 @@ impl TocListParser {
                     Some((k, v)) => {
                         if k.contains("h0")||k.contains("h1")||k.contains("h2")||k.contains("h3")||k.contains("h4")||k.contains("h5")||k.contains("h6")||k.contains("h7"){
                             self.temp_item = Some((
-                                TocListItem {
+                                fpm::library::toc::TocItem {
                                     title: Some(v.trim().to_string()),
                                     ..i
                                 },
@@ -221,7 +179,7 @@ impl TocListParser {
                     }
                     _ => todo!(),
                 },
-                _ => panic!("State mismatch"),
+                _ => (),
             };
         };
         Ok(())
@@ -270,7 +228,7 @@ impl TocListParser {
                         }
                     }
                 };
-                TocListItem {
+                fpm::library::toc::TocItem {
                     title,
                     url,
                     ..toc_item
@@ -285,7 +243,7 @@ impl TocListParser {
     }
     pub fn finalize(
         self,
-    ) -> Result<Vec<(TocListItem, usize)>, fpm::library::toc::ParseError> {
+    ) -> Result<Vec<(fpm::library::toc::TocItem, usize)>, fpm::library::toc::ParseError> {
         Ok(self.sections)
     }
 }
@@ -344,7 +302,7 @@ mod test {
         "
             ),
             super::ToCList {
-                items: vec![TocListItem {
+                items: vec![fpm::library::toc::TocItem {
                     title: Some(format!("- h0")),
                     id: Some(format!("t1")),
                     url: Some("/test_doc/#Title1".to_string()),
@@ -356,7 +314,7 @@ mod test {
                     path: None,
                     children: vec![],
                     },
-                    TocListItem {
+                    fpm::library::toc::TocItem {
                     title: Some(format!("- h1")),
                     id: Some(format!("t2")),
                     url: Some("/test_doc/#Title2".to_string()),
@@ -378,13 +336,12 @@ mod test {
         p!(
             &indoc!(
                 "
-        - h0: Title1
+        -- h0: Title1
         id: t1
-
         "
             ),
             super::ToCList {
-                items: vec![TocListItem {
+                items: vec![fpm::library::toc::TocItem {
                     title: Some(format!("- h0")),
                     id: Some(format!("t1")),
                     url: Some("/test_doc/#Title1".to_string()),
@@ -414,7 +371,7 @@ mod test {
             ),
             super::ToCList {
                 items: vec![
-                    TocListItem {
+                    fpm::library::toc::TocItem {
                         title: Some(format!("- h0")),
                         id: Some(format!("t1")),
                         url: Some("/test_doc/#Title1".to_string()),
@@ -426,7 +383,7 @@ mod test {
                         children: vec![],
                         path: None
                     },
-                    TocListItem {
+                    fpm::library::toc::TocItem {
                         title: Some(format!("- h0")),
                         id: Some(format!("t2")),
                         url: Some("/test_doc/#Title2".to_string()),
