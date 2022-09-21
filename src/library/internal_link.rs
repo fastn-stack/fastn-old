@@ -6,7 +6,7 @@ pub fn processor(
     _config: &fpm::Config,
 ) -> ftd::p1::Result<ftd::Value> {
     let toc_items = ToCList::parse(
-        section.clone(section.line_number, doc.name).as_str(),
+        &section.clone().to_string(),
         doc.name,
     )
     .map_err(|e| ftd::p1::Error::ParseError {
@@ -90,12 +90,23 @@ impl TocListParser {
             return Ok(());
         }
 
+        let mut depth = 0;
+
         let is_commented = line.starts_with("/-- ");
 
-        if let Some(mut s) = self.sections.take(()) {
+        let mut parts = line.splitn(2, ':');
+        let name = parts.next().unwrap().trim().to_string();
+
+        let mut caption = match parts.next() {
+            Some(c) if c.trim().is_empty() => None,
+            Some(c) => Some(c.trim().to_string()),
+            None => None,
+        };
+
+        if let Some(mut s) = self.sections.take() {
             self.sections.push((
                 TocItem {
-                    title: Some(caption.to_string()),
+                    title: Some(caption.expect("no captions").to_string()),
                     is_heading: true,
                     ..Default::default()
                 },
@@ -122,20 +133,11 @@ impl TocListParser {
                 line_number: ln,
             });
         }
-
-        let mut parts = line.splitn(2, ':');
-        let name = parts.next().unwrap().trim().to_string();
-
-        let mut caption = match parts.next() {
-            Some(c) if c.trim().is_empty() => None,
-            Some(c) => Some(c.trim().to_string()),
-            None => None,
-        };
         let mut str = caption.take();
 
         self.sections.push((
             TocItem {
-                title: Some(caption.to_string()),
+                title: Some(caption.expect("no captions").to_string()),
                 is_heading: true,
                 ..Default::default()
             },
@@ -158,7 +160,6 @@ impl TocListParser {
         let mut value = "";
 
         let mut iter = line.chars();
-        let mut depth = 0;
 
         if let Some((first, second)) = line.split_once(':') {
             value = second;
