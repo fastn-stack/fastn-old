@@ -165,21 +165,77 @@ async fn serve(req: actix_web::HttpRequest) -> actix_web::HttpResponse {
     let favicon = camino::Utf8PathBuf::new().join("favicon.ico");
     let response = if path.eq(&favicon) {
         static_file(&req, favicon).await
-    } else if path.eq(&camino::Utf8PathBuf::new().join("FPM.ftd")) {
-        let config = fpm::time("Config::read()").it(fpm::Config::read(None, false).await.unwrap());
-        serve_fpm_file(&config).await
-    } else if path.eq(&camino::Utf8PathBuf::new().join("")) {
-        let mut config =
-            fpm::time("Config::read()").it(fpm::Config::read(None, false).await.unwrap());
-        serve_file(&req, &mut config, &path.join("/")).await
-    } else if let Some(cr_number) = fpm::cr::get_cr_path_from_url(path.as_str()) {
-        let mut config =
-            fpm::time("Config::read()").it(fpm::Config::read(None, false).await.unwrap());
-        serve_cr_file(&req, &mut config, &path, cr_number).await
     } else {
         let mut config =
             fpm::time("Config::read()").it(fpm::Config::read(None, false).await.unwrap());
-        serve_file(&req, &mut config, &path).await
+        if path.eq(&camino::Utf8PathBuf::new().join("FPM.ftd")) {
+            serve_fpm_file(&config).await
+        } else if path.eq(&camino::Utf8PathBuf::new().join("")) {
+            serve_file(&req, &mut config, &path.join("/")).await
+        } else if let Some(cr_number) = fpm::cr::get_cr_path_from_url(path.as_str()) {
+            serve_cr_file(&req, &mut config, &path, cr_number).await
+        } else {
+            let file_response = serve_file(&req, &mut config, &path).await;
+            match file_response.status() {
+                actix_web::http::StatusCode::INTERNAL_SERVER_ERROR => {
+                    /*
+                    WASM Execution logic goes here:
+                    - Retrieve the package from the request
+                    - Once the package is retrieved, check for the `backends` in the package. If the request starts with
+                      any of the matching backend, then pass the request to WASM to handle the HTTP request.
+                    */
+                    // Plug in the wasm code here
+                    // Extract out the package first and evaluate the path with the backends available
+                    match config.find_package_by_id(path.as_str()).await {
+                        Ok((package_name, package)) => {
+                            let req_path = path.as_str();
+                            if let Some(requested_wasm_path) =
+                                req_path.strip_prefix(format!("-/{package_name}/").as_str())
+                            {
+                                if let Some(available_backends) = package.backends {
+                                    if let Some(matching_backend) = available_backends
+                                        .into_iter()
+                                        .find(|backend| requested_wasm_path.starts_with(backend))
+                                    {
+                                        let f = match config
+                                            .get_file_and_package_by_id(
+                                                format!("-/{package_name}/{matching_backend}.wasm")
+                                                    .as_str(),
+                                            )
+                                            .await
+                                        {
+                                            Ok(f) => f,
+                                            Err(e) => {
+                                                eprintln!("FPM-Error: path: {}, {:?}", path, e);
+                                                return actix_web::HttpResponse::InternalServerError().body(e.to_string());
+                                            }
+                                        };
+                                        // Expecting the wasm file as the extension is already restricted above
+                                        // TODO: No unwrap
+                                        match f {
+                                            fpm::File::Wasm(wasm_file) => {
+                                                handle_wasm(req, wasm_file.absolute_path)
+                                                    .await
+                                                    .unwrap()
+                                            }
+                                            _ => file_response,
+                                        }
+                                    } else {
+                                        file_response
+                                    }
+                                } else {
+                                    file_response
+                                }
+                            } else {
+                                file_response
+                            }
+                        }
+                        Err(_) => file_response,
+                    }
+                }
+                _ => file_response,
+            }
+        }
     };
 
     t.it(response)
@@ -209,49 +265,74 @@ pub async fn clear_cache(req: actix_web::HttpRequest) -> actix_web::HttpResponse
 pub async fn handle_wasm(
     // config: fpm::config::Config,
     req: actix_web::HttpRequest,
-) -> actix_web::HttpResponse {
-    let _lock = LOCK.write().await;
-    // let config = fpm::time("Config::read()").it(fpm::Config::read(None, false).await.unwrap());
-    let mut config = wit_bindgen_host_wasmtime_rust::wasmtime::Config::new();
-    config.cache_config_load_default().unwrap();
-    config.wasm_backtrace_details(
-        wit_bindgen_host_wasmtime_rust::wasmtime::WasmBacktraceDetails::Disable,
-    );
+    wasm_module: camino::Utf8PathBuf,
+) -> actix_web::Result<actix_web::HttpResponse> {
+    pub async fn inner(
+        req: actix_web::HttpRequest,
+        wasm_module: camino::Utf8PathBuf,
+    ) -> actix_web::Result<actix_web::HttpResponse> {
+        let mut config = wit_bindgen_host_wasmtime_rust::wasmtime::Config::new();
+        config.cache_config_load_default().unwrap();
+        config.wasm_backtrace_details(
+            wit_bindgen_host_wasmtime_rust::wasmtime::WasmBacktraceDetails::Disable,
+        );
 
-    // TODO: resolve the path dynamically on the basis of the route
-    let wasm_module_path = "/Users/shobhitsharma/repos/playground/hello-wasmer/wit-supabase/target/wasm32-unknown-unknown/release/guest.wasm";
-    let engine = wit_bindgen_host_wasmtime_rust::wasmtime::Engine::new(&config).unwrap();
-    let module =
-        wit_bindgen_host_wasmtime_rust::wasmtime::Module::from_file(&engine, wasm_module_path)
-            .unwrap();
+        let engine = wit_bindgen_host_wasmtime_rust::wasmtime::Engine::new(&config).unwrap();
+        let module = wit_bindgen_host_wasmtime_rust::wasmtime::Module::from_file(
+            &engine,
+            wasm_module.as_str(),
+        )
+        .unwrap();
 
-    let mut linker: wit_bindgen_host_wasmtime_rust::wasmtime::Linker<
-        fpm::wasm_exports::Context<
-            fpm::wasm_exports::HostExports,
-            fpm_utils::guest::guest::GuestData,
-        >,
-    > = wit_bindgen_host_wasmtime_rust::wasmtime::Linker::new(&engine);
-    let mut store = wit_bindgen_host_wasmtime_rust::wasmtime::Store::new(
-        &engine,
-        fpm::wasm_exports::Context {
-            imports: fpm::wasm_exports::HostExports {},
-            exports: fpm_utils::guest::guest::GuestData {},
-        },
-    );
-    fpm_utils::host::host::add_to_linker(&mut linker, |cx| &mut cx.imports);
-    fpm_utils::guest::guest::Guest::add_to_linker(&mut linker, |cx| &mut cx.exports);
+        let mut linker: wit_bindgen_host_wasmtime_rust::wasmtime::Linker<
+            fpm::wasm::Context<
+                fpm::wasm::HostExports,
+                fpm_utils::backend_host_import::guest_backend::GuestBackendData,
+            >,
+        > = wit_bindgen_host_wasmtime_rust::wasmtime::Linker::new(&engine);
+        let mut store = wit_bindgen_host_wasmtime_rust::wasmtime::Store::new(
+            &engine,
+            fpm::wasm::Context {
+                imports: fpm::wasm::HostExports {},
+                exports: fpm_utils::backend_host_import::guest_backend::GuestBackendData {},
+            },
+        );
 
-    let (import, _i) =
-        fpm_utils::guest::guest::Guest::instantiate(&mut store, &module, &mut linker, |cx| {
-            &mut cx.exports
+        let (import, _i) =
+            fpm_utils::backend_host_import::guest_backend::GuestBackend::instantiate(
+                &mut store,
+                &module,
+                &mut linker,
+                |cx| &mut cx.exports,
+            )
+            .expect("Unable to run");
+        // TODO: Handle the error efficiently
+
+        let uri = req.uri().to_string();
+        let request = fpm_utils::backend_host_import::guest_backend::Httprequest {
+            path: uri.as_str(),
+            headers: &(&req.headers().iter().fold(
+                vec![],
+                |mut accumulator, (header_name, header_value)| {
+                    accumulator.push((header_name.as_str(), header_value.to_str().expect("msg")));
+                    accumulator
+                },
+            ))[..],
+            querystring: req.query_string(),
+            method: req.method().as_str(),
+        };
+        fpm::time("WASM Guest function").it(match import.handlerequest(&mut store, request) {
+            Ok(data) => Ok(actix_web::HttpResponse::Ok()
+                .content_type(actix_web::http::header::ContentType::json())
+                .status(actix_web::http::StatusCode::OK)
+                .body(data)),
+            Err(err) => fpm::apis::error(
+                err.to_string(),
+                actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+            ),
         })
-        .expect("Unable to run");
-    let resp = import
-        .run(&mut store, "Shobhit")
-        .expect("Fn did not execute correctly");
-
-    actix_web::HttpResponse::Ok().body(resp)
-    // fpm::apis::cache::clear(&req).await
+    }
+    fpm::time("WASM Execution: ").it(inner(req, wasm_module).await)
 }
 
 // TODO: Move them to routes folder
@@ -376,8 +457,6 @@ You can try without providing port, it will automatically pick unused port."#,
         }
     };
 
-    let config = fpm::time("Config::read()").it(fpm::Config::read(None, false).await.unwrap());
-
     let app = move || {
         {
             if cfg!(feature = "remote") {
@@ -404,7 +483,6 @@ You can try without providing port, it will automatically pick unused port."#,
         .route("/-/create-cr/", actix_web::web::post().to(create_cr))
         .route("/-/create-cr/", actix_web::web::get().to(create_cr_page))
         .route("/-/clear-cache/", actix_web::web::post().to(clear_cache))
-        .route("/wasm-hello/", actix_web::web::get().to(handle_wasm))
         .route("/{path:.*}", actix_web::web::get().to(serve))
     };
 

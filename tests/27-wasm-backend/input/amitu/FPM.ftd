@@ -4,4 +4,5 @@
 download-base-url: amitu
 canonical-url: https://some-other-site.com/
 backend: hello
-backend: hello/world
+
+-- fpm.dependency: one.fpm.local

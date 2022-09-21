@@ -722,15 +722,16 @@ impl Config {
             return Ok((self.package.name.to_string(), self.package.to_owned()));
         };
 
-        if let Some(package) = self.package.aliases().iter().find_map(|(alias, d)| {
-            if id.starts_with(alias) {
-                Some((alias.to_string(), (*d).to_owned()))
-            } else {
-                None
-            }
-        }) {
-            return Ok(package);
-        }
+        // TODO: The fpm.dependency doesn't process the fpm file. Fix this?
+        // if let Some(package) = self.package.aliases().iter().find_map(|(alias, d)| {
+        //     if id.starts_with(alias) {
+        //         Some((alias.to_string(), (*d).to_owned()))
+        //     } else {
+        //         None
+        //     }
+        // }) {
+        //     return Ok(package);
+        // }
 
         for (package_name, package) in self.all_packages.borrow().iter() {
             if id.starts_with(package_name) {

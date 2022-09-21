@@ -58,6 +58,7 @@ async fn handle_view_source(path: &str) -> fpm::Result<Vec<u8>> {
             fpm::package_doc::read_ftd(&mut config, &main_document, "/", false).await
         }
         fpm::File::Static(ref file) | fpm::File::Image(ref file) => Ok(file.content.to_owned()),
+        fpm::File::Wasm(ref file) => Ok(file.content.to_owned()),
     }
 }
 

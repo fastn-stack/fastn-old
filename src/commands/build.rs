@@ -38,6 +38,7 @@ pub async fn build(
                 }
             }
             fpm::File::Static(sa) => process_static(sa, &config.root, &config.package).await?,
+            fpm::File::Wasm(sa) => process_wasm(sa, &config.root, &config.package).await?,
             fpm::File::Markdown(doc) => {
                 let resp = process_markdown(config, doc, base_url, no_static).await;
                 match (resp, ignore_failed) {
@@ -167,6 +168,40 @@ async fn process_static(
 
     fn copy_to_build(
         sa: &fpm::Static,
+        base_path: &camino::Utf8Path,
+        package: &fpm::Package,
+    ) -> fpm::Result<()> {
+        let build_path = base_path
+            .join(".build")
+            .join("-")
+            .join(package.name.as_str());
+
+        std::fs::create_dir_all(&build_path)?;
+        if let Some((dir, _)) = sa.id.rsplit_once(std::path::MAIN_SEPARATOR) {
+            std::fs::create_dir_all(&build_path.join(dir))?;
+        }
+        std::fs::copy(
+            sa.base_path.join(sa.id.as_str()),
+            build_path.join(sa.id.as_str()),
+        )?;
+
+        Ok(())
+    }
+}
+
+async fn process_wasm(
+    sa: &fpm::file::WasmFile,
+    base_path: &camino::Utf8Path,
+    package: &fpm::Package,
+) -> fpm::Result<()> {
+    copy_to_build(sa, base_path, package)?;
+    if let Some(original_package) = package.translation_of.as_ref() {
+        copy_to_build(sa, base_path, original_package)?;
+    }
+    return Ok(());
+
+    fn copy_to_build(
+        sa: &fpm::file::WasmFile,
         base_path: &camino::Utf8Path,
         package: &fpm::Package,
     ) -> fpm::Result<()> {

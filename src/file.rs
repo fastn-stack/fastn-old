@@ -5,6 +5,7 @@ pub enum File {
     Markdown(Document),
     Code(Document),
     Image(Static),
+    Wasm(WasmFile),
 }
 
 impl File {
@@ -15,6 +16,7 @@ impl File {
             Self::Markdown(a) => a.id.clone(),
             Self::Code(a) => a.id.clone(),
             Self::Image(a) => a.id.clone(),
+            Self::Wasm(a) => a.id.clone(),
         }
     }
     pub fn set_id(&mut self, new_id: &str) {
@@ -24,6 +26,7 @@ impl File {
             Self::Markdown(a) => &mut a.id,
             Self::Code(a) => &mut a.id,
             Self::Image(a) => &mut a.id,
+            Self::Wasm(a) => &mut a.id,
         }) = new_id.to_string();
     }
     pub fn get_base_path(&self) -> String {
@@ -33,6 +36,7 @@ impl File {
             Self::Markdown(a) => a.parent_path.to_string(),
             Self::Code(a) => a.parent_path.to_string(),
             Self::Image(a) => a.base_path.to_string(),
+            Self::Wasm(a) => a.base_path.to_string(),
         }
     }
     pub fn get_full_path(&self) -> camino::Utf8PathBuf {
@@ -42,6 +46,7 @@ impl File {
             Self::Markdown(a) => (a.id.to_string(), a.parent_path.to_string()),
             Self::Code(a) => (a.id.to_string(), a.parent_path.to_string()),
             Self::Image(a) => (a.id.to_string(), a.base_path.to_string()),
+            Self::Wasm(a) => (a.id.to_string(), a.base_path.to_string()),
         };
         camino::Utf8PathBuf::from(base_path).join(id)
     }
@@ -53,6 +58,7 @@ impl File {
             Self::Markdown(ref a) => a.content.as_bytes().to_vec(),
             Self::Code(ref a) => a.content.as_bytes().to_vec(),
             Self::Image(ref a) => a.content.clone(),
+            Self::Wasm(ref a) => a.content.clone(),
         }
     }
 
@@ -93,6 +99,14 @@ impl Document {
 pub struct Static {
     pub id: String,
     pub content: Vec<u8>,
+    pub base_path: camino::Utf8PathBuf,
+}
+
+#[derive(Debug, Clone)]
+pub struct WasmFile {
+    pub id: String,
+    pub content: Vec<u8>,
+    pub absolute_path: camino::Utf8PathBuf,
     pub base_path: camino::Utf8PathBuf,
 }
 
@@ -198,6 +212,12 @@ pub(crate) async fn get_file(
             id: id.to_string(),
             content: tokio::fs::read_to_string(&doc_path).await?,
             parent_path: base_path.to_string(),
+        }),
+        Some((_, "wasm")) => File::Wasm(WasmFile {
+            absolute_path: doc_path.to_owned(),
+            id: id.to_string(),
+            content: tokio::fs::read(&doc_path).await?,
+            base_path: base_path.to_path_buf(),
         }),
         Some((_, ext))
             if mime_guess::MimeGuess::from_ext(ext)
