@@ -62,7 +62,7 @@ impl TocListParser {
         &mut self,
         line: &str,
         doc_name: &str,
-        _ln: usize,
+        ln: usize,
     ) -> Result<(), fpm::library::toc::ParseError> {
         // The row could be one of the 4 things:
 
@@ -84,6 +84,24 @@ impl TocListParser {
         //         }),
         //     }
         // }
+        
+        if !line.contains(':') {
+            return Err(fpm::library::toc::ParseError::InvalidTOCItem {
+                doc_id: self.doc_name.clone(),
+                message: format!(": is missing in: {}", line),
+                row_content: line.to_string(),
+                line_number: ln
+            });
+        }
+
+        let mut parts = line.splitn(2, ':');
+        let name = parts.next().unwrap().trim().to_string();
+
+        let caption = match parts.next() {
+            Some(c) if c.trim().is_empty() => None,
+            Some(c) => Some(c.trim().to_string()),
+            None => None,
+        };
 
         let _document_id = fpm::library::convert_to_document_id(doc_name);
 
