@@ -92,8 +92,15 @@ impl TocListParser {
 
         let is_commented = line.starts_with("/-- ");
 
-        if let Some(mut s) = self.sections.take() {
-            self.sections.push(s);
+        if let Some(mut s) = self.sections.take(()) {
+            self.sections.push((
+                TocItem {
+                    title: Some(caption.to_string()),
+                    is_heading: true,
+                    ..Default::default()
+                },
+                depth,
+            ));
         }
 
         // if !line.starts_with("-- ") && !line.starts_with("/-- ") {
@@ -119,12 +126,12 @@ impl TocListParser {
         let mut parts = line.splitn(2, ':');
         let name = parts.next().unwrap().trim().to_string();
 
-        let caption = match parts.next() {
+        let mut caption = match parts.next() {
             Some(c) if c.trim().is_empty() => None,
             Some(c) => Some(c.trim().to_string()),
             None => None,
         };
-        let mut str = caption.take()
+        let mut str = caption.take();
 
         self.sections.push((
             TocItem {
