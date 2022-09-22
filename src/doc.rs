@@ -169,15 +169,17 @@ pub async fn parse2<'a>(
                 state: st,
             } => {
                 // No config in ftd::ExampleLibrary using dummy global_ids map for debugging
-                // let mut captured_ids_map: std::collections::HashMap<String, String> = std::collections::HashMap::new();
-                let mut mapped_replace_blocks: Vec<ftd::ReplaceLinkBlock<std::collections::HashMap<String, String>>> = vec![];
+                let mut mapped_replace_blocks: Vec<
+                    ftd::ReplaceLinkBlock<std::collections::HashMap<String, String>>,
+                > = vec![];
 
-                for (captured_id_set, source, ln) in replace_blocks.iter(){
+                for (captured_id_set, source, ln) in replace_blocks.iter() {
                     let mut id_map: std::collections::HashMap<String, String> =
                         std::collections::HashMap::new();
                     for id in captured_id_set {
                         let link = lib
-                            .config.global_ids
+                            .config
+                            .global_ids
                             .get(id)
                             .ok_or_else(|| ftd::p1::Error::ForbiddenUsage {
                                 message: format!("id: {} not found while linking", id),
