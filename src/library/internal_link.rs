@@ -1,3 +1,6 @@
+use ftd::Value::String;
+use crate::Error;
+
 pub fn processor(
     section: &ftd::p1::Section,
     doc: &ftd::p2::TDoc,
@@ -55,8 +58,8 @@ pub struct TocListParser {
     pub(crate) state: fpm::library::toc::ParsingState,
     pub(crate) sections: Vec<(fpm::library::toc::TocItem, usize)>,
     pub(crate) temp_item: Option<(fpm::library::toc::TocItem, usize)>,
-    pub(crate) doc_name: String,
-    pub(crate) file_ids: std::collections::HashMap<String, String>,
+    pub(crate) doc_name: std::string::String,
+    pub(crate) file_ids: std::collections::HashMap<std::string::String, std::string::String>,
 }
 
 impl TocListParser {
@@ -75,17 +78,22 @@ impl TocListParser {
             return Ok(());
         }
 
+        let mut depth = 0;
+
+        let mut file_ids: std::collections::HashMap <std::string::String, std::string::String> = std::collections::HashMap::new();
+
         let document_id = fpm::library::convert_to_document_id(doc_name);
-        dbg!(&document_id);
+        dbg!(&doc_name);
 
         fn update_id_map(
-            file_ids: &mut std::collections::HashMap<String, String>,
+            file_ids: &mut std::collections::HashMap<std::string::String, std::string::String>,
             line: &str,
             doc_name: &str,
             line_number: usize,
         ) -> fpm::Result<()> {
+            println!("inside update id map");
             // returns doc-id from link as String
-            fn fetch_doc_id_from_link(link: &str) -> fpm::Result<String> {
+            fn fetch_doc_id_from_link(link: &str) -> fpm::Result<std::string::String> {
                 // link = <document-id>#<slugified-id>
                 let doc_id = link.split_once('#').map(|s| s.0);
                 match doc_id {
@@ -115,19 +123,70 @@ impl TocListParser {
 
                 // mapping id -> <document-id>#<slugified-id>
                 let link = format!("{}#{}", document_id, slug::slugify(&id));
-                dbg!(file_ids.insert(id, link));
+                (file_ids.insert(dbg!(id), dbg!(link)));
             }
 
             Ok(())
         }
-        let captured_file_ids: Vec<(String, usize)> = ftd::p1::parse_file_for_global_ids(doc);
+        let captured_file_ids: Vec<(std::string::String, usize)> = ftd::p1::parse_file_for_global_ids(doc);
         for (captured_id, ln) in captured_file_ids.iter() {
-            update_id_map(&mut self.file_ids, captured_id.as_str(), &document_id, *ln);
+            println!("inside captured id ");
+            dbg!(&captured_id);
+            dbg!(&ln);
+            let id_map = update_id_map(&mut self.file_ids, captured_id.as_str(), &document_id, *ln);
+            dbg!(id_map);
         }
 
         for (ln, line) in itertools::enumerate(doc.split('\n')) {
+            let update_id_map = |file_ids: &mut std::collections::HashMap<std::string::String, std::string::String>, line: &str, doc_name: &str, line_number: usize| -> Result<(), Error> {
+                println!("inside update id map");
+                // returns doc-id from link as String
+                fn fetch_doc_id_from_link(link: &str) -> fpm::Result<std::string::String> {
+                    // link = <document-id>#<slugified-id>
+                    let doc_id = link.split_once('#').map(|s| s.0);
+                    match doc_id {
+                        Some(id) => Ok(id.to_string()),
+                        None => Err(fpm::Error::PackageError {
+                            message: format!("Invalid link format {}", link),
+                        }),
+                    }
+                }
+
+                let (_header, value) =
+                    ftd::identifier::segregate_key_value(line, doc_name, ln)?;
+                let document_id = fpm::library::convert_to_document_id(doc_name);
+
+                if let Some(id) = value {
+                    // check if the current id already exists in the map
+                    // if it exists then throw error
+                    if file_ids.contains_key(&id) {
+                        return Err(fpm::Error::UsageError {
+                            message: format!(
+                                "conflicting id: \'{}\' used in doc: \'{}\'",
+                                id,
+                                document_id,
+                            )
+                        });
+                    }
+
+                    // mapping id -> <document-id>#<slugified-id>
+                    let link = format!("{}#{}", document_id, slug::slugify(&id));
+                    file_ids.insert(dbg!(id), dbg!(link));
+                }
+
+                return Ok(());
+            };
+                let captured_file_ids: Vec<(std::string::String, usize)> = ftd::p1::parse_file_for_global_ids(doc);
+                for (captured_id, ln) in captured_file_ids.iter() {
+                    println!("inside captured id ");
+                    dbg!(&captured_id);
+                    dbg!(&ln);
+                    let id_map = update_id_map(&mut self.file_ids, captured_id.as_str(), &document_id, *ln);
+                    dbg!(id_map);
+                }
+            dbg!(file_ids);
+
             let mut iter = line.chars();
-            let mut depth = 0;
             loop {
                 match iter.next() {
                     Some(' ') => {
@@ -142,7 +201,7 @@ impl TocListParser {
                         self.eval_temp_item(doc_name)?;
                         self.sections.push((
                             fpm::library::toc::TocItem {
-                                title: Some(iter.collect::<String>().trim().to_string()),
+                                title: Some(iter.collect::<std::string::String>().to_string()),
                                 is_heading: false,
                                 ..Default::default()
                             },
@@ -152,7 +211,7 @@ impl TocListParser {
                         return Ok(());
                     }
                     Some(k) => {
-                        let l = format!("{}{}", k, iter.collect::<String>());
+                        let l = format!("{}{}", k, iter.collect::<std::string::String>());
                         self.read_id(l.as_str(), doc_name)?;
                         return Ok(());
                         // panic!()
@@ -162,7 +221,7 @@ impl TocListParser {
                     }
                 }
             }
-            let rest: String = iter.collect();
+            let rest: std::string::String = iter.collect();
             self.eval_temp_item(doc_name)?;
 
             // Stop eager checking, Instead of split and evaluate URL/title, first push
@@ -239,7 +298,7 @@ impl TocListParser {
                 let (title, url) = match current_title.as_str().matches(':').count() {
                     1 | 0 => {
                         if let Some((first, second)) = current_title.rsplit_once(':') {
-                            let url_id = format!("{}#{}", document_id, second.trim().to_string());
+                            let url_id = format!("{}#{}", doc_name, second.trim().to_string());
                             dbg!((Some(first.trim().to_string()), Some(url_id.to_string())))
                         } else {
                             // No matches, i.e. return the current string as title, url as none
