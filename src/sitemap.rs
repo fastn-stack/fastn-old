@@ -132,7 +132,11 @@ impl Section {
     /// returns the file id portion of the url only in case
     /// any component id is referred in the url itself
     pub fn get_file_id(&self) -> String {
-        self.id.rsplit_once('#').map(|s| s.0).unwrap_or(self.id.as_str()).to_string()
+        self.id
+            .rsplit_once('#')
+            .map(|s| s.0)
+            .unwrap_or(self.id.as_str())
+            .to_string()
     }
 }
 
@@ -175,12 +179,9 @@ impl Subsection {
     /// returns the file id portion of the url only in case
     /// any component id is referred in the url itself
     pub fn get_file_id(&self) -> Option<String> {
-        match self.id {
-            Some(ref id) => {
-                Some(id.rsplit_once('#').map(|s| s.0).unwrap_or(id).to_string())
-            },
-            None => None
-        }
+        self.id
+            .as_ref()
+            .map(|id| id.rsplit_once('#').map(|s| s.0).unwrap_or(id).to_string())
     }
 }
 
@@ -199,11 +200,15 @@ pub struct TocItem {
     pub writers: Vec<String>,
 }
 
-impl TocItem{
+impl TocItem {
     /// returns the file id portion of the url only in case
     /// any component id is referred in the url itself
     pub fn get_file_id(&self) -> String {
-        self.id.rsplit_once('#').map(|s| s.0).unwrap_or(self.id.as_str()).to_string()
+        self.id
+            .rsplit_once('#')
+            .map(|s| s.0)
+            .unwrap_or(self.id.as_str())
+            .to_string()
     }
 }
 
@@ -689,17 +694,24 @@ impl Sitemap {
             base_url: &str,
             config: &mut fpm::Config,
         ) -> fpm::Result<()> {
-            let (file_location, translation_file_location) = if let Ok(file_name) =
-                config.get_file_path_and_resolve(&section.get_file_id()).await
+            let (file_location, translation_file_location) = if let Ok(file_name) = config
+                .get_file_path_and_resolve(&section.get_file_id())
+                .await
             {
                 (
                     Some(config.root.join(file_name.as_str())),
                     Some(config.root.join(file_name.as_str())),
                 )
-            } else if crate::http::url_regex().find(section.get_file_id().as_str()).is_some() {
+            } else if crate::http::url_regex()
+                .find(section.get_file_id().as_str())
+                .is_some()
+            {
                 (None, None)
             } else {
-                match fpm::Config::get_file_name(current_package_root, section.get_file_id().as_str()) {
+                match fpm::Config::get_file_name(
+                    current_package_root,
+                    section.get_file_id().as_str(),
+                ) {
                     Ok(name) => {
                         if current_package_root.eq(package_root) {
                             (Some(current_package_root.join(name)), None)
@@ -711,16 +723,22 @@ impl Sitemap {
                         }
                     }
                     Err(_) => (
-                        Some(package_root.join(
-                            fpm::Config::get_file_name(package_root, section.get_file_id().as_str()).map_err(
-                                |e| fpm::Error::UsageError {
-                                    message: format!(
+                        Some(
+                            package_root.join(
+                                fpm::Config::get_file_name(
+                                    package_root,
+                                    section.get_file_id().as_str(),
+                                )
+                                .map_err(|e| {
+                                    fpm::Error::UsageError {
+                                        message: format!(
                                         "`{}` not found, fix fpm.sitemap in FPM.ftd. Error: {:?}",
                                         section.get_file_id(), e
                                     ),
-                                },
-                            )?,
-                        )),
+                                    }
+                                })?,
+                            ),
+                        ),
                         None,
                     ),
                 }
@@ -814,43 +832,52 @@ impl Sitemap {
             base_url: &str,
             config: &mut fpm::Config,
         ) -> fpm::Result<()> {
-            let (file_location, translation_file_location) =
-                if let Ok(file_name) = config.get_file_path_and_resolve(&toc.get_file_id()).await {
-                    (
-                        Some(config.root.join(file_name.as_str())),
-                        Some(config.root.join(file_name.as_str())),
-                    )
-                } else if toc.get_file_id().trim().is_empty()
-                    || crate::http::url_regex().find(toc.get_file_id().as_str()).is_some()
-                {
-                    (None, None)
-                } else {
-                    match fpm::Config::get_file_name(current_package_root, toc.get_file_id().as_str()) {
-                        Ok(name) => {
-                            if current_package_root.eq(package_root) {
-                                (Some(current_package_root.join(name)), None)
-                            } else {
-                                (
-                                    Some(package_root.join(name.as_str())),
-                                    Some(current_package_root.join(name)),
-                                )
-                            }
+            let (file_location, translation_file_location) = if let Ok(file_name) =
+                config.get_file_path_and_resolve(&toc.get_file_id()).await
+            {
+                (
+                    Some(config.root.join(file_name.as_str())),
+                    Some(config.root.join(file_name.as_str())),
+                )
+            } else if toc.get_file_id().trim().is_empty()
+                || crate::http::url_regex()
+                    .find(toc.get_file_id().as_str())
+                    .is_some()
+            {
+                (None, None)
+            } else {
+                match fpm::Config::get_file_name(current_package_root, toc.get_file_id().as_str()) {
+                    Ok(name) => {
+                        if current_package_root.eq(package_root) {
+                            (Some(current_package_root.join(name)), None)
+                        } else {
+                            (
+                                Some(package_root.join(name.as_str())),
+                                Some(current_package_root.join(name)),
+                            )
                         }
-                        Err(_) => (
-                            Some(package_root.join(
-                                fpm::Config::get_file_name(package_root, toc.get_file_id().as_str()).map_err(
-                                    |e| fpm::Error::UsageError {
+                    }
+                    Err(_) => (
+                        Some(
+                            package_root.join(
+                                fpm::Config::get_file_name(
+                                    package_root,
+                                    toc.get_file_id().as_str(),
+                                )
+                                .map_err(|e| {
+                                    fpm::Error::UsageError {
                                         message: format!(
                                         "`{}` not found, fix fpm.sitemap in FPM.ftd. Error: {:?}",
                                         toc.get_file_id(), e
                                     ),
-                                    },
-                                )?,
-                            )),
-                            None,
+                                    }
+                                })?,
+                            ),
                         ),
-                    }
-                };
+                        None,
+                    ),
+                }
+            };
             toc.file_location = file_location;
             toc.translation_file_location = translation_file_location;
 
@@ -963,17 +990,19 @@ impl Sitemap {
                     .iter()
                     .filter(|v| v.visible)
                     .filter(|v| {
-                        let active =
-                            v.get_file_id().as_ref()
-                                .map(|v| fpm::utils::ids_matches(v, id))
-                                .unwrap_or(false);
+                        let active = v
+                            .get_file_id()
+                            .as_ref()
+                            .map(|v| fpm::utils::ids_matches(v, id))
+                            .unwrap_or(false);
                         active || !v.skip
                     })
                     .map(|v| {
-                        let active =
-                            v.get_file_id().as_ref()
-                                .map(|v| fpm::utils::ids_matches(v, id))
-                                .unwrap_or(false);
+                        let active = v
+                            .get_file_id()
+                            .as_ref()
+                            .map(|v| fpm::utils::ids_matches(v, id))
+                            .unwrap_or(false);
                         let toc = TocItemCompat::new(
                             v.id.clone(),
                             v.title.clone(),
@@ -998,7 +1027,8 @@ impl Sitemap {
                     .iter()
                     .filter(|s| !s.skip)
                     .find_or_first(|v| {
-                        v.get_file_id().as_ref()
+                        v.get_file_id()
+                            .as_ref()
                             .map(|v| fpm::utils::ids_matches(v, id))
                             .unwrap_or(false)
                     })
@@ -1249,7 +1279,7 @@ impl Sitemap {
                 return id.to_string();
             }
             let id = id.trim_start_matches('/');
-            if id.contains("#"){
+            if id.contains('#') {
                 return id.trim_end_matches('/').to_string();
             }
             if id.ends_with('/') || id.ends_with("index.html") {
