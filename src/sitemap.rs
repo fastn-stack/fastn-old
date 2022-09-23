@@ -397,10 +397,7 @@ pub enum ParseError {
         row_content: String,
     },
     #[error("id not found: {id}, doc: {doc_id}")]
-    InvalidID {
-        doc_id: String,
-        id: String,
-    }
+    InvalidID { doc_id: String, id: String },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -427,7 +424,11 @@ pub struct SitemapTemp {
 }
 
 impl SitemapParser {
-    pub fn read_line(&mut self, line: &str, global_ids: &std::collections::HashMap<String,String>) -> Result<(), ParseError> {
+    pub fn read_line(
+        &mut self,
+        line: &str,
+        global_ids: &std::collections::HashMap<String, String>,
+    ) -> Result<(), ParseError> {
         // The row could be one of the 4 things:
 
         // - Heading
@@ -577,7 +578,11 @@ impl SitemapParser {
         self.temp_item = None;
         Ok(())
     }
-    fn read_attrs(&mut self, line: &str, global_ids: &std::collections::HashMap<String, String>) -> Result<(), ParseError> {
+    fn read_attrs(
+        &mut self,
+        line: &str,
+        global_ids: &std::collections::HashMap<String, String>,
+    ) -> Result<(), ParseError> {
         if line.trim().is_empty() {
             // Empty line found. Process the temp_item
             self.eval_temp_item()?;
@@ -594,22 +599,19 @@ impl SitemapParser {
                             if i.get_title().is_none() {
                                 i.set_title(id);
                             }
-                        }
-                        else if k.eq("id") {
+                        } else if k.eq("id") {
                             // Fetch link corresponding to the id from global_ids map
-                            let link = global_ids.get(v).ok_or_else(Err(ParseError::InvalidID {
+                            let link = global_ids.get(v).ok_or_else(|| ParseError::InvalidID {
                                 id: v.to_string(),
                                 doc_id: self.doc_name.clone(),
-                            }))?;
+                            })?;
                             i.set_id(Some(link.clone()));
                             if i.get_title().is_none() {
                                 i.set_title(id);
                             }
-                        }
-                        else if k.eq("nav-title") {
+                        } else if k.eq("nav-title") {
                             i.set_nav_title(Some(v.to_string()));
-                        }
-                        else if k.eq("skip") {
+                        } else if k.eq("skip") {
                             i.set_skip(v.parse::<bool>().map_err(|e| {
                                 ParseError::InvalidTOCItem {
                                     doc_id,
@@ -617,11 +619,9 @@ impl SitemapParser {
                                     row_content: line.to_string(),
                                 }
                             })?);
-                        }
-                        else if k.eq("readers") {
+                        } else if k.eq("readers") {
                             i.set_readers(v);
-                        }
-                        else if k.eq("writers") {
+                        } else if k.eq("writers") {
                             i.set_writers(v);
                         }
                         i.insert_key_value(k, v);

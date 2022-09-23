@@ -467,7 +467,7 @@ impl Config {
             if let fpm::File::Ftd(doc) = document {
                 // Ignore fetching id's from FPM.ftd since
                 // id's would be used to link inside sitemap
-                if doc.id.eq("FPM.ftd"){
+                if doc.id.eq("FPM.ftd") {
                     continue;
                 }
                 self.update_global_ids_from_file(&doc.id, &doc.content)
