@@ -11,6 +11,7 @@ mod package_tree;
 mod sitemap;
 mod sqlite;
 mod toc;
+mod php;
 
 pub use document::convert_to_document_id;
 pub use full_sitemap::KeyValueData;
@@ -201,6 +202,7 @@ pub fn process_sync<'a>(
         .str(doc.name, section.line_number, "$processor$")?
     {
         "toc" => fpm::library::toc::processor(section, doc, config),
+        "php" => fpm::library::php::processor(section, doc, config),
         "include" => fpm::library::include::processor(section, doc, config),
         "get-data" => fpm::library::get_data::processor(section, doc, config),
         "sitemap" => fpm::library::sitemap::processor(section, doc, config),
