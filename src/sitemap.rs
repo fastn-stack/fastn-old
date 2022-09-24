@@ -519,7 +519,10 @@ impl SitemapParser {
         Ok(())
     }
 
-    fn eval_temp_item(&mut self, global_ids: &std::collections::HashMap<String, String>) -> Result<(), ParseError> {
+    fn eval_temp_item(
+        &mut self,
+        global_ids: &std::collections::HashMap<String, String>,
+    ) -> Result<(), ParseError> {
         if let Some((ref toc_item, depth)) = self.temp_item {
             // Split the line by `:`. title = 0, url = Option<1>
             let resp_item = if toc_item.get_title().is_none() && toc_item.get_id().is_some() {
@@ -535,10 +538,14 @@ impl SitemapParser {
                             // assign the link from the map
                             let possible_link = global_ids.get(second.trim());
                             match possible_link {
-                                Some(link) => (Some(first.trim().to_string()), Some(link.to_string())),
-                                None => (Some(first.trim().to_string()), Some(second.trim().to_string()))
+                                Some(link) => {
+                                    (Some(first.trim().to_string()), Some(link.to_string()))
+                                }
+                                None => (
+                                    Some(first.trim().to_string()),
+                                    Some(second.trim().to_string()),
+                                ),
                             }
-
                         } else {
                             // Case 1: current_title = <title>, <url> = None
                             // Case 2: current_title = <id>, <url> = link to <id>
@@ -547,7 +554,7 @@ impl SitemapParser {
                             let possible_link = global_ids.get(current_title.trim());
                             match possible_link {
                                 Some(link) => (Some(current_title), Some(link.to_string())),
-                                None => (Some(current_title), None)
+                                None => (Some(current_title), None),
                             }
                         }
                     }
