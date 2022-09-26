@@ -396,7 +396,7 @@ pub enum ParseError {
         message: String,
         row_content: String,
     },
-    #[error("id not found: {id}, doc: {doc_id}")]
+    #[error("id: {id} not found while linking in sitemap, doc: {doc_id}")]
     InvalidID { doc_id: String, id: String },
 }
 
@@ -534,18 +534,25 @@ impl SitemapParser {
                             // Case 1: first = <Title>: second = <url>
                             // Case 2: first = <Title>: second = <id> (<url> = link to <id>)
 
-                            // Try finding for link in global_ids map if found
-                            // assign the link from the map
-                            let possible_link = global_ids.get(second.trim());
-                            match possible_link {
-                                Some(link) => {
-                                    (Some(first.trim().to_string()), Some(link.to_string()))
-                                }
-                                None => (
+                            match second.contains('/') || second.trim().is_empty() {
+                                // Treat second as url if it contains '/'
+                                true => (
                                     Some(first.trim().to_string()),
                                     Some(second.trim().to_string()),
                                 ),
+                                // otherwise treat second as <id>
+                                false => {
+                                    let link = global_ids.get(second.trim()).ok_or_else(|| ParseError::InvalidID {
+                                        doc_id: self.doc_name.clone(),
+                                        id: second.trim().to_string()
+                                    })?;
+                                    (
+                                        Some(first.trim().to_string()),
+                                        Some(link.to_string()),
+                                    )
+                                }
                             }
+
                         } else {
                             // Case 1: current_title = <title>, <url> = None
                             // Case 2: current_title = <id>, <url> = link to <id>
