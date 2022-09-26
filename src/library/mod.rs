@@ -202,7 +202,6 @@ pub fn process_sync<'a>(
         .str(doc.name, section.line_number, "$processor$")?
     {
         "toc" => fpm::library::toc::processor(section, doc, config),
-        "php" => fpm::library::php::processor(section, doc, config),
         "include" => fpm::library::include::processor(section, doc, config),
         "get-data" => fpm::library::get_data::processor(section, doc, config),
         "sitemap" => fpm::library::sitemap::processor(section, doc, config),
@@ -226,7 +225,7 @@ pub fn process_sync<'a>(
         t => Err(ftd::p1::Error::NotFound {
             doc_id: document_id.to_string(),
             line_number: section.line_number,
-            key: format!("FPM-Error: No such processor: {}", t),
+            key: format!("FPM-Error: No such processor 1: {}", t),
         }),
     }
 }
@@ -403,6 +402,7 @@ impl Library2 {
             .str(doc.name, section.line_number, "$processor$")?
         {
             // "toc" => fpm::library::toc::processor(section, doc),
+            "php" => fpm::library::php::processor(section, doc, &self.config).await,
             "http" => fpm::library::http::processor(section, doc).await,
             "package-query" => fpm::library::sqlite::processor(section, doc, &self.config).await,
             "toc" => fpm::library::toc::processor(section, doc, &self.config),
@@ -451,7 +451,7 @@ impl Library2 {
             t => Err(ftd::p1::Error::NotFound {
                 doc_id: self.document_id.to_string(),
                 line_number: section.line_number,
-                key: format!("FPM-Error: No such processor: {}", t),
+                key: format!("FPM-Error: No such processor 2: {}", t),
             }),
         }
     }

@@ -507,7 +507,9 @@ impl Config {
     }
 
     pub async fn get_file_by_id(&self, id: &str, package: &fpm::Package) -> fpm::Result<fpm::File> {
+        dbg!(&self.root, id);
         let file_name = fpm::Config::get_file_name(&self.root, id)?;
+        dbg!(&file_name, &package.name);
         self.get_files(package)
             .await?
             .into_iter()
@@ -885,6 +887,8 @@ impl Config {
             });
         }
         id = id.trim_matches('/').to_string();
+        println!("Fetching file name");
+        dbg!(&add_packages, &id, &root);
         if root.join(format!("{}{}.ftd", add_packages, id)).exists() {
             return Ok(format!("{}{}.ftd", add_packages, id));
         }
