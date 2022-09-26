@@ -534,7 +534,10 @@ impl SitemapParser {
                             // Case 1: first = <Title>: second = <url>
                             // Case 2: first = <Title>: second = <id> (<url> = link to <id>)
 
-                            match second.contains('/') || second.trim().is_empty() {
+                            match second.trim().is_empty()
+                                || second.trim_end().ends_with(".html")
+                                || second.contains('/')
+                            {
                                 // Treat second as url if it contains '/'
                                 true => (
                                     Some(first.trim().to_string()),
