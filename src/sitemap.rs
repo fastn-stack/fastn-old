@@ -542,17 +542,15 @@ impl SitemapParser {
                                 ),
                                 // otherwise treat second as <id>
                                 false => {
-                                    let link = global_ids.get(second.trim()).ok_or_else(|| ParseError::InvalidID {
-                                        doc_id: self.doc_name.clone(),
-                                        id: second.trim().to_string()
+                                    let link = global_ids.get(second.trim()).ok_or_else(|| {
+                                        ParseError::InvalidID {
+                                            doc_id: self.doc_name.clone(),
+                                            id: second.trim().to_string(),
+                                        }
                                     })?;
-                                    (
-                                        Some(first.trim().to_string()),
-                                        Some(link.to_string()),
-                                    )
+                                    (Some(first.trim().to_string()), Some(link.to_string()))
                                 }
                             }
-
                         } else {
                             // Case 1: current_title = <title>, <url> = None
                             // Case 2: current_title = <id>, <url> = link to <id>
