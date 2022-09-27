@@ -109,8 +109,6 @@ pub async fn build(
 async fn get_documents_for_current_package(
     config: &mut fpm::Config,
 ) -> fpm::Result<std::collections::BTreeMap<String, fpm::File>> {
-    use std::borrow::BorrowMut;
-
     let mut documents = std::collections::BTreeMap::from_iter(
         config
             .get_files(&config.package)

@@ -204,8 +204,6 @@ pub async fn resolve_import<'a>(
     state: &mut ftd::InterpreterState,
     module: &str,
 ) -> ftd::p1::Result<String> {
-    use std::borrow::Borrow;
-
     lib.packages_under_process
         .truncate(state.document_stack.len());
     let current_package = lib.get_current_package()?;

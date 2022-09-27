@@ -216,7 +216,6 @@ impl Config {
     /// nor it tries to avoid fonts that are configured but not needed in current document.
     pub fn get_font_style(&self) -> String {
         use itertools::Itertools;
-        use std::borrow::Borrow;
 
         // TODO: accept list of actual fonts used in the current document. each document accepts
         //       a different list of fonts and only fonts used by a given document should be
@@ -259,7 +258,6 @@ impl Config {
 
     pub(crate) async fn download_fonts(&self) -> fpm::Result<()> {
         use itertools::Itertools;
-        use std::borrow::Borrow;
 
         let mut fonts = vec![];
         for dep in self
@@ -722,8 +720,6 @@ impl Config {
 
     /// Return (package name or alias, package)
     pub(crate) async fn find_package_by_id(&self, id: &str) -> fpm::Result<(String, fpm::Package)> {
-        use std::borrow::Borrow;
-
         let id = if let Some(id) = id.strip_prefix("-/") {
             id
         } else {
@@ -1167,8 +1163,6 @@ impl Config {
         &self,
         package: &fpm::Package,
     ) -> fpm::Result<fpm::Package> {
-        use std::borrow::Borrow;
-
         if self.package.name.eq(package.name.as_str()) {
             return Ok(self.package.clone());
         }
@@ -1186,8 +1180,6 @@ impl Config {
     }
 
     pub(crate) fn add_package(&self, package: &fpm::Package) {
-        use std::borrow::BorrowMut;
-
         self.all_packages
             .borrow_mut()
             .insert(package.name.to_string(), package.to_owned());
