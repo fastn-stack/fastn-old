@@ -347,7 +347,7 @@ You can try without providing port, it will automatically pick unused port."#,
     };
 
     let make_svc = hyper::service::make_service_fn(|_conn| async {
-        // service_fn converts our function into a `Service`
+        // Ok::<_, std::convert::Infallible>(hyper::service::service_fn(route)) // uncomment this line and comment next
         Ok::<_, std::convert::Infallible>(hyper::service::service_fn(hello_world))
     });
     let server = hyper::Server::bind(&tcp_listener.local_addr().unwrap()).serve(make_svc);
