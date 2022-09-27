@@ -216,7 +216,6 @@ impl Config {
     /// nor it tries to avoid fonts that are configured but not needed in current document.
     pub fn get_font_style(&self) -> String {
         use itertools::Itertools;
-
         // TODO: accept list of actual fonts used in the current document. each document accepts
         //       a different list of fonts and only fonts used by a given document should be
         //       included in the HTML produced by that font
