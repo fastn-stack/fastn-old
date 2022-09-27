@@ -13,7 +13,7 @@ pub(crate) async fn view_source(req: &fpm::http::Request) -> fpm::http::Response
     };
 
     match handle_view_source(path.as_str()).await {
-        Ok(body) => fpm::http::ok(body),
+        Ok(body) => fpm::http::ok(&body),
         Err(e) => {
             fpm::server_error!("new_path: {}, Error: {:?}", path, e)
         }

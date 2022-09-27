@@ -32,16 +32,16 @@ async fn serve_file(config: &mut fpm::Config, path: &camino::Utf8Path) -> fpm::h
     match f {
         fpm::File::Ftd(main_document) => {
             match fpm::package_doc::read_ftd(config, &main_document, "/", false).await {
-                Ok(r) => fpm::http::ok(r),
+                Ok(r) => fpm::http::ok(&r),
                 Err(e) => {
                     fpm::server_error!("FPM-Error: path: {}, {:?}", path, e)
                 }
             }
         }
         fpm::File::Image(image) => {
-            fpm::http::ok_with_content_type(image.content, guess_mime_type(image.id.as_str()))
+            fpm::http::ok_with_content_type(&image.content, guess_mime_type(image.id.as_str()))
         }
-        fpm::File::Static(s) => fpm::http::ok(s.content),
+        fpm::File::Static(s) => fpm::http::ok(&s.content),
         _ => {
             fpm::server_error!("unknown handler")
         }
@@ -83,16 +83,16 @@ async fn serve_cr_file(
     match f {
         fpm::File::Ftd(main_document) => {
             match fpm::package_doc::read_ftd(config, &main_document, "/", false).await {
-                Ok(r) => fpm::http::ok(r),
+                Ok(r) => fpm::http::ok(&r),
                 Err(e) => {
                     fpm::server_error!("FPM-Error: path: {}, {:?}", path, e)
                 }
             }
         }
         fpm::File::Image(image) => {
-            fpm::http::ok_with_content_type(image.content, guess_mime_type(image.id.as_str()))
+            fpm::http::ok_with_content_type(&image.content, guess_mime_type(image.id.as_str()))
         }
-        fpm::File::Static(s) => fpm::http::ok(s.content),
+        fpm::File::Static(s) => fpm::http::ok(&s.content),
         _ => {
             fpm::server_error!("FPM unknown handler")
         }
@@ -111,7 +111,7 @@ async fn serve_fpm_file(config: &fpm::Config) -> fpm::http::Response {
                 return fpm::not_found!("FPM-Error: path: FPM.ftd error: {:?}", e);
             }
         };
-    fpm::http::ok_with_content_type(response, "application/octet-stream")
+    fpm::http::ok_with_content_type(&response, mime_guess::mime::APPLICATION_OCTET_STREAM)
 }
 
 async fn static_file(file_path: camino::Utf8PathBuf) -> fpm::http::Response {
@@ -120,7 +120,7 @@ async fn static_file(file_path: camino::Utf8PathBuf) -> fpm::http::Response {
     }
 
     match tokio::fs::read(file_path.as_path()).await {
-        Ok(r) => fpm::http::ok_with_content_type(r, guess_mime_type(file_path.as_str())),
+        Ok(r) => fpm::http::ok_with_content_type(&r, guess_mime_type(file_path.as_str())),
         Err(e) => {
             fpm::not_found!("FPM-Error: path: {:?}, error: {:?}", file_path, e)
         }
@@ -258,11 +258,8 @@ pub async fn create_cr_page() -> fpm::Result<fpm::http::Response> {
     fpm::apis::cr::create_cr_page().await
 }
 
-async fn route(
-    req: actix_web::HttpRequest,
-    body: actix_web::web::Bytes,
-) -> fpm::Result<fpm::http::Response> {
-    let req = fpm::http::Request::from_actix(req, body);
+pub async fn route(req: hyper::Request<hyper::Body>) -> fpm::Result<fpm::http::Response> {
+    let req = fpm::http::Request::from_hyper(req);
     match (req.method(), req.path()) {
         ("post", "/-/sync/") if cfg!(feature = "remote") => sync(req).await,
         ("post", "/-/sync2/") if cfg!(feature = "remote") => sync2(req).await,
@@ -276,6 +273,12 @@ async fn route(
         ("post", "/-/clear-cache/") => clear_cache(req).await,
         (_, _) => serve(req).await,
     }
+}
+
+async fn hello_world(
+    _req: hyper::Request<hyper::Body>,
+) -> Result<hyper::Response<hyper::Body>, std::convert::Infallible> {
+    Ok(hyper::Response::new("Hello, World".into()))
 }
 
 pub async fn listen(
@@ -343,7 +346,11 @@ You can try without providing port, it will automatically pick unused port."#,
         }
     };
 
-    let app = move || actix_web::App::new().route("/{path:.*}", actix_web::web::route().to(route));
+    let make_svc = hyper::service::make_service_fn(|_conn| async {
+        // service_fn converts our function into a `Service`
+        Ok::<_, std::convert::Infallible>(hyper::service::service_fn(route))
+    });
+    let server = hyper::Server::bind(&tcp_listener.local_addr().unwrap()).serve(make_svc);
 
     println!("### Server Started ###");
     println!(
@@ -351,10 +358,12 @@ You can try without providing port, it will automatically pick unused port."#,
         bind_address,
         tcp_listener.local_addr()?.port()
     );
-    actix_web::HttpServer::new(app)
-        .listen(tcp_listener)?
-        .run()
-        .await
+
+    if let Err(e) = server.await {
+        eprintln!("server error: {}", e);
+    }
+
+    Ok(())
 }
 
 // cargo install --features controller --path=.

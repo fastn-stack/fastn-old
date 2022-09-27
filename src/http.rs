@@ -21,38 +21,34 @@ macro_rules! not_found {
 
 pub fn server_error_(msg: String) -> fpm::http::Response {
     fpm::warning!("server error: {}", msg);
-    actix_web::HttpResponse::InternalServerError().body(msg)
+    // actix_web::HttpResponse::InternalServerError().body(msg)
+    todo!("actix_web")
 }
 
 pub fn unauthorised_(msg: String) -> fpm::http::Response {
     fpm::warning!("unauthorised: {}", msg);
-    actix_web::HttpResponse::Unauthorized().body(msg)
+    // actix_web::HttpResponse::Unauthorized().body(msg)
+    todo!("actix_web")
 }
 
 pub fn not_found_(msg: String) -> fpm::http::Response {
     fpm::warning!("page not found: {}", msg);
-    actix_web::HttpResponse::NotFound().body(msg)
+    // actix_web::HttpResponse::NotFound().body(msg)
+    todo!("actix_web")
 }
 
-impl actix_web::ResponseError for fpm::Error {}
+pub type Response = hyper::Response<hyper::Body>;
 
-pub type Response = actix_web::HttpResponse;
-
-pub fn ok<V>(data: V) -> fpm::http::Response
-where
-    V: actix_http::body::MessageBody + 'static,
-{
-    actix_web::HttpResponse::Ok().body(data)
+pub fn ok(_data: &[u8]) -> fpm::http::Response {
+    // actix_web::HttpResponse::Ok().body(data)
+    todo!("actix_web")
 }
 
-pub fn ok_with_content_type<V, B>(data: B, content_type: V) -> fpm::http::Response
-where
-    B: actix_http::body::MessageBody + 'static,
-    V: actix_http::header::TryIntoHeaderValue,
-{
-    actix_web::HttpResponse::Ok()
-        .content_type(content_type)
-        .body(data)
+pub fn ok_with_content_type(_data: &[u8], _content_type: mime_guess::Mime) -> fpm::http::Response {
+    // actix_web::HttpResponse::Ok()
+    //     .content_type(content_type)
+    //     .body(data)
+    todo!("actix_web")
 }
 
 #[derive(Debug, Clone)]
@@ -64,36 +60,37 @@ pub struct Request {
     cookies: std::collections::HashMap<String, String>,
     headers: reqwest::header::HeaderMap,
     query: std::collections::HashMap<String, serde_json::Value>,
-    body: actix_web::web::Bytes,
+    body: hyper::body::Bytes,
 }
 
 impl Request {
-    pub fn from_actix(req: actix_web::HttpRequest, body: actix_web::web::Bytes) -> Self {
-        Request {
-            cookies: req
-                .cookies()
-                .unwrap()
-                .iter()
-                .map(|c| (c.name().to_string(), c.value().to_string()))
-                .collect(),
-            body,
-            method: req.method().to_string(),
-            uri: req.uri().to_string(),
-            path: req.path().to_string(),
-            query_string: req.query_string().to_string(),
-            headers: {
-                let mut headers = reqwest::header::HeaderMap::new();
-                for (key, value) in req.headers() {
-                    headers.insert(key.clone(), value.clone());
-                }
-                headers
-            },
-            query: {
-                actix_web::web::Query::<std::collections::HashMap<String, serde_json::Value>>::from_query(
-                    req.query_string(),
-                ).unwrap().0
-            },
-        }
+    pub fn from_hyper(_req: hyper::Request<hyper::Body>) -> Self {
+        todo!("actix_web")
+        // Request {
+        //     cookies: req
+        //         .cookies()
+        //         .unwrap()
+        //         .iter()
+        //         .map(|c| (c.name().to_string(), c.value().to_string()))
+        //         .collect(),
+        //     body,
+        //     method: req.method().to_string(),
+        //     uri: req.uri().to_string(),
+        //     path: req.path().to_string(),
+        //     query_string: req.query_string().to_string(),
+        //     headers: {
+        //         let mut headers = reqwest::header::HeaderMap::new();
+        //         for (key, value) in req.headers() {
+        //             headers.insert(key.clone(), value.clone());
+        //         }
+        //         headers
+        //     },
+        //     query: {
+        //         actix_web::web::Query::<std::collections::HashMap<String, serde_json::Value>>::from_query(
+        //             req.query_string(),
+        //         ).unwrap().0
+        //     },
+        // }
     }
 
     pub fn json<T: serde::de::DeserializeOwned>(&self) -> fpm::Result<T> {
@@ -160,33 +157,34 @@ impl ResponseBuilder {
     // .build
     // response from string, json, bytes etc
 
-    pub async fn from_reqwest(response: reqwest::Response) -> fpm::http::Response {
-        let status = response.status();
-
-        let mut response_builder = actix_web::HttpResponse::build(status);
-        // TODO
-        // *resp.extensions_mut() = response.extensions().clone();
-
-        // Remove `Connection` as per
-        // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Connection#Directives
-        for header in response
-            .headers()
-            .iter()
-            .filter(|(h, _)| *h != "connection")
-        {
-            response_builder.insert_header(header);
-        }
-
-        let content = match response.bytes().await {
-            Ok(b) => b,
-            Err(e) => {
-                return actix_web::HttpResponse::from(actix_web::error::ErrorInternalServerError(
-                    fpm::Error::HttpError(e),
-                ))
-            }
-        };
-        println!("Response {:?}", String::from_utf8(content.to_vec()));
-        response_builder.body(content)
+    pub async fn from_reqwest(_response: reqwest::Response) -> fpm::http::Response {
+        todo!("actix_web")
+        // let status = response.status();
+        //
+        // let mut response_builder = actix_web::HttpResponse::build(status);
+        // // TODO
+        // // *resp.extensions_mut() = response.extensions().clone();
+        //
+        // // Remove `Connection` as per
+        // // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Connection#Directives
+        // for header in response
+        //     .headers()
+        //     .iter()
+        //     .filter(|(h, _)| *h != "connection")
+        // {
+        //     response_builder.insert_header(header);
+        // }
+        //
+        // let content = match response.bytes().await {
+        //     Ok(b) => b,
+        //     Err(e) => {
+        //         return actix_web::HttpResponse::from(actix_web::error::ErrorInternalServerError(
+        //             fpm::Error::HttpError(e),
+        //         ))
+        //     }
+        // };
+        // println!("Response {:?}", String::from_utf8(content.to_vec()));
+        // response_builder.body(content)
     }
 }
 
@@ -314,28 +312,33 @@ pub(crate) fn api_ok(data: impl serde::Serialize) -> fpm::Result<fpm::http::Resp
         success: bool,
     }
 
-    let data = serde_json::to_string(&SuccessResponse {
+    let data = serde_json::to_vec(&SuccessResponse {
         data,
         success: true,
     })?;
 
-    Ok(ok_with_content_type(data, "application/json"))
+    Ok(ok_with_content_type(
+        &data,
+        mime_guess::mime::APPLICATION_JSON,
+    ))
 }
 
-pub(crate) fn api_error<T: Into<String>>(message: T) -> fpm::Result<fpm::http::Response> {
-    #[derive(serde::Serialize, Debug)]
-    struct ErrorResponse {
-        message: String,
-        success: bool,
-    }
+pub(crate) fn api_error<T: Into<String>>(_message: T) -> fpm::Result<fpm::http::Response> {
+    // #[derive(serde::Serialize, Debug)]
+    // struct ErrorResponse {
+    //     message: String,
+    //     success: bool,
+    // }
+    //
+    // let resp = ErrorResponse {
+    //     message: message.into(),
+    //     success: false,
+    // };
+    //
+    // Ok(actix_web::HttpResponse::Ok()
+    //     .content_type(actix_web::http::header::ContentType::json())
+    //     .status(actix_web::http::StatusCode::INTERNAL_SERVER_ERROR)
+    //     .body(serde_json::to_string(&resp)?))
 
-    let resp = ErrorResponse {
-        message: message.into(),
-        success: false,
-    };
-
-    Ok(actix_web::HttpResponse::Ok()
-        .content_type(actix_web::http::header::ContentType::json())
-        .status(actix_web::http::StatusCode::INTERNAL_SERVER_ERROR)
-        .body(serde_json::to_string(&resp)?))
+    todo!("actix_web")
 }
