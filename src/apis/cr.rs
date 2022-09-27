@@ -32,7 +32,7 @@ async fn create_cr_worker(cr_request: CreateCRRequest) -> fpm::Result<usize> {
 
 pub async fn create_cr_page() -> fpm::Result<fpm::http::Response> {
     match create_cr_page_worker().await {
-        Ok(body) => Ok(fpm::http::ok(&body)),
+        Ok(body) => Ok(fpm::http::ok(body)),
         Err(err) => fpm::http::api_error(err.to_string()),
     }
 }

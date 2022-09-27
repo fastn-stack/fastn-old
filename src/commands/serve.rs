@@ -32,16 +32,16 @@ async fn serve_file(config: &mut fpm::Config, path: &camino::Utf8Path) -> fpm::h
     match f {
         fpm::File::Ftd(main_document) => {
             match fpm::package_doc::read_ftd(config, &main_document, "/", false).await {
-                Ok(r) => fpm::http::ok(&r),
+                Ok(r) => fpm::http::ok(r),
                 Err(e) => {
                     fpm::server_error!("FPM-Error: path: {}, {:?}", path, e)
                 }
             }
         }
         fpm::File::Image(image) => {
-            fpm::http::ok_with_content_type(&image.content, guess_mime_type(image.id.as_str()))
+            fpm::http::ok_with_content_type(image.content, guess_mime_type(image.id.as_str()))
         }
-        fpm::File::Static(s) => fpm::http::ok(&s.content),
+        fpm::File::Static(s) => fpm::http::ok(s.content),
         _ => {
             fpm::server_error!("unknown handler")
         }
@@ -83,16 +83,16 @@ async fn serve_cr_file(
     match f {
         fpm::File::Ftd(main_document) => {
             match fpm::package_doc::read_ftd(config, &main_document, "/", false).await {
-                Ok(r) => fpm::http::ok(&r),
+                Ok(r) => fpm::http::ok(r),
                 Err(e) => {
                     fpm::server_error!("FPM-Error: path: {}, {:?}", path, e)
                 }
             }
         }
         fpm::File::Image(image) => {
-            fpm::http::ok_with_content_type(&image.content, guess_mime_type(image.id.as_str()))
+            fpm::http::ok_with_content_type(image.content, guess_mime_type(image.id.as_str()))
         }
-        fpm::File::Static(s) => fpm::http::ok(&s.content),
+        fpm::File::Static(s) => fpm::http::ok(s.content),
         _ => {
             fpm::server_error!("FPM unknown handler")
         }
@@ -111,7 +111,7 @@ async fn serve_fpm_file(config: &fpm::Config) -> fpm::http::Response {
                 return fpm::not_found!("FPM-Error: path: FPM.ftd error: {:?}", e);
             }
         };
-    fpm::http::ok_with_content_type(&response, mime_guess::mime::APPLICATION_OCTET_STREAM)
+    fpm::http::ok_with_content_type(response, mime_guess::mime::APPLICATION_OCTET_STREAM)
 }
 
 async fn static_file(file_path: camino::Utf8PathBuf) -> fpm::http::Response {
@@ -120,7 +120,7 @@ async fn static_file(file_path: camino::Utf8PathBuf) -> fpm::http::Response {
     }
 
     match tokio::fs::read(file_path.as_path()).await {
-        Ok(r) => fpm::http::ok_with_content_type(&r, guess_mime_type(file_path.as_str())),
+        Ok(r) => fpm::http::ok_with_content_type(r, guess_mime_type(file_path.as_str())),
         Err(e) => {
             fpm::not_found!("FPM-Error: path: {:?}, error: {:?}", file_path, e)
         }

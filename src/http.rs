@@ -39,12 +39,15 @@ pub fn not_found_(msg: String) -> fpm::http::Response {
 
 pub type Response = hyper::Response<hyper::Body>;
 
-pub fn ok(_data: &[u8]) -> fpm::http::Response {
+pub fn ok(_data: Vec<u8>) -> fpm::http::Response {
     // actix_web::HttpResponse::Ok().body(data)
     todo!("actix_web")
 }
 
-pub fn ok_with_content_type(_data: &[u8], _content_type: mime_guess::Mime) -> fpm::http::Response {
+pub fn ok_with_content_type(
+    _data: Vec<u8>,
+    _content_type: mime_guess::Mime,
+) -> fpm::http::Response {
     // actix_web::HttpResponse::Ok()
     //     .content_type(content_type)
     //     .body(data)
@@ -318,7 +321,7 @@ pub(crate) fn api_ok(data: impl serde::Serialize) -> fpm::Result<fpm::http::Resp
     })?;
 
     Ok(ok_with_content_type(
-        &data,
+        data,
         mime_guess::mime::APPLICATION_JSON,
     ))
 }
