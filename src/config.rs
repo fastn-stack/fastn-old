@@ -1,7 +1,5 @@
 // Document: https://fpm.dev/crate/config/
 // Document: https://fpm.dev/crate/package/
-use std::convert::TryInto;
-use std::iter::FromIterator;
 
 #[derive(Debug, Clone)]
 pub struct Config {
@@ -14,6 +12,7 @@ pub struct Config {
     pub all_packages: std::cell::RefCell<std::collections::BTreeMap<String, Package>>,
     pub downloaded_assets: std::collections::BTreeMap<String, String>,
     pub global_ids: std::collections::HashMap<String, String>,
+    pub request: Option<fpm::http::Request>, // TODO: It should only contain reference
 }
 
 impl Config {
@@ -465,6 +464,11 @@ impl Config {
             fpm::paths_to_files(self.package.name.as_str(), all_files_path, &path).await?;
         for document in documents.iter() {
             if let fpm::File::Ftd(doc) = document {
+                // Ignore fetching id's from FPM.ftd since
+                // id's would be used to link inside sitemap
+                if doc.id.eq("FPM.ftd") {
+                    continue;
+                }
                 self.update_global_ids_from_file(&doc.id, &doc.content)
                     .await?;
             }
@@ -1063,6 +1067,7 @@ impl Config {
                     notes: None,
                     alias: None,
                     implements: Vec::new(),
+                    endpoint: None,
                 });
             };
             package.fpm_path = Some(root.join("FPM.ftd"));
@@ -1112,9 +1117,13 @@ impl Config {
             all_packages: Default::default(),
             downloaded_assets: Default::default(),
             global_ids: Default::default(),
+            request: None,
         };
 
         let asset_documents = config.get_assets().await?;
+
+        // Update global_ids map from the current package files
+        config.update_ids_from_package().await?;
 
         config.package.sitemap = {
             let sitemap = match package.translation_of.as_ref() {
@@ -1145,10 +1154,12 @@ impl Config {
 
         config.add_package(&package);
 
-        // Update terms map from the current package files
-        config.update_ids_from_package().await?;
-
         Ok(config)
+    }
+
+    pub fn set_request(mut self, req: fpm::http::Request) -> Self {
+        self.request = Some(req);
+        self
     }
 
     pub(crate) async fn resolve_package(
@@ -1213,15 +1224,7 @@ impl Config {
 
     pub(crate) async fn can_read(
         &self,
-        req: &actix_web::HttpRequest,
-        document_path: &str,
-    ) -> fpm::Result<bool> {
-        self.can_read_(req, document_path).await
-    }
-
-    async fn can_read_(
-        &self,
-        req: &actix_web::HttpRequest,
+        req: &fpm::http::Request,
         document_path: &str,
     ) -> fpm::Result<bool> {
         use itertools::Itertools;
@@ -1245,7 +1248,7 @@ impl Config {
 
     pub(crate) async fn can_write(
         &self,
-        req: &actix_web::HttpRequest,
+        req: &fpm::http::Request,
         document_path: &str,
     ) -> fpm::Result<bool> {
         use itertools::Itertools;
@@ -1307,6 +1310,8 @@ pub(crate) struct PackageTemp {
     pub import_auto_imports_from_original: bool,
     #[serde(rename = "favicon")]
     pub favicon: Option<String>,
+    #[serde(rename = "endpoint")]
+    pub endpoint: Option<String>,
 }
 
 impl PackageTemp {
@@ -1343,6 +1348,7 @@ impl PackageTemp {
             sitemap: None,
             sitemap_temp: None,
             favicon: self.favicon,
+            endpoint: self.endpoint,
         }
     }
 }
@@ -1391,6 +1397,9 @@ pub struct Package {
     /// If more than one favicon.* file is present, we will use them
     /// in following priority: .ico > .svg > .png > .jpg.
     pub favicon: Option<String>,
+
+    /// endpoint for proxy service
+    pub endpoint: Option<String>,
 }
 
 impl Package {
@@ -1416,6 +1425,7 @@ impl Package {
             sitemap_temp: None,
             sitemap: None,
             favicon: None,
+            endpoint: None,
         }
     }
 

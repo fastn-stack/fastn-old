@@ -1,5 +1,3 @@
-use tokio::io::AsyncWriteExt;
-
 #[derive(Debug, Clone)]
 pub struct Dependency {
     pub package: fpm::Package,
@@ -7,6 +5,7 @@ pub struct Dependency {
     pub notes: Option<String>,
     pub alias: Option<String>,
     pub implements: Vec<String>,
+    pub endpoint: Option<String>,
 }
 
 impl Dependency {
@@ -37,6 +36,7 @@ pub(crate) struct DependencyTemp {
     pub version: Option<String>,
     pub notes: Option<String>,
     pub implements: Vec<String>,
+    pub endpoint: Option<String>,
 }
 
 impl DependencyTemp {
@@ -51,6 +51,7 @@ impl DependencyTemp {
             notes: self.notes,
             alias,
             implements: self.implements,
+            endpoint: self.endpoint,
         })
     }
 }
@@ -263,6 +264,8 @@ impl fpm::Package {
         download_dependencies: bool,
     ) -> fpm::Result<()> {
         use std::io::Write;
+        use tokio::io::AsyncWriteExt;
+
         // TODO: in future we will check if we have a new version in the package's repo.
         //       for now assume if package exists we have the latest package and if you
         //       want to update a package, delete the corresponding folder and latest
