@@ -137,13 +137,22 @@ pub async fn parse2<'a>(
                 break;
             }
             ftd::Interpreter::StuckOnProcessor { state, section } => {
-                let value = lib
-                    .process(
-                        &section,
-                        &state.tdoc(&mut Default::default(), &mut Default::default()),
-                    )
-                    .await?;
-                s = state.continue_after_processor(&section, value)?;
+                match lib.is_lazy_processor(
+                    &section,
+                    &state.tdoc(&mut Default::default(), &mut Default::default()),
+                )? {
+                    true => {
+                        println!("Received LP-php");
+                        s = state.continue_after_storing_section(&section)?;
+                    }
+                    false => {
+                        let value = lib.process(
+                            &section,
+                            &state.tdoc(&mut Default::default(), &mut Default::default()),
+                        ).await?;
+                        s = state.continue_after_processor(&section, value)?;
+                    }
+                }
             }
             ftd::Interpreter::StuckOnImport {
                 module,

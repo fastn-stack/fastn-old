@@ -11,7 +11,6 @@ mod package_tree;
 mod sitemap;
 mod sqlite;
 mod toc;
-mod php;
 
 pub use document::convert_to_document_id;
 pub use full_sitemap::KeyValueData;
@@ -392,6 +391,25 @@ impl Library2 {
         }
     }
 
+    /// checks if the current processor is a lazy processor
+    /// or not
+    ///
+    /// lazy processor = processor which needs to be resolved after
+    /// interpretation
+    pub fn is_lazy_processor(
+        &self,
+        section: &ftd::p1::Section,
+        doc: &ftd::p2::TDoc,
+    ) -> ftd::p1::Result<bool> {
+        match section
+            .header
+            .str(doc.name, section.line_number, "$processor$")?
+        {
+            "php" => Ok(true),
+            _ => Ok(false),
+        }
+    }
+
     pub async fn process<'a>(
         &'a self,
         section: &ftd::p1::Section,
@@ -402,7 +420,6 @@ impl Library2 {
             .str(doc.name, section.line_number, "$processor$")?
         {
             // "toc" => fpm::library::toc::processor(section, doc),
-            "php" => fpm::library::php::processor(section, doc, &self.config).await,
             "http" => fpm::library::http::processor(section, doc).await,
             "package-query" => fpm::library::sqlite::processor(section, doc, &self.config).await,
             "toc" => fpm::library::toc::processor(section, doc, &self.config),
