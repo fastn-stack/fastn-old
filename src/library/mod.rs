@@ -225,7 +225,7 @@ pub fn process_sync<'a>(
         t => Err(ftd::p1::Error::NotFound {
             doc_id: document_id.to_string(),
             line_number: section.line_number,
-            key: format!("FPM-Error: No such processor 1: {}", t),
+            key: format!("FPM-Error: No such processor: {}", t),
         }),
     }
 }
@@ -472,7 +472,7 @@ impl Library2 {
             t => Err(ftd::p1::Error::NotFound {
                 doc_id: self.document_id.to_string(),
                 line_number: section.line_number,
-                key: format!("FPM-Error: No such processor 2: {}", t),
+                key: format!("FPM-Error: No such processor: {}", t),
             }),
         }
     }
