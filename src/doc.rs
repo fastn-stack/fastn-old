@@ -142,7 +142,6 @@ pub async fn parse2<'a>(
                     &state.tdoc(&mut Default::default(), &mut Default::default()),
                 )? {
                     true => {
-                        println!("Received LP-php");
                         s = state.continue_after_storing_section(&section)?;
                     }
                     false => {

@@ -406,7 +406,7 @@ impl Library2 {
             .header
             .str(doc.name, section.line_number, "$processor$")?
         {
-            "php" => Ok(true),
+            "page-headings" => Ok(true),
             _ => Ok(false),
         }
     }
