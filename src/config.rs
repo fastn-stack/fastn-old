@@ -556,27 +556,42 @@ impl Config {
         Ok(file)
     }
 
-    pub async fn get_file_and_package_by_id(&mut self, id: &str) -> fpm::Result<fpm::File> {
-        let file_name = self.get_file_path_and_resolve(id).await?;
-        let package = self.find_package_by_id(id).await?.1;
-        let mut file = fpm::get_file(
-            package.name.to_string(),
-            &self.root.join(file_name),
-            &self.get_root_for_package(&package),
-        )
-        .await?;
-        if id.contains("-/") {
-            let url = id.trim_end_matches("/index.html").trim_matches('/');
-            let extension = if matches!(file, fpm::File::Markdown(_)) {
-                "/index.md".to_string()
-            } else if matches!(file, fpm::File::Ftd(_)) {
-                "/index.ftd".to_string()
-            } else {
-                "".to_string()
-            };
-            file.set_id(format!("{}{}", url, extension).as_str());
+    pub async fn get_file_and_package_by_id(&mut self, path: &str) -> fpm::Result<fpm::File> {
+        if let Some(id) = self.package.sitemap.as_ref().and_then(|x| x.document(path)) {
+            let file_name = self.get_file_path_and_resolve(id.as_str()).await?;
+            let package = self.find_package_by_id(id.as_str()).await?.1;
+            let file = fpm::get_file(
+                package.name.to_string(),
+                &self.root.join(file_name),
+                &self.get_root_for_package(&package),
+            )
+            .await?;
+            self.current_document = Some(path.to_string());
+            Ok(file)
+        } else {
+            let file_name = self.get_file_path_and_resolve(path).await?;
+            let package = self.find_package_by_id(path).await?.1;
+            let mut file = fpm::get_file(
+                package.name.to_string(),
+                &self.root.join(file_name),
+                &self.get_root_for_package(&package),
+            )
+            .await?;
+
+            if path.contains("-/") {
+                let url = path.trim_end_matches("/index.html").trim_matches('/');
+                let extension = if matches!(file, fpm::File::Markdown(_)) {
+                    "/index.md".to_string()
+                } else if matches!(file, fpm::File::Ftd(_)) {
+                    "/index.ftd".to_string()
+                } else {
+                    "".to_string()
+                };
+                file.set_id(format!("{}{}", url, extension).as_str());
+            }
+            self.current_document = Some(file.get_id());
+            Ok(file)
         }
-        Ok(file)
     }
 
     pub fn doc_id(&self) -> Option<String> {
@@ -1308,6 +1323,8 @@ pub(crate) struct PackageTemp {
     pub favicon: Option<String>,
     #[serde(rename = "endpoint")]
     pub endpoint: Option<String>,
+    #[serde(rename = "backend")]
+    pub backend: bool,
 }
 
 impl PackageTemp {
@@ -1345,6 +1362,7 @@ impl PackageTemp {
             sitemap_temp: None,
             favicon: self.favicon,
             endpoint: self.endpoint,
+            backend: self.backend,
         }
     }
 }
@@ -1396,6 +1414,9 @@ pub struct Package {
 
     /// endpoint for proxy service
     pub endpoint: Option<String>,
+
+    /// Attribute to define the usage of a WASM backend
+    pub backend: bool,
 }
 
 impl Package {
@@ -1422,6 +1443,7 @@ impl Package {
             sitemap: None,
             favicon: None,
             endpoint: None,
+            backend: false,
         }
     }
 

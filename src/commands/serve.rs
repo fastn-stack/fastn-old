@@ -5,7 +5,7 @@ async fn serve_file(config: &mut fpm::Config, path: &camino::Utf8Path) -> fpm::h
     let f = match config.get_file_and_package_by_id(path.as_str()).await {
         Ok(f) => f,
         Err(e) => {
-            return fpm::server_error!("FPM-Error: path: {}, {:?}", path, e);
+            return fpm::not_found!("FPM-Error: path: {}, {:?}", path, e);
         }
     };
 
@@ -28,7 +28,6 @@ async fn serve_file(config: &mut fpm::Config, path: &camino::Utf8Path) -> fpm::h
         }
     }
 
-    config.current_document = Some(f.get_id());
     match f {
         fpm::File::Ftd(main_document) => {
             match fpm::package_doc::read_ftd(config, &main_document, "/", false).await {
@@ -181,9 +180,22 @@ async fn serve(req: fpm::http::Request) -> fpm::Result<fpm::http::Response> {
                 }
             }
         }
-        // TODO: pass &fpm::http::Request
 
-        serve_file(&mut config, &path).await
+        let file_response = serve_file(&mut config, path.as_path()).await;
+        // Fallback to WASM execution in case of no sucessful response
+        // TODO: This is hacky. Use the sitemap eventually.
+        if file_response.status() == actix_web::http::StatusCode::NOT_FOUND {
+            let package = config.find_package_by_id(path.as_str()).await.unwrap().1;
+            let wasm_module = config.get_root_for_package(&package).join("backend.wasm");
+            let req = if let Some(r) = config.request {
+                r
+            } else {
+                return Ok(fpm::server_error!("request not set"));
+            };
+            fpm::wasm::handle_wasm(req, wasm_module).await
+        } else {
+            file_response
+        }
 
         // if true: serve_file
         // else: proxy_pass
@@ -303,27 +315,7 @@ pub async fn listen(
         }
     }
 
-    fn get_available_port(port: Option<u16>, bind_address: &str) -> Option<std::net::TcpListener> {
-        let available_listener =
-            |port: u16, bind_address: &str| std::net::TcpListener::bind((bind_address, port));
-
-        if let Some(port) = port {
-            return match available_listener(port, bind_address) {
-                Ok(l) => Some(l),
-                Err(_) => None,
-            };
-        }
-
-        for x in 8000..9000 {
-            match available_listener(x, bind_address) {
-                Ok(l) => return Some(l),
-                Err(_) => continue,
-            }
-        }
-        None
-    }
-
-    let tcp_listener = match get_available_port(port, bind_address) {
+    let tcp_listener = match fpm::http::get_available_port(port, bind_address) {
         Some(listener) => listener,
         None => {
             eprintln!(
