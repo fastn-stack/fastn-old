@@ -395,20 +395,18 @@ impl Library2 {
     /// checks if the current processor is a lazy processor
     /// or not
     ///
-    /// lazy processor = processor which needs to be resolved after
-    /// interpretation
+    /// for more details
+    ///
+    /// visit www.fpm.dev/glossary/#lazy-processor
     pub fn is_lazy_processor(
         &self,
         section: &ftd::p1::Section,
         doc: &ftd::p2::TDoc,
     ) -> ftd::p1::Result<bool> {
-        match section
+        Ok(section
             .header
             .str(doc.name, section.line_number, "$processor$")?
-        {
-            "page-headings" => Ok(true),
-            _ => Ok(false),
-        }
+            .eq("page-headings"))
     }
 
     pub async fn process<'a>(
