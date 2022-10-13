@@ -5,7 +5,7 @@ pub async fn parse<'a>(
     base_url: &str,
     current_package: Option<&fpm::Package>,
 ) -> ftd::p1::Result<ftd::p2::Document> {
-    let mut s = ftd::interpret(name, source)?;
+    let mut s = ftd::interpret(name, source, &Some(lib.config.package.name.clone()))?;
 
     let mut packages_under_process = vec![current_package
         .map(|v| v.to_owned())
@@ -127,7 +127,7 @@ pub async fn parse2<'a>(
     base_url: &str,
     download_assets: bool,
 ) -> ftd::p1::Result<ftd::p2::Document> {
-    let mut s = ftd::interpret(name, source)?;
+    let mut s = ftd::interpret(name, source, &Some(lib.config.package.name.clone()))?;
 
     let document;
     loop {
@@ -616,7 +616,7 @@ pub fn parse_ftd(
     source: &str,
     lib: &fpm::FPMLibrary,
 ) -> ftd::p1::Result<ftd::p2::Document> {
-    let mut s = ftd::interpret(name, source)?;
+    let mut s = ftd::interpret(name, source, &None)?;
     let document;
     loop {
         match s {
