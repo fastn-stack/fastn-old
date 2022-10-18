@@ -579,7 +579,14 @@ impl Config {
             Ok(file)
         } else {
             let file_name = self.get_file_path_and_resolve(path).await?;
+            dbg!(&file_name);
+            // Here we get the package of the file
+            // Now we need to resolve the document from foreign sitemap
             let package = self.find_package_by_id(path).await?.1;
+            // Problem: this package did not contain sitemap, need to load sitemap here
+            dbg!(&package.sitemap.as_ref());
+
+            dbg!(&package.name);
             let mut file = fpm::get_file(
                 package.name.to_string(),
                 &self.root.join(file_name),
