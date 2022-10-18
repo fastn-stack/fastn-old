@@ -584,6 +584,11 @@ impl Config {
             // Now we need to resolve the document from foreign sitemap
             let package = self.find_package_by_id(path).await?.1;
             // Problem: this package did not contain sitemap, need to load sitemap here
+            // In the case of dependency package, sitemap is coming None
+            // If we can load sitemap at run time for dependency package so it will be easy
+            // for us to call resolve_document(), It will automatically parse the package sitemap
+            // and will give the path parameters
+            // TODO: Now how to load sitemap at dynamic time
             dbg!(&package.sitemap.as_ref());
 
             dbg!(&package.name);
