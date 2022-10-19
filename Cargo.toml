@@ -76,9 +76,9 @@ url = "2"
 # becasue they havent crated a release yet which fixes incompatibility with latest actix-http
 zip = { git = "https://github.com/zip-rs/zip" }
 
-wit-bindgen-host-wasmtime-rust = { git = "https://github.com/bytecodealliance/wit-bindgen.git" }
-fpm-utils = { git = "https://github.com/FifthTry/fpm-utils", rev="1519f8f"}
-# fpm-utils = { path = "../fpm-utils"}
+#wit-bindgen-host-wasmtime-rust = { git = "https://github.com/bytecodealliance/wit-bindgen.git" }
+#fpm-utils = { git = "https://github.com/FifthTry/fpm-utils", rev="1519f8f"}
+#fpm-utils = { path = "../fpm-utils"}
 
 [dependencies.hyper]
 version = "0.14"
@@ -95,7 +95,7 @@ features = ["http1", "server"]
 #
 # Once we are closer to release we will stop using this and adopot semver.
 git = "https://github.com/FifthTry/ftd"
-rev = "06ed458"
+rev = "d0694ed"
 
 # If you are testing fpm against local ftd, you can keep ftd and fpm checked out in
 # same folder and uncomment the next `path` line to use local ftd.

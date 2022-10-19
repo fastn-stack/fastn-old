@@ -13,6 +13,10 @@
 /// In above example, the id starts with `#` becomes the section. Similarly the id
 /// starts with `##` becomes the subsection and then the id starts with `-` becomes
 /// the table od content (TOC).
+
+// document and path-parameters
+type ResolveDocOutput = (Option<String>, Vec<(String, ftd::Value)>);
+
 #[derive(Debug, Clone, Default)]
 pub struct Sitemap {
     pub sections: Vec<Section>,
@@ -124,7 +128,15 @@ pub struct Section {
     pub skip: bool,
     pub readers: Vec<String>,
     pub writers: Vec<String>,
+    /// In FPM.ftd sitemap, we can use `document` for section, subsection and toc.
+    /// # Section: /books/
+    ///   document: /books/python/
     pub document: Option<String>,
+    /// If we can define dynamic `url` in section, subsection and toc of a sitemap.
+    /// `url: /books/<string:book_name>/<integer:price>/`
+    /// here book_name and price are path parameters
+    /// path_parameters: [(string, book_name), (integer, price)]
+    pub path_parameters: Vec<(String, String)>,
 }
 
 impl Section {
@@ -141,18 +153,35 @@ impl Section {
         false
     }
 
-    pub fn document(&self, path: &str) -> Option<String> {
-        if fpm::utils::ids_matches(self.id.as_str(), path) {
-            return self.document.clone();
+    // Input: /abrark/foo/28/
+    // Output: document: person.ftd, path-params: [(username, abrar), (age, 28)]
+
+    pub fn resolve_document(&self, path: &str) -> fpm::Result<ResolveDocOutput> {
+        // path: /abrark/foo/28/
+        // In sitemap url: /<string:username>/foo/<integer:age>/
+        if !self.path_parameters.is_empty() {
+            // path: /abrark/foo/28/
+            // request: abrark foo 28
+            // sitemap: [string,integer]
+            // params_matches: abrark -> string, foo -> foo, 28 -> integer
+
+            let params =
+                utils::parse_named_params(path, self.id.as_str(), self.path_parameters.as_slice());
+
+            if params.is_ok() {
+                return Ok((self.document.clone(), params?));
+            }
+        } else if fpm::utils::ids_matches(self.id.as_str(), path) {
+            return Ok((self.document.clone(), vec![]));
         }
 
         for subsection in self.subsections.iter() {
-            let document = subsection.document(path);
+            let (document, path_params) = subsection.resolve_document(path)?;
             if document.is_some() {
-                return document;
+                return Ok((document, path_params));
             }
         }
-        None
+        Ok((None, vec![]))
     }
 
     /// returns the file id portion of the url only in case
@@ -181,6 +210,9 @@ pub struct Subsection {
     pub readers: Vec<String>,
     pub writers: Vec<String>,
     pub document: Option<String>,
+    /// /books/<string:book_name>/
+    /// here book_name is path parameter
+    pub path_parameters: Vec<(String, String)>,
 }
 
 impl Default for Subsection {
@@ -199,6 +231,7 @@ impl Default for Subsection {
             readers: vec![],
             writers: vec![],
             document: None,
+            path_parameters: vec![],
         }
     }
 }
@@ -224,21 +257,34 @@ impl Subsection {
 
     /// path: /foo/demo/
     /// path: /
-    fn document(&self, path: &str) -> Option<String> {
-        if let Some(id) = self.id.as_ref() {
+    fn resolve_document(&self, path: &str) -> fpm::Result<ResolveDocOutput> {
+        if !self.path_parameters.is_empty() {
+            // path: /arpita/foo/28/
+            // request: arpita foo 28
+            // sitemap: [string,integer]
+            // Mapping: arpita -> string, foo -> foo, 28 -> integer
+            if let Some(id) = self.id.as_ref() {
+                let params =
+                    utils::parse_named_params(path, id.as_str(), self.path_parameters.as_slice());
+
+                if params.is_ok() {
+                    return Ok((self.document.clone(), params?));
+                }
+            }
+        } else if let Some(id) = self.id.as_ref() {
             if fpm::utils::ids_matches(path, id.as_str()) {
-                return self.document.clone();
+                return Ok((self.document.clone(), vec![]));
             }
         }
 
         for toc in self.toc.iter() {
-            let document = toc.document(path);
+            let (document, path_params) = toc.resolve_document(path)?;
             if document.is_some() {
-                return document;
+                return Ok((document, path_params));
             }
         }
 
-        None
+        Ok((None, vec![]))
     }
 
     /// returns the file id portion of the url only in case
@@ -264,6 +310,9 @@ pub struct TocItem {
     pub readers: Vec<String>,
     pub writers: Vec<String>,
     pub document: Option<String>,
+    /// /books/<string:book_name>/
+    /// here book_name is path parameter
+    pub path_parameters: Vec<(String, String)>,
 }
 
 impl TocItem {
@@ -285,18 +334,29 @@ impl TocItem {
 
     /// path: /foo/demo/
     /// path: /
-    pub fn document(&self, path: &str) -> Option<String> {
-        if fpm::utils::ids_matches(self.id.as_str(), path) {
-            return self.document.clone();
+    pub fn resolve_document(&self, path: &str) -> fpm::Result<ResolveDocOutput> {
+        if !self.path_parameters.is_empty() {
+            // path: /arpita/foo/28/
+            // request: arpita foo 28
+            // sitemap: [string,integer]
+            // Mapping: arpita -> string, foo -> foo, 28 -> integer
+            let params =
+                utils::parse_named_params(path, self.id.as_str(), self.path_parameters.as_slice());
+
+            if params.is_ok() {
+                return Ok((self.document.clone(), params?));
+            }
+        } else if fpm::utils::ids_matches(self.id.as_str(), path) {
+            return Ok((self.document.clone(), vec![]));
         }
 
         for child in self.children.iter() {
-            let document = child.document(path);
+            let (document, path_prams) = child.resolve_document(path)?;
             if document.is_some() {
-                return document;
+                return Ok((document, path_prams));
             }
         }
-        None
+        Ok((None, vec![]))
     }
 
     /// returns the file id portion of the url only in case
@@ -489,6 +549,29 @@ impl SitemapElement {
             SitemapElement::TocItem(s) => Some(s.id.clone()),
         }
     }
+
+    // If url contains path parameters so it will set those parameters
+    // /person/<string:username>/<integer:age>
+    // In that case it will parse and set parameters `username` and `age`
+    pub(crate) fn set_path_params(&mut self, url: &str) {
+        let params = utils::parse_path_params(url);
+
+        if !params.is_empty() {
+            self.set_skip(true);
+        }
+
+        match self {
+            SitemapElement::Section(s) => {
+                s.path_parameters = params;
+            }
+            SitemapElement::Subsection(s) => {
+                s.path_parameters = params;
+            }
+            SitemapElement::TocItem(t) => {
+                t.path_parameters = params;
+            }
+        }
+    }
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -544,9 +627,11 @@ impl SitemapParser {
         // - Prefix/suffix item
         // - Separator
         // - ToC item
+
         if line.trim().is_empty() {
             return Ok(());
         }
+
         let mut iter = line.chars();
         let mut depth = 0;
         let mut rest = "".to_string();
@@ -593,7 +678,7 @@ impl SitemapParser {
                 }
                 Some(k) => {
                     let l = format!("{}{}", k, iter.collect::<String>());
-                    self.read_attrs(l.as_str(), global_ids)?;
+                    self.parse_attrs(l.as_str(), global_ids)?;
                     return Ok(());
                     // panic!()
                 }
@@ -716,7 +801,7 @@ impl SitemapParser {
         self.temp_item = None;
         Ok(())
     }
-    fn read_attrs(
+    fn parse_attrs(
         &mut self,
         line: &str,
         global_ids: &std::collections::HashMap<String, String>,
@@ -736,6 +821,7 @@ impl SitemapParser {
                             if i.get_title().is_none() {
                                 i.set_title(id);
                             }
+                            i.set_path_params(v);
                         } else if k.eq("id") {
                             // Fetch link corresponding to the id from global_ids map
                             let link = global_ids.get(v).ok_or_else(|| ParseError::InvalidID {
@@ -1673,6 +1759,8 @@ impl Sitemap {
 
     /// path: /foo/demo/
     /// path: /
+    /// `path` matches to sitemap.id or not
+    // TODO: possibly not required just call self.resolve_path(&self, path: &str).is_some()
     pub fn path_exists(&self, path: &str) -> bool {
         for section in self.sections.iter() {
             if section.path_exists(path) {
@@ -1684,14 +1772,15 @@ impl Sitemap {
 
     /// path: foo/temp/
     /// path: /
-    pub fn document(&self, path: &str) -> Option<String> {
+    // TODO: If nothing is found return 404, Handle 404 Errors
+    pub fn resolve_document(&self, path: &str) -> fpm::Result<ResolveDocOutput> {
         for section in self.sections.iter() {
-            let document = section.document(path);
+            let (document, path_params) = section.resolve_document(path)?;
             if document.is_some() {
-                return document;
+                return Ok((document, path_params));
             }
         }
-        None
+        Ok((None, vec![]))
     }
 }
 
@@ -1815,4 +1904,217 @@ fn construct_tree(elements: Vec<(TocItem, usize)>, smallest_level: usize) -> Vec
         stack_tree.push(node);
     }
     stack_tree
+}
+
+mod utils {
+
+    // # Input
+    // request_url: /arpita/foo/28/
+    // sitemap_url: /<string:username>/foo/<integer:age>/
+    // params_types: [(string, username), (integer, age)]
+    // # Output
+    // true
+
+    pub fn parse_named_params(
+        request_url: &str,
+        sitemap_url: &str,
+        params_type: &[(String, String)],
+    ) -> fpm::Result<Vec<(String, ftd::Value)>> {
+        use itertools::Itertools;
+        // request_attrs: [arpita, foo, 28]
+        let request_attrs = request_url.trim_matches('/').split('/').collect_vec();
+        // sitemap_attrs: [<string:username>, foo, <integer:age>]
+        let sitemap_attrs = sitemap_url.trim_matches('/').split('/').collect_vec();
+
+        // This should go to config request [username: arpita, age: 28]
+
+        if request_attrs.len().ne(&sitemap_attrs.len()) {
+            return Err(fpm::Error::GenericError("".to_string()));
+        }
+
+        // [(param_name, value)]
+        let mut path_parameters: Vec<(String, ftd::Value)> = vec![];
+
+        // For every element either value should match or request attribute type should match to
+        // sitemap's params_types
+        let mut type_matches_count = 0;
+        for idx in 0..request_attrs.len() {
+            // either value match or type match
+            let value_match = request_attrs[idx].eq(sitemap_attrs[idx]);
+            if value_match {
+                continue;
+            }
+
+            let parsed_value = {
+                // request's attribute value type == type stored in sitemap:params_type
+                let attribute_value = request_attrs[idx];
+                assert!(params_type.len() > type_matches_count);
+                let attribute_type = &params_type[type_matches_count].0;
+                dbg!(&attribute_value, attribute_type);
+                value_parse_to_type(attribute_value, attribute_type)
+            };
+            match parsed_value {
+                Ok(value) => {
+                    let attribute_name = params_type[type_matches_count].1.to_string();
+                    path_parameters.push((attribute_name, value));
+                }
+                Err(e) => return Err(fpm::Error::GenericError(e.to_string())),
+            };
+
+            type_matches_count += 1;
+        }
+        return Ok(path_parameters);
+
+        fn value_parse_to_type(value: &str, r#type: &str) -> fpm::Result<ftd::Value> {
+            match r#type {
+                "string" => Ok(ftd::Value::String {
+                    text: value.to_string(),
+                    source: ftd::TextSource::Default,
+                }),
+                "integer" => {
+                    let value = value.parse::<i64>()?;
+                    Ok(ftd::Value::Integer { value })
+                }
+                "decimal" => {
+                    let value = value.parse::<f64>()?;
+                    Ok(ftd::Value::Decimal { value })
+                }
+                "boolean" => {
+                    let value = value.parse::<bool>()?;
+                    Ok(ftd::Value::Boolean { value })
+                }
+                _ => unimplemented!(),
+            }
+        }
+    }
+
+    // url: /<string:username>/<integer:age>/ => [("string", "username"), ("integer", "age")]
+    pub fn parse_path_params(url: &str) -> Vec<(String, String)> {
+        fn path_params_regex() -> &'static regex::Regex {
+            static PP: once_cell::sync::OnceCell<regex::Regex> = once_cell::sync::OnceCell::new();
+            PP.get_or_init(|| {
+                regex::Regex::new(r"<\s*([a-z]\w+)\s*:\s*([a-z|A-Z|0-9|_]\w+)\s*>")
+                    .expect("PATH_PARAMS: Regex is wrong")
+            })
+        }
+
+        path_params_regex()
+            .captures_iter(url)
+            .into_iter()
+            .map(|params| (params[1].to_string(), params[2].to_string()))
+            .collect::<Vec<_>>()
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use ftd::TextSource;
+
+        #[test]
+        fn parse_path_params_test_1() {
+            let output = super::parse_path_params("/<string:username>/<integer:age>/");
+            let test_output = vec![
+                ("string".to_string(), "username".to_string()),
+                ("integer".to_string(), "age".to_string()),
+            ];
+            assert_eq!(test_output, output)
+        }
+
+        #[test]
+        fn parse_path_params_test_2() {
+            let output = super::parse_path_params("/< string: username >/< integer: age >/");
+            let test_output = vec![
+                ("string".to_string(), "username".to_string()),
+                ("integer".to_string(), "age".to_string()),
+            ];
+            assert_eq!(test_output, output)
+        }
+
+        #[test]
+        fn parse_named_params() {
+            let output = super::parse_named_params(
+                "/arpita/foo/28/",
+                "/<string:username>/foo/<integer:age>/",
+                &vec![
+                    ("string".to_string(), "username".to_string()),
+                    ("integer".to_string(), "age".to_string()),
+                ],
+            );
+
+            assert_eq!(
+                output.unwrap(),
+                vec![
+                    (
+                        "username".to_string(),
+                        ftd::Value::String {
+                            text: "arpita".to_string(),
+                            source: TextSource::Default
+                        }
+                    ),
+                    ("age".to_string(), ftd::Value::Integer { value: 28 })
+                ]
+            )
+        }
+
+        #[test]
+        fn parse_named_params_1() {
+            // Input:
+            // request_url: /arpita/foo/28/
+            // sitemap_url: /<string:username>/foo/<integer:age>/
+            // params_types: [(string, username), (integer, age)]
+            // Output: true
+            // Reason: Everything is matching
+
+            let output = super::parse_named_params(
+                "/arpita/foo/28/",
+                "/<string:username>/foo/<integer:age>/",
+                &vec![
+                    ("string".to_string(), "username".to_string()),
+                    ("integer".to_string(), "age".to_string()),
+                ],
+            );
+
+            assert_eq!(output.is_ok(), true)
+        }
+
+        #[test]
+        fn parse_named_params_2() {
+            // Input:
+            // request_url: /arpita/foo/28/
+            // sitemap_url: /<integer:username>/foo/<integer:age>/
+            // params_types: [(integer, username), (integer, age)]
+            // Output: false
+            // Reason: `arpita` can not be converted into `integer`
+            let output = super::parse_named_params(
+                "/arpita/foo/28/",
+                "/<integer:username>/foo/<integer:age>/",
+                &vec![
+                    ("integer".to_string(), "username".to_string()),
+                    ("integer".to_string(), "age".to_string()),
+                ],
+            );
+
+            assert_eq!(output.is_ok(), false)
+        }
+
+        #[test]
+        fn parse_named_params_3() {
+            // Input:
+            // request_url: /arpita/foo/
+            // sitemap_url: /<string:username>/foo/<integer:age>/
+            // params_types: [(string, username), (integer, age)]
+            // Output: false
+            // Reason: There is nothing to match in request_url after `foo`
+            //         against with sitemap_url `<integer:age>`
+            let output = super::parse_named_params(
+                "/arpita/foo/",
+                "/<string:username>/foo/<integer:age>/",
+                &vec![
+                    ("string".to_string(), "username".to_string()),
+                    ("integer".to_string(), "age".to_string()),
+                ],
+            );
+
+            assert_eq!(output.is_ok(), false)
+        }
+    }
 }

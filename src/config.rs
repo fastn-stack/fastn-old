@@ -3,15 +3,18 @@
 
 #[derive(Debug, Clone)]
 pub struct Config {
+    // Global Information
     pub package: Package,
     pub root: camino::Utf8PathBuf,
     pub packages_root: camino::Utf8PathBuf,
     pub original_directory: camino::Utf8PathBuf,
-    pub extra_data: serde_json::Map<String, serde_json::Value>,
-    pub current_document: Option<String>,
     pub all_packages: std::cell::RefCell<std::collections::BTreeMap<String, Package>>,
     pub downloaded_assets: std::collections::BTreeMap<String, String>,
     pub global_ids: std::collections::HashMap<String, String>,
+    // Related to current request, or per request
+    pub extra_data: serde_json::Map<String, serde_json::Value>,
+    pub path_parameters: Vec<(String, ftd::Value)>,
+    pub current_document: Option<String>,
     pub request: Option<fpm::http::Request>, // TODO: It should only contain reference
 }
 
@@ -557,7 +560,12 @@ impl Config {
     }
 
     pub async fn get_file_and_package_by_id(&mut self, path: &str) -> fpm::Result<fpm::File> {
-        if let Some(id) = self.package.sitemap.as_ref().and_then(|x| x.document(path)) {
+        let (document, path_params) = match self.package.sitemap.as_ref() {
+            Some(sitemap) => sitemap.resolve_document(path)?,
+            None => (None, vec![]),
+        };
+
+        if let Some(id) = document {
             let file_name = self.get_file_path_and_resolve(id.as_str()).await?;
             let package = self.find_package_by_id(id.as_str()).await?.1;
             let file = fpm::get_file(
@@ -567,6 +575,7 @@ impl Config {
             )
             .await?;
             self.current_document = Some(path.to_string());
+            self.path_parameters = path_params;
             Ok(file)
         } else {
             let file_name = self.get_file_path_and_resolve(path).await?;
@@ -1129,6 +1138,7 @@ impl Config {
             downloaded_assets: Default::default(),
             global_ids: Default::default(),
             request: None,
+            path_parameters: vec![],
         };
 
         let asset_documents = config.get_assets().await?;
