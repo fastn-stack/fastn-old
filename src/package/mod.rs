@@ -38,6 +38,10 @@ pub struct Package {
     /// corresponding to structure.
     pub sitemap: Option<fpm::sitemap::Sitemap>,
     pub sitemap_temp: Option<fpm::sitemap::SitemapTemp>,
+
+    pub dynamic_urls: Option<fpm::sitemap::DynamicUrls>,
+    pub dynamic_urls_temp: Option<fpm::sitemap::DynamicUrlsTemp>,
+
     /// Optional path for favicon icon to be used.
     ///
     /// By default if any file favicon.* is present in package and favicon is not specified
@@ -52,6 +56,9 @@ pub struct Package {
 
     /// Attribute to define the usage of a WASM backend
     pub backend: bool,
+
+    /// Headers for the WASM backend
+    pub backend_headers: Option<Vec<BackendHeader>>,
 }
 
 impl Package {
@@ -76,9 +83,12 @@ impl Package {
             groups: std::collections::BTreeMap::new(),
             sitemap_temp: None,
             sitemap: None,
+            dynamic_urls: None,
+            dynamic_urls_temp: None,
             favicon: None,
             endpoint: None,
             backend: false,
+            backend_headers: None,
         }
     }
 
@@ -506,8 +516,46 @@ impl Package {
         package.resolve(&file_extract_path).await?;
         Ok(package)
     }
+
+    pub fn from_fpm_doc(fpm_doc: &ftd::p2::Document) -> fpm::Result<Package> {
+        let temp_package: Option<PackageTemp> = fpm_doc.get("fpm#package")?;
+
+        match temp_package {
+            Some(v) => Ok(v.into_package()),
+            None => Err(fpm::Error::PackageError {
+                message: "FPM.ftd does not contain package definition".to_string(),
+            }),
+        }
+    }
+
+    pub fn get_all_mountpoints(&self) -> Vec<(&str, &str)> {
+        self.dependencies
+            .iter()
+            .fold(&mut vec![], |accumulator, dep| {
+                if let Some(mp) = &dep.mountpoint {
+                    accumulator.push((
+                        mp.as_str(),
+                        dep.package
+                            .name
+                            .as_str()
+                            .trim_start_matches('/')
+                            .trim_end_matches('/'),
+                    ))
+                }
+                accumulator
+            })
+            .to_owned()
+    }
 }
 
+/// Backend Header is a struct that is used to read and store the backend-header from the FPM.ftd file
+#[derive(serde::Deserialize, Debug, Clone)]
+pub struct BackendHeader {
+    #[serde(rename = "header-key")]
+    pub header_key: String,
+    #[serde(rename = "header-value")]
+    pub header_value: String,
+}
 /// PackageTemp is a struct that is used for mapping the `fpm.package` data in FPM.ftd file. It is
 /// not used elsewhere in program, it is immediately converted to `fpm::Package` struct during
 /// deserialization process
@@ -535,6 +583,8 @@ pub(crate) struct PackageTemp {
     pub endpoint: Option<String>,
     #[serde(rename = "backend")]
     pub backend: bool,
+    #[serde(rename = "backend-headers")]
+    pub backend_headers: Option<Vec<BackendHeader>>,
 }
 
 impl PackageTemp {
@@ -570,9 +620,12 @@ impl PackageTemp {
             groups: std::collections::BTreeMap::new(),
             sitemap: None,
             sitemap_temp: None,
+            dynamic_urls: None,
+            dynamic_urls_temp: None,
             favicon: self.favicon,
             endpoint: self.endpoint,
             backend: self.backend,
+            backend_headers: self.backend_headers,
         }
     }
 }

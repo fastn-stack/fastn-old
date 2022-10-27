@@ -168,6 +168,7 @@ async fn serve(req: fpm::http::Request) -> fpm::Result<fpm::http::Response> {
         // So final check would be file is not static and path is not present in the package's sitemap
         if !path.starts_with("-/") {
             if let Some(sitemap) = config.package.sitemap.as_ref() {
+                // TODO: Check if path exists in dynamic urls also, otherwise pass to endpoint
                 if !sitemap.path_exists(path.as_str()) {
                     if let Some(endpoint) = config.package.endpoint.as_ref() {
                         let req = if let Some(r) = config.request {
@@ -182,21 +183,27 @@ async fn serve(req: fpm::http::Request) -> fpm::Result<fpm::http::Response> {
             }
         }
 
-        serve_file(&mut config, path.as_path()).await
+        let file_response = serve_file(&mut config, path.as_path()).await;
         // Fallback to WASM execution in case of no sucessful response
         // TODO: This is hacky. Use the sitemap eventually.
-        // if file_response.status() == actix_web::http::StatusCode::NOT_FOUND {
-        //     let package = config.find_package_by_id(path.as_str()).await.unwrap().1;
-        //     let wasm_module = config.get_root_for_package(&package).join("backend.wasm");
-        //     let req = if let Some(r) = config.request {
-        //         r
-        //     } else {
-        //         return Ok(fpm::server_error!("request not set"));
-        //     };
-        //     // fpm::wasm::handle_wasm(req, wasm_module).await
-        // } else {
-        //     file_response
-        // }
+        if file_response.status() == actix_web::http::StatusCode::NOT_FOUND {
+            let package = config.find_package_by_id(path.as_str()).await.unwrap().1;
+            let wasm_module = config.get_root_for_package(&package).join("backend.wasm");
+            // Set the temp path to and do `get_file_and_package_by_id` to retrieve the backend.wasm
+            // File for the particular dependency package
+            let wasm_module_path = format!("-/{}/backend.wasm", package.name,);
+            config
+                .get_file_and_package_by_id(wasm_module_path.as_str())
+                .await?;
+            let req = if let Some(r) = config.request {
+                r
+            } else {
+                return Ok(fpm::server_error!("request not set"));
+            };
+            fpm::wasm::handle_wasm(req, wasm_module, config.package.backend_headers).await
+        } else {
+            file_response
+        }
         // file_response
 
         // if true: serve_file

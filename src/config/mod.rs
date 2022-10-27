@@ -561,9 +561,34 @@ impl Config {
         Ok(file)
     }
 
+    pub fn get_mountpoint_sanitized_path(&self, path: &str) -> String {
+        if let Some((mp, dep)) = self
+            .package
+            .get_all_mountpoints()
+            .iter()
+            .find(|(mp, _)| path.starts_with(mp.trim_start_matches('/')))
+        {
+            let new_path = path.trim_start_matches(mp.trim_start_matches('/'));
+            format!("-/{dep}/{new_path}")
+        } else {
+            path.to_string()
+        }
+    }
+
     pub async fn get_file_and_package_by_id(&mut self, path: &str) -> fpm::Result<fpm::File> {
+        // Sanitize the mountpoint request.
+        let sanitized_path = self.get_mountpoint_sanitized_path(path);
+        let path = sanitized_path.as_str();
         let (document, path_params) = match self.package.sitemap.as_ref() {
-            Some(sitemap) => sitemap.resolve_document(path)?,
+            //1. First resolve document in sitemap
+            Some(sitemap) => match sitemap.resolve_document(path) {
+                Some(document) => (Some(document), vec![]),
+                //2.  Else resolve document in dynamic urls
+                None => match self.package.dynamic_urls.as_ref() {
+                    Some(dynamic_urls) => dynamic_urls.resolve_document(path)?,
+                    None => (None, vec![]),
+                },
+            },
             None => (None, vec![]),
         };
 
@@ -745,6 +770,8 @@ impl Config {
 
     /// Return (package name or alias, package)
     pub(crate) async fn find_package_by_id(&self, id: &str) -> fpm::Result<(String, fpm::Package)> {
+        let sanitized_id = self.get_mountpoint_sanitized_path(id);
+        let id = sanitized_id.as_str();
         let id = if let Some(id) = id.strip_prefix("-/") {
             id
         } else {
@@ -1075,16 +1102,7 @@ impl Config {
         };
 
         let mut package = {
-            let temp_package: Option<fpm::package::PackageTemp> = fpm_doc.get("fpm#package")?;
-            let mut package = match temp_package {
-                Some(v) => v.into_package(),
-                None => {
-                    return Err(fpm::Error::PackageError {
-                        message: "FPM.ftd does not contain package definition".to_string(),
-                    })
-                }
-            };
-
+            let mut package = fpm::Package::from_fpm_doc(&fpm_doc)?;
             if package.name != fpm::FPM_UI_INTERFACE
                 && !deps
                     .iter()
@@ -1097,6 +1115,7 @@ impl Config {
                     alias: None,
                     implements: Vec::new(),
                     endpoint: None,
+                    mountpoint: None,
                 });
             };
             package.fpm_path = Some(root.join("FPM.ftd"));
@@ -1112,6 +1131,7 @@ impl Config {
             package.ignored_paths = fpm_doc.get::<Vec<String>>("fpm#ignore")?;
             package.fonts = fpm_doc.get("fpm#font")?;
             package.sitemap_temp = fpm_doc.get("fpm#sitemap")?;
+            package.dynamic_urls_temp = fpm_doc.get("fpm#dynamic-urls")?;
             package
         };
 
@@ -1178,6 +1198,18 @@ impl Config {
                     s.writers = sitemap_temp.writers.clone();
                     Some(s)
                 }
+                None => None,
+            }
+        };
+
+        // Handling of `-- fpm.dynamic-urls:`
+        config.package.dynamic_urls = {
+            match &package.dynamic_urls_temp {
+                Some(urls_temp) => Some(fpm::sitemap::DynamicUrls::parse(
+                    &config.global_ids,
+                    &package.name,
+                    urls_temp.body.as_str(),
+                )?),
                 None => None,
             }
         };
