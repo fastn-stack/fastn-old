@@ -12,7 +12,7 @@ pub(crate) async fn view_source(req: &fpm::http::Request) -> fpm::http::Response
         path
     };
 
-    match handle_view_source(path.as_str()).await {
+    match handle_view_source(req, path.as_str()).await {
         Ok(body) => fpm::http::ok(body),
         Err(e) => {
             fpm::server_error!("new_path: {}, Error: {:?}", path, e)
@@ -20,8 +20,8 @@ pub(crate) async fn view_source(req: &fpm::http::Request) -> fpm::http::Response
     }
 }
 
-async fn handle_view_source(path: &str) -> fpm::Result<Vec<u8>> {
-    let mut config = fpm::Config::read(None, false).await?;
+async fn handle_view_source(req: &fpm::http::Request, path: &str) -> fpm::Result<Vec<u8>> {
+    let mut config = fpm::Config::read(None, false, Some(req)).await?;
     let file_name = config.get_file_path_and_resolve(path).await?;
     let file = config.get_file_and_package_by_id(path).await?;
 
@@ -36,7 +36,7 @@ async fn handle_view_source(path: &str) -> fpm::Result<Vec<u8>> {
                 parent_path: config.root.as_str().to_string(),
                 package_name: config.package.name.clone(),
             };
-            fpm::package_doc::read_ftd(&mut config, &main_document, "/", false).await
+            fpm::package::package_doc::read_ftd(&mut config, &main_document, "/", false).await
         }
         fpm::File::Static(ref file) | fpm::File::Image(ref file) => Ok(file.content.to_owned()),
     }

@@ -7,51 +7,50 @@ pub mod utils;
 mod apis;
 mod auto_import;
 mod cache;
-mod commands;
+pub mod commands;
 mod config;
 mod controller;
 mod cr;
-mod dependency;
 mod doc;
 mod file;
 mod font;
 mod history;
+mod package;
 #[macro_use]
 mod http;
 mod error;
 mod i18n;
 pub mod library;
-mod package_doc;
 mod proxy;
 mod render;
-mod sitemap;
+pub mod sitemap;
 mod snapshot;
 mod sync_utils;
 mod track;
 mod tracker;
 mod translation;
-mod user_group;
 mod version;
-// mod wasm;
+mod wasm;
 mod workspace;
 
 pub(crate) use auto_import::AutoImport;
 pub use commands::{
     abort_merge::abort_merge, add::add, build::build, clone::clone, close_cr::close_cr,
-    create_cr::create_cr, diff::diff, edit::edit, mark_resolve::mark_resolve,
-    mark_upto_date::mark_upto_date, merge::merge, resolve_conflict::resolve_conflict,
-    revert::revert, rm::rm, serve::listen, start_project::start_project,
-    start_tracking::start_tracking, status::status, stop_tracking::stop_tracking, sync2::sync2,
-    sync_status::sync_status, translation_status::translation_status, update::update,
+    create_cr::create_cr, create_package::create_package, diff::diff, edit::edit,
+    mark_resolved::mark_resolved, mark_upto_date::mark_upto_date, merge::merge,
+    resolve_conflict::resolve_conflict, revert::revert, rm::rm, serve::listen,
+    start_tracking::start_tracking, status::status, sync2::sync2,
+    translation_status::translation_status, update::update,
 };
 pub use config::Config;
-pub(crate) use config::Package;
-pub(crate) use dependency::Dependency;
 pub use error::Error;
 pub use file::File;
 pub(crate) use file::{get_file, paths_to_files, Document, Static};
 pub(crate) use font::Font;
 pub use library::{FPMLibrary, Library, Library2};
+pub(crate) use package::dependency::Dependency;
+pub use package::user_group;
+pub(crate) use package::Package;
 pub use render::render;
 pub(crate) use snapshot::Snapshot;
 pub(crate) use tracker::Track;
@@ -487,6 +486,19 @@ fn get_messages(status: &fpm::TranslatedDocument, config: &fpm::Config) -> fpm::
             }
         }
     })
+}
+
+pub fn get_env_ftd_file() -> String {
+    std::env::vars()
+        .into_iter()
+        .filter(|(key, val)| {
+            vec!["CARGO", "VERGEN", "FPM"]
+                .iter()
+                .any(|prefix| !key.is_empty() && key.starts_with(prefix) && !val.is_empty())
+        })
+        .fold(String::new(), |accumulator, (key, value)| {
+            format!("{accumulator}\n-- string {key}: {value}")
+        })
 }
 
 pub fn debug_env_vars() -> String {

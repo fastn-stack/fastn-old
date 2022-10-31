@@ -58,12 +58,12 @@ pub struct Request {
     headers: reqwest::header::HeaderMap,
     query: std::collections::HashMap<String, serde_json::Value>,
     body: actix_web::web::Bytes,
+    ip: Option<String>,
     // path_params: Vec<(String, )>
 }
 
 impl Request {
     //pub fn get_named_params() -> {}
-
     pub fn from_actix(req: actix_web::HttpRequest, body: actix_web::web::Bytes) -> Self {
         let headers = {
             let mut headers = reqwest::header::HeaderMap::new();
@@ -86,6 +86,7 @@ impl Request {
                     req.query_string(),
                 ).unwrap().0
             },
+            ip: req.peer_addr().map(|x| x.ip().to_string()),
         };
 
         fn get_cookies(
@@ -162,6 +163,20 @@ impl Request {
         &self.cookies
     }
 
+    pub fn cookies_string(&self) -> Option<String> {
+        if self.cookies.is_empty() {
+            return None;
+        }
+        Some(
+            self.cookies()
+                .iter()
+                // TODO: check if extra escaping is needed
+                .map(|(k, v)| format!("{}={}", k, v).replace(';', "%3B"))
+                .collect::<Vec<_>>()
+                .join(";"),
+        )
+    }
+
     pub fn cookie(&self, name: &str) -> Option<String> {
         self.cookies().get(name).map(|v| v.to_string())
     }
@@ -183,6 +198,10 @@ impl Request {
 
     pub fn query(&self) -> &std::collections::HashMap<String, serde_json::Value> {
         &self.query
+    }
+
+    pub fn get_ip(&self) -> Option<String> {
+        self.ip.clone()
     }
 }
 
@@ -290,11 +309,25 @@ pub(crate) async fn post_json<T: serde::de::DeserializeOwned, B: Into<reqwest::B
 }
 
 pub(crate) async fn http_get(url: &str) -> fpm::Result<Vec<u8>> {
+    http_get_with_cookie(url, None).await
+}
+
+pub(crate) async fn http_get_with_cookie(
+    url: &str,
+    cookie: Option<String>,
+) -> fpm::Result<Vec<u8>> {
     let mut headers = reqwest::header::HeaderMap::new();
     headers.insert(
         reqwest::header::USER_AGENT,
         reqwest::header::HeaderValue::from_static("fpm"),
     );
+    if let Some(cookie) = cookie {
+        headers.insert(
+            reqwest::header::COOKIE,
+            reqwest::header::HeaderValue::from_str(cookie.as_str()).unwrap(),
+        );
+    }
+
     let c = reqwest::Client::builder()
         .default_headers(headers)
         .build()?;

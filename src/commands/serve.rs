@@ -30,7 +30,7 @@ async fn serve_file(config: &mut fpm::Config, path: &camino::Utf8Path) -> fpm::h
 
     match f {
         fpm::File::Ftd(main_document) => {
-            match fpm::package_doc::read_ftd(config, &main_document, "/", false).await {
+            match fpm::package::package_doc::read_ftd(config, &main_document, "/", false).await {
                 Ok(r) => fpm::http::ok(r),
                 Err(e) => {
                     fpm::server_error!("FPM-Error: path: {}, {:?}", path, e)
@@ -81,7 +81,7 @@ async fn serve_cr_file(
     config.current_document = Some(f.get_id());
     match f {
         fpm::File::Ftd(main_document) => {
-            match fpm::package_doc::read_ftd(config, &main_document, "/", false).await {
+            match fpm::package::package_doc::read_ftd(config, &main_document, "/", false).await {
                 Ok(r) => fpm::http::ok(r),
                 Err(e) => {
                     fpm::server_error!("FPM-Error: path: {}, {:?}", path, e)
@@ -139,21 +139,22 @@ async fn serve(req: fpm::http::Request) -> fpm::Result<fpm::http::Response> {
     let response = if path.eq(&favicon) {
         static_file(favicon).await
     } else if path.eq(&camino::Utf8PathBuf::new().join("FPM.ftd")) {
-        let config = fpm::time("Config::read()").it(fpm::Config::read(None, false).await.unwrap());
+        let config = fpm::time("Config::read()")
+            .it(fpm::Config::read(None, false, Some(&req)).await.unwrap());
         serve_fpm_file(&config).await
     } else if path.eq(&camino::Utf8PathBuf::new().join("")) {
         let mut config = fpm::time("Config::read()")
-            .it(fpm::Config::read(None, false).await.unwrap())
+            .it(fpm::Config::read(None, false, Some(&req)).await.unwrap())
             .set_request(req);
         serve_file(&mut config, &path.join("/")).await
     } else if let Some(cr_number) = fpm::cr::get_cr_path_from_url(path.as_str()) {
-        let mut config =
-            fpm::time("Config::read()").it(fpm::Config::read(None, false).await.unwrap());
+        let mut config = fpm::time("Config::read()")
+            .it(fpm::Config::read(None, false, Some(&req)).await.unwrap());
         serve_cr_file(&req, &mut config, &path, cr_number).await
     } else {
         // url is present in config or not
         // If not present than proxy pass it
-        let mut config = fpm::time("Config::read()").it(fpm::Config::read(None, false)
+        let mut config = fpm::time("Config::read()").it(fpm::Config::read(None, false, Some(&req))
             .await
             .unwrap()
             .set_request(req));
@@ -167,6 +168,7 @@ async fn serve(req: fpm::http::Request) -> fpm::Result<fpm::http::Response> {
         // So final check would be file is not static and path is not present in the package's sitemap
         if !path.starts_with("-/") {
             if let Some(sitemap) = config.package.sitemap.as_ref() {
+                // TODO: Check if path exists in dynamic urls also, otherwise pass to endpoint
                 if !sitemap.path_exists(path.as_str()) {
                     if let Some(endpoint) = config.package.endpoint.as_ref() {
                         let req = if let Some(r) = config.request {
@@ -181,21 +183,27 @@ async fn serve(req: fpm::http::Request) -> fpm::Result<fpm::http::Response> {
             }
         }
 
-        serve_file(&mut config, path.as_path()).await
+        let file_response = serve_file(&mut config, path.as_path()).await;
         // Fallback to WASM execution in case of no sucessful response
         // TODO: This is hacky. Use the sitemap eventually.
-        // if file_response.status() == actix_web::http::StatusCode::NOT_FOUND {
-        //     let package = config.find_package_by_id(path.as_str()).await.unwrap().1;
-        //     let wasm_module = config.get_root_for_package(&package).join("backend.wasm");
-        //     let req = if let Some(r) = config.request {
-        //         r
-        //     } else {
-        //         return Ok(fpm::server_error!("request not set"));
-        //     };
-        //     // fpm::wasm::handle_wasm(req, wasm_module).await
-        // } else {
-        //     file_response
-        // }
+        if file_response.status() == actix_web::http::StatusCode::NOT_FOUND {
+            let package = config.find_package_by_id(path.as_str()).await.unwrap().1;
+            let wasm_module = config.get_root_for_package(&package).join("backend.wasm");
+            // Set the temp path to and do `get_file_and_package_by_id` to retrieve the backend.wasm
+            // File for the particular dependency package
+            let wasm_module_path = format!("-/{}/backend.wasm", package.name,);
+            config
+                .get_file_and_package_by_id(wasm_module_path.as_str())
+                .await?;
+            let req = if let Some(r) = config.request {
+                r
+            } else {
+                return Ok(fpm::server_error!("request not set"));
+            };
+            fpm::wasm::handle_wasm(req, wasm_module, config.package.backend_headers).await
+        } else {
+            file_response
+        }
         // file_response
 
         // if true: serve_file
@@ -228,17 +236,17 @@ pub async fn clear_cache(req: fpm::http::Request) -> fpm::Result<fpm::http::Resp
 // TODO: Move them to routes folder
 async fn sync(req: fpm::http::Request) -> fpm::Result<fpm::http::Response> {
     let _lock = LOCK.write().await;
-    fpm::apis::sync(req.json()?).await
+    fpm::apis::sync(&req, req.json()?).await
 }
 
 async fn sync2(req: fpm::http::Request) -> fpm::Result<fpm::http::Response> {
     let _lock = LOCK.write().await;
-    fpm::apis::sync2(req.json()?).await
+    fpm::apis::sync2(&req, req.json()?).await
 }
 
-pub async fn clone() -> fpm::Result<fpm::http::Response> {
+pub async fn clone(req: fpm::http::Request) -> fpm::Result<fpm::http::Response> {
     let _lock = LOCK.read().await;
-    fpm::apis::clone().await
+    fpm::apis::clone(req).await
 }
 
 pub(crate) async fn view_source(req: fpm::http::Request) -> fpm::Result<fpm::http::Response> {
@@ -253,22 +261,22 @@ pub async fn edit(req: fpm::http::Request) -> fpm::Result<fpm::http::Response> {
 
 pub async fn revert(req: fpm::http::Request) -> fpm::Result<fpm::http::Response> {
     let _lock = LOCK.write().await;
-    fpm::apis::edit::revert(req.json()?).await
+    fpm::apis::edit::revert(&req, req.json()?).await
 }
 
-pub async fn editor_sync() -> fpm::Result<fpm::http::Response> {
+pub async fn editor_sync(req: fpm::http::Request) -> fpm::Result<fpm::http::Response> {
     let _lock = LOCK.write().await;
-    fpm::apis::edit::sync().await
+    fpm::apis::edit::sync(req).await
 }
 
 pub async fn create_cr(req: fpm::http::Request) -> fpm::Result<fpm::http::Response> {
     let _lock = LOCK.write().await;
-    fpm::apis::cr::create_cr(req.json()?).await
+    fpm::apis::cr::create_cr(&req, req.json()?).await
 }
 
-pub async fn create_cr_page() -> fpm::Result<fpm::http::Response> {
+pub async fn create_cr_page(req: fpm::http::Request) -> fpm::Result<fpm::http::Response> {
     let _lock = LOCK.read().await;
-    fpm::apis::cr::create_cr_page().await
+    fpm::apis::cr::create_cr_page(req).await
 }
 
 async fn route(
@@ -279,13 +287,13 @@ async fn route(
     match (req.method(), req.path()) {
         ("post", "/-/sync/") if cfg!(feature = "remote") => sync(req).await,
         ("post", "/-/sync2/") if cfg!(feature = "remote") => sync2(req).await,
-        ("get", "/-/clone/") if cfg!(feature = "remote") => clone().await,
+        ("get", "/-/clone/") if cfg!(feature = "remote") => clone(req).await,
         ("get", t) if t.starts_with("/-/view-src/") => view_source(req).await,
         ("post", "/-/edit/") => edit(req).await,
         ("post", "/-/revert/") => revert(req).await,
-        ("get", "/-/editor-sync/") => editor_sync().await,
+        ("get", "/-/editor-sync/") => editor_sync(req).await,
         ("post", "/-/create-cr/") => create_cr(req).await,
-        ("get", "/-/create-cr-page/") => create_cr_page().await,
+        ("get", "/-/create-cr-page/") => create_cr_page(req).await,
         ("post", "/-/clear-cache/") => clear_cache(req).await,
         (_, _) => serve(req).await,
     }
@@ -295,7 +303,7 @@ pub async fn listen(
     bind_address: &str,
     port: Option<u16>,
     package_download_base_url: Option<String>,
-) -> std::io::Result<()> {
+) -> fpm::Result<()> {
     use colored::Colorize;
 
     if package_download_base_url.is_some() {
@@ -347,7 +355,8 @@ You can try without providing port, it will automatically pick unused port."#,
     actix_web::HttpServer::new(app)
         .listen(tcp_listener)?
         .run()
-        .await
+        .await?;
+    Ok(())
 }
 
 // cargo install --features controller --path=.
