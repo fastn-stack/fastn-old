@@ -52,15 +52,12 @@ pub struct ImageSrc {
     pub dark: String,
 }
 
-impl ImageSrc {
-    pub fn from_path(path: Option<String>) -> Option<ImageSrc> {
-        if let Some(path) = path {
-            return Some(ImageSrc {
-                light: path.clone(),
-                dark: path,
-            });
+impl From<String> for ImageSrc {
+    fn from(path: String) -> Self {
+        ImageSrc {
+            light: path.clone(),
+            dark: path,
         }
-        None
     }
 }
 
@@ -105,7 +102,7 @@ impl TocItemCompat {
             title,
             path: None,
             is_heading: false,
-            font_icon: ImageSrc::from_path(icon),
+            font_icon: icon.map(Into::into),
             is_disabled: false,
             is_active,
             is_open,
