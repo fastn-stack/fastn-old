@@ -47,15 +47,15 @@ impl TocItem {
 }
 
 #[derive(Debug, Default, Clone, serde::Serialize)]
-pub struct Image {
+pub struct ImageSrc {
     pub light: String,
     pub dark: String,
 }
 
-impl Image {
-    pub fn from_path(path: Option<String>) -> Option<Image>{
+impl ImageSrc {
+    pub fn from_path(path: Option<String>) -> Option<ImageSrc>{
         if let Some(path) = path {
-            return Some(Image {
+            return Some(ImageSrc {
                 light: path.clone(),
                 dark: path.clone()
             })
@@ -74,7 +74,7 @@ pub struct TocItemCompat {
     pub is_heading: bool,
     // TODO: Font icon mapping to html?
     #[serde(rename = "font-icon")]
-    pub font_icon: Option<Image>,
+    pub font_icon: Option<ImageSrc>,
     #[serde(rename = "is-disabled")]
     pub is_disabled: bool,
     #[serde(rename = "is-active")]
@@ -105,7 +105,7 @@ impl TocItemCompat {
             title,
             path: None,
             is_heading: false,
-            font_icon: Image::from_path(icon),
+            font_icon: ImageSrc::from_path(icon),
             is_disabled: false,
             is_active,
             is_open,

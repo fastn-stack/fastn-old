@@ -68,13 +68,13 @@ impl SitemapElement {
         *element_title = title;
     }
 
-    pub(crate) fn set_icon(&mut self, title: Option<String>) {
+    pub(crate) fn set_icon(&mut self, path: Option<String>) {
         let element_icon = match self {
             SitemapElement::Section(s) => &mut s.icon,
             SitemapElement::Subsection(s) => &mut s.icon,
             SitemapElement::TocItem(s) => &mut s.icon,
         };
-        *element_icon = title;
+        *element_icon = path;
     }
 
     pub(crate) fn set_id(&mut self, id: Option<String>) {
