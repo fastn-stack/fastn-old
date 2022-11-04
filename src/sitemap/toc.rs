@@ -1,6 +1,7 @@
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct TocItem {
     pub id: String,
+    pub icon: Option<String>,
     pub title: Option<String>,
     pub file_location: Option<camino::Utf8PathBuf>,
     pub translation_file_location: Option<camino::Utf8PathBuf>,
@@ -78,6 +79,7 @@ impl TocItemCompat {
         is_open: bool,
         readers: Vec<String>,
         writers: Vec<String>,
+        icon: Option<String>,
     ) -> TocItemCompat {
         TocItemCompat {
             url,
@@ -85,7 +87,7 @@ impl TocItemCompat {
             title,
             path: None,
             is_heading: false,
-            font_icon: None,
+            font_icon: icon,
             is_disabled: false,
             is_active,
             is_open,
