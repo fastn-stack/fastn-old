@@ -53,12 +53,12 @@ pub struct ImageSrc {
 }
 
 impl ImageSrc {
-    pub fn from_path(path: Option<String>) -> Option<ImageSrc>{
+    pub fn from_path(path: Option<String>) -> Option<ImageSrc> {
         if let Some(path) = path {
             return Some(ImageSrc {
                 light: path.clone(),
-                dark: path.clone()
-            })
+                dark: path,
+            });
         }
         None
     }
