@@ -189,7 +189,7 @@ impl Package {
             }
             Some(format!(
                 "{}\n-- import: {}{}",
-                pre.unwrap_or_else(|| "".to_string()),
+                pre.unwrap_or_default(),
                 &import_doc_path,
                 match &ai.alias {
                     Some(a) => format!(" as {}", a),
@@ -504,7 +504,7 @@ impl Package {
 
         let file_extract_path = package_root.join("FPM.ftd");
         if !file_extract_path.exists() {
-            std::fs::create_dir_all(&package_root)?;
+            std::fs::create_dir_all(package_root)?;
             let fpm_string = self.get_fpm().await?;
             tokio::fs::File::create(&file_extract_path)
                 .await?
@@ -528,23 +528,71 @@ impl Package {
         }
     }
 
-    pub fn get_all_mountpoints(&self) -> Vec<(&str, &str)> {
+    pub fn deps_contain_mount_point(&self) -> Vec<(&str, &Package)> {
         self.dependencies
             .iter()
             .fold(&mut vec![], |accumulator, dep| {
                 if let Some(mp) = &dep.mountpoint {
-                    accumulator.push((
-                        mp.as_str(),
-                        dep.package
-                            .name
-                            .as_str()
-                            .trim_start_matches('/')
-                            .trim_end_matches('/'),
-                    ))
+                    accumulator.push((mp.as_str(), &dep.package))
                 }
                 accumulator
             })
             .to_owned()
+    }
+
+    // Dependencies with mount point and end point
+    // Output: Package Dependencies
+    // [Package, endpoint]
+    pub fn dep_with_ep(&self) -> Vec<(&Package, &str)> {
+        self.dependencies
+            .iter()
+            .fold(&mut vec![], |accumulator, dep| {
+                if let Some(ep) = &dep.endpoint {
+                    accumulator.push((&dep.package, ep.as_str()))
+                }
+                accumulator
+            })
+            .to_owned()
+    }
+
+    // Dependencies with mount point and end point
+    // Output: Package Dependencies
+    // [Package, endpoint, mount-point]
+    pub fn dep_with_ep_and_mp(&self) -> Vec<(&Package, &str, &str)> {
+        self.dependencies
+            .iter()
+            .fold(&mut vec![], |accumulator, dep| {
+                if let Some(ep) = &dep.endpoint {
+                    if let Some(mp) = &dep.mountpoint {
+                        accumulator.push((&dep.package, ep.as_str(), mp.as_str()))
+                    }
+                }
+
+                accumulator
+            })
+            .to_owned()
+    }
+
+    // Output: Package's dependency which contains mount-point and endpoint
+    // where request path starts-with dependency mount-point.
+    // (endpoint, sanitized request path from mount-point)
+    pub fn get_dep_endpoint<'a>(&'a self, path: &'a str) -> Option<(&'a str, &'a str)> {
+        fn dep_endpoint<'a>(package: &'a Package, path: &'a str) -> Option<(&'a str, &'a str)> {
+            let dependencies = package.dep_with_ep_and_mp();
+            for (_, ep, mp) in dependencies {
+                if path.starts_with(mp.trim_matches('/')) {
+                    let path_without_mp = path.trim_start_matches(mp.trim_start_matches('/'));
+                    return Some((ep, path_without_mp));
+                }
+            }
+            None
+        }
+
+        match dep_endpoint(self, path) {
+            Some((ep, r)) => Some((ep, r)),
+            // TODO: should it refer to default package or not?
+            None => self.endpoint.as_ref().map(|ep| (ep.as_str(), path)),
+        }
     }
 }
 

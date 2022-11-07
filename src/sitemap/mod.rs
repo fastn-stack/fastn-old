@@ -68,6 +68,15 @@ impl SitemapElement {
         *element_title = title;
     }
 
+    pub(crate) fn set_icon(&mut self, path: Option<String>) {
+        let element_icon = match self {
+            SitemapElement::Section(s) => &mut s.icon,
+            SitemapElement::Subsection(s) => &mut s.icon,
+            SitemapElement::TocItem(s) => &mut s.icon,
+        };
+        *element_icon = path;
+    }
+
     pub(crate) fn set_id(&mut self, id: Option<String>) {
         let id = if let Some(id) = id {
             id
@@ -446,6 +455,8 @@ impl SitemapParser {
                                     row_content: line.to_string(),
                                 }
                             })?);
+                        } else if k.eq("icon") {
+                            i.set_icon(Some(v.to_string()));
                         } else if k.eq("readers") {
                             i.set_readers(v);
                         } else if k.eq("writers") {
@@ -473,8 +484,6 @@ impl Sitemap {
         s: &str,
         package: &fpm::Package,
         config: &mut fpm::Config,
-        asset_documents: &std::collections::HashMap<String, String>,
-        base_url: &str,
         resolve_sitemap: bool,
     ) -> Result<Self, ParseError> {
         let mut parser = SitemapParser {
@@ -503,7 +512,7 @@ impl Sitemap {
 
         if resolve_sitemap {
             sitemap
-                .resolve(package, config, asset_documents, base_url)
+                .resolve(package, config)
                 .await
                 .map_err(|e| ParseError::InvalidTOCItem {
                     doc_id: package.name.to_string(),
@@ -518,21 +527,11 @@ impl Sitemap {
         &mut self,
         package: &fpm::Package,
         config: &mut fpm::Config,
-        asset_documents: &std::collections::HashMap<String, String>,
-        base_url: &str,
     ) -> fpm::Result<()> {
         let package_root = config.get_root_for_package(package);
         let current_package_root = config.root.to_owned();
         for section in self.sections.iter_mut() {
-            resolve_section(
-                section,
-                &package_root,
-                &current_package_root,
-                asset_documents,
-                base_url,
-                config,
-            )
-            .await?;
+            resolve_section(section, &package_root, &current_package_root, config).await?;
         }
         return Ok(());
 
@@ -540,8 +539,6 @@ impl Sitemap {
             section: &mut section::Section,
             package_root: &camino::Utf8PathBuf,
             current_package_root: &camino::Utf8PathBuf,
-            asset_documents: &std::collections::HashMap<String, String>,
-            base_url: &str,
             config: &mut fpm::Config,
         ) -> fpm::Result<()> {
             let (file_location, translation_file_location) = if let Ok(file_name) = config
@@ -597,15 +594,7 @@ impl Sitemap {
             section.translation_file_location = translation_file_location;
 
             for subsection in section.subsections.iter_mut() {
-                resolve_subsection(
-                    subsection,
-                    package_root,
-                    current_package_root,
-                    asset_documents,
-                    base_url,
-                    config,
-                )
-                .await?;
+                resolve_subsection(subsection, package_root, current_package_root, config).await?;
             }
             Ok(())
         }
@@ -614,8 +603,6 @@ impl Sitemap {
             subsection: &mut section::Subsection,
             package_root: &camino::Utf8PathBuf,
             current_package_root: &camino::Utf8PathBuf,
-            asset_documents: &std::collections::HashMap<String, String>,
-            base_url: &str,
             config: &mut fpm::Config,
         ) -> fpm::Result<()> {
             if let Some(ref id) = subsection.get_file_id() {
@@ -660,15 +647,7 @@ impl Sitemap {
             }
 
             for toc in subsection.toc.iter_mut() {
-                resolve_toc(
-                    toc,
-                    package_root,
-                    current_package_root,
-                    asset_documents,
-                    base_url,
-                    config,
-                )
-                .await?;
+                resolve_toc(toc, package_root, current_package_root, config).await?;
             }
             Ok(())
         }
@@ -678,8 +657,6 @@ impl Sitemap {
             toc: &mut toc::TocItem,
             package_root: &camino::Utf8PathBuf,
             current_package_root: &camino::Utf8PathBuf,
-            asset_documents: &std::collections::HashMap<String, String>,
-            base_url: &str,
             config: &mut fpm::Config,
         ) -> fpm::Result<()> {
             let (file_location, translation_file_location) = if let Ok(file_name) =
@@ -732,15 +709,7 @@ impl Sitemap {
             toc.translation_file_location = translation_file_location;
 
             for toc in toc.children.iter_mut() {
-                resolve_toc(
-                    toc,
-                    package_root,
-                    current_package_root,
-                    asset_documents,
-                    base_url,
-                    config,
-                )
-                .await?;
+                resolve_toc(toc, package_root, current_package_root, config).await?;
             }
             Ok(())
         }
@@ -862,6 +831,7 @@ impl Sitemap {
                             active,
                             v.readers.clone(),
                             v.writers.clone(),
+                            v.icon.clone(),
                         );
                         if active {
                             let mut curr_subsection = toc.clone();
@@ -897,6 +867,7 @@ impl Sitemap {
                     true,
                     section.readers.clone(),
                     section.writers.clone(),
+                    section.icon.clone(),
                 );
                 sections.push(section_toc.clone());
                 if let Some(ref title) = section.nav_title {
@@ -920,6 +891,7 @@ impl Sitemap {
                     true,
                     section.readers.clone(),
                     section.writers.clone(),
+                    section.icon.clone(),
                 );
                 sections.push(section_toc.clone());
                 if let Some(ref title) = section.nav_title {
@@ -937,6 +909,7 @@ impl Sitemap {
                     false,
                     section.readers.clone(),
                     section.writers.clone(),
+                    section.icon.clone(),
                 ));
             }
         }
@@ -952,6 +925,7 @@ impl Sitemap {
                         false,
                         v.readers.clone(),
                         v.writers.clone(),
+                        v.icon.clone(),
                     )
                 }),
         );
@@ -1002,6 +976,7 @@ impl Sitemap {
                         true,
                         subsection.readers.clone(),
                         subsection.writers.clone(),
+                        subsection.icon.clone(),
                     );
                     subsection_list.push(subsection_toc.clone());
                     if let Some(ref title) = subsection.nav_title {
@@ -1024,6 +999,7 @@ impl Sitemap {
                             true,
                             subsection.readers.clone(),
                             subsection.writers.clone(),
+                            subsection.icon.clone(),
                         );
                         subsection_list.push(subsection_toc.clone());
                         if let Some(ref title) = subsection.nav_title {
@@ -1043,6 +1019,7 @@ impl Sitemap {
                         false,
                         subsection.readers.clone(),
                         subsection.writers.clone(),
+                        subsection.icon.clone(),
                     ));
                 }
             }
@@ -1057,6 +1034,7 @@ impl Sitemap {
                             false,
                             v.readers.clone(),
                             v.writers.clone(),
+                            v.icon.clone(),
                         )
                     },
                 ));
@@ -1106,6 +1084,7 @@ impl Sitemap {
                         is_active || is_open,
                         toc_item.readers.clone(),
                         toc_item.writers.clone(),
+                        toc_item.icon.clone(),
                     );
                     current_toc.children = children;
                     if is_open {
@@ -1391,6 +1370,7 @@ impl Sitemap {
 
     /// path: foo/temp/
     /// path: /
+    /// This function can be used for if path exists in sitemap or not
     pub fn resolve_document(&self, path: &str) -> Option<String> {
         fn resolve_in_toc(toc: &toc::TocItem, path: &str) -> Option<String> {
             if fpm::utils::ids_matches(toc.id.as_str(), path) {
