@@ -1,6 +1,8 @@
 static LOCK: once_cell::sync::Lazy<async_lock::RwLock<()>> =
     once_cell::sync::Lazy::new(|| async_lock::RwLock::new(()));
 
+/// path: /-/<package-name>/<file-name>/
+/// path: /<file-name>/
 async fn serve_file(config: &mut fpm::Config, path: &camino::Utf8Path) -> fpm::http::Response {
     let f = match config.get_file_and_package_by_id(path.as_str()).await {
         Ok(f) => f,
@@ -154,10 +156,62 @@ async fn serve(req: fpm::http::Request) -> fpm::Result<fpm::http::Response> {
     } else {
         // url is present in config or not
         // If not present than proxy pass it
+
+        let req_method = req.method().to_string();
+        let query_string = req.query_string().to_string();
         let mut config = fpm::time("Config::read()").it(fpm::Config::read(None, false, Some(&req))
             .await
             .unwrap()
             .set_request(req));
+
+        // if start with -/ and mount-point exists so send redirect to mount-point
+        // We have to do -/<package-name>/remaining-url/ ==> (<package-name>, remaining-url) ==> (/config.package-name.mount-point/remaining-url/)
+        // Get all the dependencies with mount-point if path_start with any package-name so send redirect to mount-point
+
+        if req_method.as_str() == "GET" {
+            // if any app name starts with package-name to redirect it to /mount-point/remaining-url/
+            for (mp, dep) in config
+                .package
+                .apps
+                .iter()
+                .map(|x| (&x.mount_point, &x.package.package))
+            {
+                if let Some(remaining_path) =
+                    fpm::config::utils::trim_package_name(path.as_str(), dep.name.as_str())
+                {
+                    let path = if remaining_path.trim_matches('/').is_empty() {
+                        format!("/{}/", mp.trim().trim_matches('/'))
+                    } else if query_string.is_empty() {
+                        format!(
+                            "/{}/{}/",
+                            mp.trim().trim_matches('/'),
+                            remaining_path.trim_matches('/')
+                        )
+                    } else {
+                        format!(
+                            "/{}/{}/?{}",
+                            mp.trim().trim_matches('/'),
+                            remaining_path.trim_matches('/'),
+                            query_string.as_str()
+                        )
+                    };
+
+                    let mut resp = actix_web::HttpResponse::new(
+                        actix_web::http::StatusCode::PERMANENT_REDIRECT,
+                    );
+                    resp.headers_mut().insert(
+                        actix_web::http::header::LOCATION,
+                        actix_web::http::header::HeaderValue::from_str(path.as_str()).unwrap(), // TODO:
+                    );
+                    return Ok(resp);
+                }
+            }
+        }
+
+        // if request goes with mount-point /todos/api/add-todo/
+        // so it should say not found and pass it to proxy
+
+        let file_response = serve_file(&mut config, path.as_path()).await;
 
         // If path is not present in sitemap then pass it to proxy
         // TODO: Need to handle other package URL as well, and that will start from `-`
@@ -166,25 +220,38 @@ async fn serve(req: fpm::http::Request) -> fpm::Result<fpm::http::Response> {
         // In that case need to check whether that url is present in sitemap or not and than proxy
         // pass the url if the file is not static
         // So final check would be file is not static and path is not present in the package's sitemap
-        if !path.starts_with("-/") {
-            if let Some(sitemap) = config.package.sitemap.as_ref() {
-                // TODO: Check if path exists in dynamic urls also, otherwise pass to endpoint
-                if !sitemap.path_exists(path.as_str()) {
-                    if let Some(endpoint) = config.package.endpoint.as_ref() {
-                        let req = if let Some(r) = config.request {
-                            r
-                        } else {
-                            return Ok(fpm::server_error!("request not set"));
-                        };
+        if file_response.status() == actix_web::http::StatusCode::NOT_FOUND {
+            // TODO: Check if path exists in dynamic urls also, otherwise pass to endpoint
+            // Already checked in the above method serve_file
+            println!("executing proxy: {}", &path);
+            let (package_name, url, conf) =
+                fpm::config::utils::get_clean_url(&config, path.as_str())?;
+            let package_name = package_name.unwrap_or_else(|| config.package.name.to_string());
 
-                        return fpm::proxy::get_out(endpoint, req).await;
-                    };
-                }
-            }
+            let host = if let Some(port) = url.port() {
+                format!("{}://{}:{}", url.scheme(), url.host_str().unwrap(), port)
+            } else {
+                format!("{}://{}", url.scheme(), url.host_str().unwrap())
+            };
+            let req = if let Some(r) = config.request {
+                r
+            } else {
+                return Ok(fpm::server_error!("request not set"));
+            };
+
+            // TODO: read app config and send them to service as header
+
+            return fpm::proxy::get_out(
+                host.as_str(),
+                req,
+                url.path(),
+                package_name.as_str(),
+                &conf,
+            )
+            .await;
         }
 
-        let file_response = serve_file(&mut config, path.as_path()).await;
-        // Fallback to WASM execution in case of no sucessful response
+        // Fallback to WASM execution in case of no successful response
         // TODO: This is hacky. Use the sitemap eventually.
         if file_response.status() == actix_web::http::StatusCode::NOT_FOUND {
             let package = config.find_package_by_id(path.as_str()).await.unwrap().1;
@@ -204,10 +271,6 @@ async fn serve(req: fpm::http::Request) -> fpm::Result<fpm::http::Response> {
         } else {
             file_response
         }
-        // file_response
-
-        // if true: serve_file
-        // else: proxy_pass
     };
     t.it(Ok(response))
 }

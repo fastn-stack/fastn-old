@@ -1,7 +1,7 @@
 // Document: https://fpm.dev/crate/config/
 // Document: https://fpm.dev/crate/package/
 
-mod utils;
+pub(crate) mod utils;
 
 #[derive(Debug, Clone)]
 pub struct Config {
@@ -561,37 +561,159 @@ impl Config {
         Ok(file)
     }
 
-    pub fn get_mountpoint_sanitized_path(&self, path: &str) -> String {
-        if let Some((mp, dep)) = self
-            .package
-            .get_all_mountpoints()
-            .iter()
-            .find(|(mp, _)| path.starts_with(mp.trim_start_matches('/')))
-        {
-            let new_path = path.trim_start_matches(mp.trim_start_matches('/'));
-            format!("-/{dep}/{new_path}")
-        } else {
-            path.to_string()
+    // Input
+    // path: /todos/add-todo/
+    // mount-point: /todos/
+    // Output
+    // -/<todos-package-name>/add-todo/, <todos-package-name>, /add-todo/
+    #[allow(clippy::only_used_in_recursion)]
+    pub fn get_mountpoint_sanitized_path<'a>(
+        &'a self,
+        package: &'a fpm::Package,
+        path: &'a str,
+    ) -> Option<(String, &'a fpm::Package, String)> {
+        // Problem for recursive dependency is that only current package contains dependency,
+        // dependent package does not contain dependency
+
+        // For similar package
+        if path.starts_with(format!("-/{}", package.name.trim_matches('/')).as_str()) {
+            let path_without_package_name =
+                path.trim_start_matches(format!("-/{}", package.name.trim_matches('/')).as_str());
+            return Some((
+                path.to_string(),
+                package,
+                path_without_package_name.to_string(),
+            ));
         }
+
+        for (mp, dep) in package
+            .apps
+            .iter()
+            .map(|x| (&x.mount_point, &x.package.package))
+        {
+            if path.starts_with(mp.trim_matches('/')) {
+                // TODO: Need to handle for recursive dependencies mount-point
+                // Note: Currently not working because dependency of package does not contain dependencies
+                let package_name = dep.name.trim_matches('/');
+                let sanitized_path = path.trim_start_matches(mp.trim_start_matches('/'));
+                return Some((
+                    format!("-/{package_name}/{sanitized_path}"),
+                    dep,
+                    sanitized_path.to_string(),
+                ));
+            } else if path.starts_with(format!("-/{}", dep.name.trim_matches('/')).as_str()) {
+                let path_without_package_name =
+                    path.trim_start_matches(format!("-/{}", dep.name.trim_matches('/')).as_str());
+                return Some((path.to_string(), dep, path_without_package_name.to_string()));
+            }
+        }
+        None
     }
 
+    pub async fn update_sitemap(&self, package: &fpm::Package) -> fpm::Result<fpm::Package> {
+        let fpm_path = &self.packages_root.join(&package.name).join("FPM.ftd");
+
+        if !fpm_path.exists() {
+            let package = self.resolve_package(package).await?;
+            self.add_package(&package);
+        }
+
+        dbg!(&fpm_path);
+
+        let fpm_doc = utils::fpm_doc(fpm_path).await?;
+
+        let mut package = package.clone();
+
+        package.sitemap_temp = fpm_doc.get("fpm#sitemap")?;
+        package.dynamic_urls_temp = fpm_doc.get("fpm#dynamic-urls")?;
+
+        package.sitemap = match package.sitemap_temp.as_ref() {
+            Some(sitemap_temp) => {
+                let mut s = fpm::sitemap::Sitemap::parse(
+                    sitemap_temp.body.as_str(),
+                    &package,
+                    &mut self.clone(), //TODO: totally wrong
+                    false,
+                )
+                .await?;
+                s.readers = sitemap_temp.readers.clone();
+                s.writers = sitemap_temp.writers.clone();
+                Some(s)
+            }
+            None => None,
+        };
+
+        // Handling of `-- fpm.dynamic-urls:`
+        package.dynamic_urls = {
+            match &package.dynamic_urls_temp {
+                Some(urls_temp) => Some(fpm::sitemap::DynamicUrls::parse(
+                    &self.global_ids,
+                    &package.name,
+                    urls_temp.body.as_str(),
+                )?),
+                None => None,
+            }
+        };
+        Ok(package)
+    }
+
+    // -/kameri-app.herokuapp.com/
+    // .packages/kameri-app.heroku.com/index.ftd
     pub async fn get_file_and_package_by_id(&mut self, path: &str) -> fpm::Result<fpm::File> {
+        // This function will return file and package by given path
+        // path can be mounted(mount-point) with other dependencies
+        //
         // Sanitize the mountpoint request.
-        let sanitized_path = self.get_mountpoint_sanitized_path(path);
-        let path = sanitized_path.as_str();
-        let (document, path_params) = match self.package.sitemap.as_ref() {
+        // Get the package and sanitized path
+        dbg!(&path);
+        let package1;
+        let (path_with_package_name, sanitized_package, sanitized_path) =
+            match self.get_mountpoint_sanitized_path(&self.package, path) {
+                Some((new_path, package, remaining_path)) => {
+                    // Update the sitemap of the package, if it does ot contain the sitemap information
+                    dbg!(&new_path, &package.name, &remaining_path);
+                    if package.name != self.package.name {
+                        package1 = self.update_sitemap(package).await?;
+                        (new_path, &package1, remaining_path)
+                    } else {
+                        (new_path, package, remaining_path)
+                    }
+                }
+                None => (path.to_string(), &self.package, path.to_string()),
+            };
+
+        dbg!(
+            &path_with_package_name,
+            &sanitized_package.name,
+            &sanitized_path
+        );
+
+        // Getting `document` with dynamic parameters, if exists
+        let (document, path_params) = match sanitized_package.sitemap.as_ref() {
             //1. First resolve document in sitemap
-            Some(sitemap) => match sitemap.resolve_document(path) {
+            Some(sitemap) => match sitemap.resolve_document(sanitized_path.as_str()) {
                 Some(document) => (Some(document), vec![]),
                 //2.  Else resolve document in dynamic urls
-                None => match self.package.dynamic_urls.as_ref() {
-                    Some(dynamic_urls) => dynamic_urls.resolve_document(path)?,
+                None => match sanitized_package.dynamic_urls.as_ref() {
+                    Some(dynamic_urls) => dynamic_urls.resolve_document(sanitized_path.as_str())?,
                     None => (None, vec![]),
                 },
             },
             None => (None, vec![]),
         };
 
+        // document with package-name prefix
+        let document = document.map(|doc| {
+            format!(
+                "-/{}/{}",
+                sanitized_package.name.trim_matches('/'),
+                doc.trim_matches('/')
+            )
+        });
+
+        dbg!(&document);
+
+        let path = path_with_package_name.as_str();
         if let Some(id) = document {
             let file_name = self.get_file_path_and_resolve(id.as_str()).await?;
             let package = self.find_package_by_id(id.as_str()).await?.1;
@@ -605,7 +727,14 @@ impl Config {
             self.path_parameters = path_params;
             Ok(file)
         } else {
+            // -/fifthtry.github.io/todos/add-todo/
+            // -/fifthtry.github.io/doc-site/add-todo/
+            dbg!(path);
             let file_name = self.get_file_path_and_resolve(path).await?;
+            // .packages/todos/add-todo.ftd
+            // .packages/fifthtry.github.io/doc-site/add-todo.ftd
+            dbg!(&file_name);
+
             let package = self.find_package_by_id(path).await?.1;
             let mut file = fpm::get_file(
                 package.name.to_string(),
@@ -625,6 +754,7 @@ impl Config {
                 };
                 file.set_id(format!("{}{}", url, extension).as_str());
             }
+            dbg!(&file.get_id());
             self.current_document = Some(file.get_id());
             Ok(file)
         }
@@ -770,7 +900,11 @@ impl Config {
 
     /// Return (package name or alias, package)
     pub(crate) async fn find_package_by_id(&self, id: &str) -> fpm::Result<(String, fpm::Package)> {
-        let sanitized_id = self.get_mountpoint_sanitized_path(id);
+        let sanitized_id = self
+            .get_mountpoint_sanitized_path(&self.package, id)
+            .map(|(x, _, _)| x)
+            .unwrap_or_else(|| id.to_string());
+
         let id = sanitized_id.as_str();
         let id = if let Some(id) = id.strip_prefix("-/") {
             id
@@ -1076,86 +1210,8 @@ impl Config {
                 )
             }
         };
-
-        let fpm_doc = {
-            let doc = tokio::fs::read_to_string(root.join("FPM.ftd"));
-            let lib = fpm::FPMLibrary::default();
-            match fpm::doc::parse_ftd("FPM", doc.await?.as_str(), &lib) {
-                Ok(v) => v,
-                Err(e) => {
-                    return Err(fpm::Error::PackageError {
-                        message: format!("failed to parse FPM.ftd 3: {:?}", &e),
-                    });
-                }
-            }
-        };
-
-        let mut deps = {
-            let temp_deps: Vec<fpm::package::dependency::DependencyTemp> =
-                fpm_doc.get("fpm#dependency")?;
-            temp_deps
-                .into_iter()
-                .map(|v| v.into_dependency())
-                .collect::<Vec<fpm::Result<fpm::Dependency>>>()
-                .into_iter()
-                .collect::<fpm::Result<Vec<fpm::Dependency>>>()?
-        };
-
-        let mut package = {
-            let mut package = fpm::Package::from_fpm_doc(&fpm_doc)?;
-            if package.name != fpm::FPM_UI_INTERFACE
-                && !deps
-                    .iter()
-                    .any(|dep| dep.implements.contains(&fpm::FPM_UI_INTERFACE.to_string()))
-            {
-                deps.push(fpm::Dependency {
-                    package: fpm::Package::new(fpm::FPM_UI_INTERFACE),
-                    version: None,
-                    notes: None,
-                    alias: None,
-                    implements: Vec::new(),
-                    endpoint: None,
-                    mountpoint: None,
-                });
-            };
-            package.fpm_path = Some(root.join("FPM.ftd"));
-
-            package.dependencies = deps;
-
-            package.auto_import = fpm_doc
-                .get::<Vec<String>>("fpm#auto-import")?
-                .iter()
-                .map(|f| fpm::AutoImport::from_string(f.as_str()))
-                .collect();
-
-            package.ignored_paths = fpm_doc.get::<Vec<String>>("fpm#ignore")?;
-            package.fonts = fpm_doc.get("fpm#font")?;
-            package.sitemap_temp = fpm_doc.get("fpm#sitemap")?;
-            package.dynamic_urls_temp = fpm_doc.get("fpm#dynamic-urls")?;
-            package
-        };
-
-        fpm::utils::validate_base_url(&package)?;
-
-        if package.import_auto_imports_from_original {
-            if let Some(ref original_package) = *package.translation_of {
-                if !package.auto_import.is_empty() {
-                    return Err(fpm::Error::PackageError {
-                        message: format!("Can't use `inherit-auto-imports-from-original` along with auto-imports defined for the translation package. Either set `inherit-auto-imports-from-original` to false or remove `fpm.auto-import` from the {package_name}/FPM.ftd file", package_name=package.name.as_str()),
-                    });
-                } else {
-                    package.auto_import = original_package.auto_import.clone()
-                }
-            }
-        }
-
-        // TODO: resolve group dependent packages, there may be imported group from foreign package
-        // TODO: We need to make sure to resolve that package as well before moving ahead
-        // TODO: Because in `UserGroup::get_identities` we have to resolve identities of a group
-
-        let user_groups: Vec<crate::user_group::UserGroupTemp> = fpm_doc.get("fpm#user-group")?;
-        let groups = crate::user_group::UserGroupTemp::user_groups(user_groups)?;
-        package.groups = groups;
+        let fpm_doc = utils::fpm_doc(&root.join("FPM.ftd")).await?;
+        let package = fpm::Package::from_fpm_doc(&root, &fpm_doc)?;
         let mut config = Config {
             package: package.clone(),
             packages_root: root.clone().join(".packages"),
@@ -1170,11 +1226,10 @@ impl Config {
             path_parameters: vec![],
         };
 
-        let asset_documents = config.get_assets().await?;
-
         // Update global_ids map from the current package files
         config.update_ids_from_package().await?;
 
+        // TODO: Major refactor, while parsing sitemap of a package why do we need config in it?
         config.package.sitemap = {
             let sitemap = match package.translation_of.as_ref() {
                 Some(translation) => translation,
@@ -1189,8 +1244,6 @@ impl Config {
                         sitemap_temp.body.as_str(),
                         &package,
                         &mut config,
-                        &asset_documents,
-                        "/",
                         resolve_sitemap,
                     )
                     .await?;

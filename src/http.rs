@@ -217,21 +217,39 @@ impl ResponseBuilder {
     // .build
     // response from string, json, bytes etc
 
-    pub async fn from_reqwest(response: reqwest::Response) -> fpm::http::Response {
+    pub async fn from_reqwest(
+        response: reqwest::Response,
+        package_name: &str,
+    ) -> fpm::http::Response {
         let status = response.status();
-
-        let mut response_builder = actix_web::HttpResponse::build(status);
-        // TODO
-        // *resp.extensions_mut() = response.extensions().clone();
 
         // Remove `Connection` as per
         // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Connection#Directives
+        let mut response_builder = actix_web::HttpResponse::build(status);
         for header in response
             .headers()
             .iter()
             .filter(|(h, _)| *h != "connection")
         {
             response_builder.insert_header(header);
+        }
+        if status == actix_web::http::StatusCode::FOUND {
+            response_builder.status(actix_web::http::StatusCode::OK);
+            if let Some(location) = response.headers().get(actix_web::http::header::LOCATION) {
+                let redirect = location.to_str().unwrap();
+                let path = if redirect.trim_matches('/').is_empty() {
+                    format!("/-/{}/", package_name)
+                } else {
+                    // if it contains query-params so url should not end with /
+                    if redirect.contains('?') {
+                        format!("/-/{}/{}", package_name, redirect.trim_matches('/'))
+                    } else {
+                        format!("/-/{}/{}/", package_name, redirect.trim_matches('/'))
+                    }
+                };
+                let t = serde_json::json!({"redirect": path.as_str()}).to_string();
+                return response_builder.body(t);
+            }
         }
 
         let content = match response.bytes().await {
@@ -242,7 +260,6 @@ impl ResponseBuilder {
                 ))
             }
         };
-        println!("Response {:?}", String::from_utf8(content.to_vec()));
         response_builder.body(content)
     }
 }
@@ -309,27 +326,35 @@ pub(crate) async fn post_json<T: serde::de::DeserializeOwned, B: Into<reqwest::B
 }
 
 pub(crate) async fn http_get(url: &str) -> fpm::Result<Vec<u8>> {
-    http_get_with_cookie(url, None).await
+    http_get_with_cookie(url, None, &std::collections::HashMap::new()).await
 }
 
 pub(crate) async fn http_get_with_cookie(
     url: &str,
     cookie: Option<String>,
+    headers: &std::collections::HashMap<String, String>,
 ) -> fpm::Result<Vec<u8>> {
-    let mut headers = reqwest::header::HeaderMap::new();
-    headers.insert(
+    let mut req_headers = reqwest::header::HeaderMap::new();
+    req_headers.insert(
         reqwest::header::USER_AGENT,
         reqwest::header::HeaderValue::from_static("fpm"),
     );
     if let Some(cookie) = cookie {
-        headers.insert(
+        req_headers.insert(
             reqwest::header::COOKIE,
             reqwest::header::HeaderValue::from_str(cookie.as_str()).unwrap(),
         );
     }
 
+    for (key, value) in headers.iter() {
+        req_headers.insert(
+            reqwest::header::HeaderName::from_bytes(key.as_bytes()).unwrap(),
+            reqwest::header::HeaderValue::from_str(value.as_str()).unwrap(),
+        );
+    }
+
     let c = reqwest::Client::builder()
-        .default_headers(headers)
+        .default_headers(req_headers)
         .build()?;
 
     let res = c.get(url).send().await?;

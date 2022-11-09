@@ -59,6 +59,18 @@ pub struct Package {
 
     /// Headers for the WASM backend
     pub backend_headers: Option<Vec<BackendHeader>>,
+
+    /// Installed Apps
+    pub apps: Vec<App>,
+}
+
+#[derive(Debug, Clone)]
+pub struct App {
+    pub name: Option<String>,
+    pub package: fpm::Dependency,
+    pub mount_point: String,
+    pub end_point: Option<String>,
+    pub config: std::collections::HashMap<String, String>,
 }
 
 impl Package {
@@ -89,6 +101,7 @@ impl Package {
             endpoint: None,
             backend: false,
             backend_headers: None,
+            apps: vec![],
         }
     }
 
@@ -189,7 +202,7 @@ impl Package {
             }
             Some(format!(
                 "{}\n-- import: {}{}",
-                pre.unwrap_or_else(|| "".to_string()),
+                pre.unwrap_or_default(),
                 &import_doc_path,
                 match &ai.alias {
                     Some(a) => format!(" as {}", a),
@@ -504,7 +517,7 @@ impl Package {
 
         let file_extract_path = package_root.join("FPM.ftd");
         if !file_extract_path.exists() {
-            std::fs::create_dir_all(&package_root)?;
+            std::fs::create_dir_all(package_root)?;
             let fpm_string = self.get_fpm().await?;
             tokio::fs::File::create(&file_extract_path)
                 .await?
@@ -517,34 +530,135 @@ impl Package {
         Ok(package)
     }
 
-    pub fn from_fpm_doc(fpm_doc: &ftd::p2::Document) -> fpm::Result<Package> {
+    pub fn from_fpm_doc(
+        root: &camino::Utf8Path,
+        fpm_doc: &ftd::p2::Document,
+    ) -> fpm::Result<Package> {
         let temp_package: Option<PackageTemp> = fpm_doc.get("fpm#package")?;
 
-        match temp_package {
-            Some(v) => Ok(v.into_package()),
-            None => Err(fpm::Error::PackageError {
-                message: "FPM.ftd does not contain package definition".to_string(),
-            }),
+        let mut package = match temp_package {
+            Some(v) => v.into_package(),
+            None => {
+                return Err(fpm::Error::PackageError {
+                    message: "FPM.ftd does not contain package definition".to_string(),
+                })
+            }
+        };
+
+        // reading dependencies
+        let mut deps = {
+            let temp_deps: Vec<fpm::package::dependency::DependencyTemp> =
+                fpm_doc.get("fpm#dependency")?;
+            temp_deps
+                .into_iter()
+                .map(|v| v.into_dependency())
+                .collect::<Vec<fpm::Result<fpm::Dependency>>>()
+                .into_iter()
+                .collect::<fpm::Result<Vec<fpm::Dependency>>>()?
+        };
+
+        if package.name != fpm::FPM_UI_INTERFACE
+            && !deps
+                .iter()
+                .any(|dep| dep.implements.contains(&fpm::FPM_UI_INTERFACE.to_string()))
+        {
+            deps.push(fpm::Dependency {
+                package: fpm::Package::new(fpm::FPM_UI_INTERFACE),
+                version: None,
+                notes: None,
+                alias: None,
+                implements: Vec::new(),
+                endpoint: None,
+                mountpoint: None,
+            });
+        };
+        // setting dependencies
+        package.dependencies = deps;
+        package.fpm_path = Some(root.join("FPM.ftd"));
+
+        package.auto_import = fpm_doc
+            .get::<Vec<String>>("fpm#auto-import")?
+            .iter()
+            .map(|f| fpm::AutoImport::from_string(f.as_str()))
+            .collect();
+
+        package.ignored_paths = fpm_doc.get::<Vec<String>>("fpm#ignore")?;
+        package.fonts = fpm_doc.get("fpm#font")?;
+        package.sitemap_temp = fpm_doc.get("fpm#sitemap")?;
+        package.dynamic_urls_temp = fpm_doc.get("fpm#dynamic-urls")?;
+
+        // TODO: resolve group dependent packages, there may be imported group from foreign package
+        //   We need to make sure to resolve that package as well before moving ahead
+        //   Because in `UserGroup::get_identities` we have to resolve identities of a group
+        let user_groups: Vec<crate::user_group::UserGroupTemp> = fpm_doc.get("fpm#user-group")?;
+        let groups = crate::user_group::UserGroupTemp::user_groups(user_groups)?;
+        package.groups = groups;
+
+        // validation logic TODO: It should be ordered
+        fpm::utils::validate_base_url(&package)?;
+
+        if package.import_auto_imports_from_original {
+            if let Some(ref original_package) = *package.translation_of {
+                if !package.auto_import.is_empty() {
+                    return Err(fpm::Error::PackageError {
+                        message: format!("Can't use `inherit-auto-imports-from-original` along with auto-imports defined for the translation package. Either set `inherit-auto-imports-from-original` to false or remove `fpm.auto-import` from the {package_name}/FPM.ftd file", package_name=package.name.as_str()),
+                    });
+                } else {
+                    package.auto_import = original_package.auto_import.clone()
+                }
+            }
         }
+
+        // fpm installed Apps
+        let apps: Vec<fpm::package::AppTemp> = fpm_doc.get("fpm#app")?;
+        package.apps = apps
+            .into_iter()
+            .map(|x| x.into_app())
+            .collect::<fpm::Result<_>>()?;
+
+        dbg!(&package.apps);
+
+        Ok(package)
     }
 
-    pub fn get_all_mountpoints(&self) -> Vec<(&str, &str)> {
+    // Dependencies with mount point and end point
+    // Output: Package Dependencies
+    // [Package, endpoint, mount-point]
+    pub fn dep_with_ep_and_mp(&self) -> Vec<(&Package, &str, &str)> {
         self.dependencies
             .iter()
             .fold(&mut vec![], |accumulator, dep| {
-                if let Some(mp) = &dep.mountpoint {
-                    accumulator.push((
-                        mp.as_str(),
-                        dep.package
-                            .name
-                            .as_str()
-                            .trim_start_matches('/')
-                            .trim_end_matches('/'),
-                    ))
+                if let Some(ep) = &dep.endpoint {
+                    if let Some(mp) = &dep.mountpoint {
+                        accumulator.push((&dep.package, ep.as_str(), mp.as_str()))
+                    }
                 }
+
                 accumulator
             })
             .to_owned()
+    }
+
+    // Output: Package's dependency which contains mount-point and endpoint
+    // where request path starts-with dependency mount-point.
+    // (endpoint, sanitized request path from mount-point)
+    pub fn get_dep_endpoint<'a>(&'a self, path: &'a str) -> Option<(&'a str, &'a str)> {
+        fn dep_endpoint<'a>(package: &'a Package, path: &'a str) -> Option<(&'a str, &'a str)> {
+            let dependencies = package.dep_with_ep_and_mp();
+            for (_, ep, mp) in dependencies {
+                if path.starts_with(mp.trim_matches('/')) {
+                    let path_without_mp = path.trim_start_matches(mp.trim_start_matches('/'));
+                    return Some((ep, path_without_mp));
+                }
+            }
+            None
+        }
+
+        match dep_endpoint(self, path) {
+            Some((ep, r)) => Some((ep, r)),
+            // TODO: should it refer to default package or not?
+            None => self.endpoint.as_ref().map(|ep| (ep.as_str(), path)),
+        }
     }
 }
 
@@ -626,6 +740,84 @@ impl PackageTemp {
             endpoint: self.endpoint,
             backend: self.backend,
             backend_headers: self.backend_headers,
+            apps: vec![], //self.apps.into_iter().map(|x| x.into_app()).collect_vec(),
         }
+    }
+}
+
+#[derive(serde::Deserialize, Debug, Clone)]
+pub struct AppTemp {
+    pub name: Option<String>,
+    pub package: String,
+    #[serde(rename = "mount-point")]
+    pub mount_point: String,
+    #[serde(rename = "end-point")]
+    pub end_point: Option<String>,
+    pub config: Vec<String>,
+}
+
+impl AppTemp {
+    fn parse_config(config: &[String]) -> fpm::Result<std::collections::HashMap<String, String>> {
+        let mut hm = std::collections::HashMap::new();
+        for key_value in config.iter() {
+            // <key>=<value>
+            let (key, value): (&str, &str) = match key_value.trim().split_once('=') {
+                Some(x) => x,
+                None => {
+                    return Err(fpm::Error::PackageError {
+                        message: format!(
+                            "package-config-error, wrong header in an fpm app, format is <key>=<value>, config: {}",
+                            key_value
+                        ),
+                    });
+                }
+            };
+            // if value = $ENV.env_var_name
+            // so read env_var_name from std::env
+            let value = value.trim();
+            if value.starts_with("$ENV") {
+                let (_, env_var_name) = match value.trim().split_once('.') {
+                    Some(x) => x,
+                    None => return Err(fpm::Error::PackageError {
+                        message: format!(
+                            "package-config-error, wrong $ENV in an fpm app, format is <key>=$ENV.env_var_name, key: {}, value: {}",
+                            key, value
+                        ),
+                    }),
+                };
+
+                let value =
+                    std::env::var(env_var_name).map_err(|err| fpm::Error::PackageError {
+                        message: format!(
+                            "package-config-error,$ENV {} variable is not set for {}, err: {}",
+                            env_var_name, value, err
+                        ),
+                    })?;
+                hm.insert(key.to_string(), value.to_string());
+            } else {
+                hm.insert(key.to_string(), value.to_string());
+            }
+        }
+        Ok(hm)
+    }
+
+    pub fn into_app(self) -> fpm::Result<App> {
+        let package = fpm::Dependency {
+            package: fpm::Package::new(self.package.trim().trim_matches('/')),
+            version: None,
+            notes: None,
+            alias: None,
+            implements: Vec::new(),
+            endpoint: None,
+            mountpoint: None,
+        };
+
+        Ok(App {
+            name: self.name,
+            package,
+            mount_point: self.mount_point,
+            end_point: self.end_point,
+            config: Self::parse_config(&self.config)?,
+        })
     }
 }

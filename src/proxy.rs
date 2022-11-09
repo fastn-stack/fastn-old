@@ -18,12 +18,15 @@ static CLIENT: once_cell::sync::Lazy<std::sync::Arc<reqwest::Client>> =
 pub(crate) async fn get_out(
     host: &str,
     req: fpm::http::Request,
+    path: &str,
+    package_name: &str,
+    req_headers: &std::collections::HashMap<String, String>,
 ) -> fpm::Result<fpm::http::Response> {
     let headers = req.headers();
     // TODO: It should be part of fpm::Request::uri()
-    let path = &req.uri().to_string()[1..];
+    // let path = &req.uri().to_string()[1..];
 
-    println!("proxy_request: {} {}", req.method(), path);
+    println!("proxy_request: {} {} {}", req.method(), path, host);
 
     let mut proxy_request = reqwest::Request::new(
         match req.method() {
@@ -41,8 +44,8 @@ pub(crate) async fn get_out(
         reqwest::Url::parse(
             format!(
                 "{}/{}{}",
-                host,
-                path,
+                host.trim_end_matches('/'),
+                path.trim_start_matches('/'),
                 if req.query_string().is_empty() {
                     "".to_string()
                 } else {
@@ -69,6 +72,15 @@ pub(crate) async fn get_out(
     // `/api/movie/?id=<id>` of movie-db service, this will happen while fpm is converting ftd code
     // to html, so all this happening on server side. So we can say server side rendering.
 
+    // headers
+
+    for (header_key, header_value) in req_headers {
+        proxy_request.headers_mut().insert(
+            reqwest::header::HeaderName::from_bytes(header_key.as_bytes()).unwrap(),
+            reqwest::header::HeaderValue::from_str(header_value.as_str()).unwrap(),
+        );
+    }
+
     proxy_request.headers_mut().insert(
         reqwest::header::USER_AGENT,
         reqwest::header::HeaderValue::from_static("fpm"),
@@ -93,7 +105,12 @@ pub(crate) async fn get_out(
     }
 
     *proxy_request.body_mut() = Some(req.body().to_vec().into());
-    dbg!(&proxy_request.headers());
 
-    Ok(fpm::http::ResponseBuilder::from_reqwest(CLIENT.execute(proxy_request).await?).await)
+    Ok(
+        fpm::http::ResponseBuilder::from_reqwest(
+            CLIENT.execute(proxy_request).await?,
+            package_name,
+        )
+        .await,
+    )
 }

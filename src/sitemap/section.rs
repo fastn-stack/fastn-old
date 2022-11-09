@@ -11,6 +11,7 @@ pub struct Section {
     ///
     /// Here foo/ is store as `id`
     pub id: String,
+    pub icon: Option<String>,
 
     /// `title` contains the title of the document. This can be specified inside
     /// document itself.
@@ -116,6 +117,7 @@ pub struct Section {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Subsection {
     pub id: Option<String>,
+    pub icon: Option<String>,
     pub title: Option<String>,
     pub file_location: Option<camino::Utf8PathBuf>,
     pub translation_file_location: Option<camino::Utf8PathBuf>,
@@ -157,7 +159,7 @@ impl Section {
             .to_string()
     }
 
-    // return true if any one does contain path_params
+    // return true if any item in sitemap does contain path_params
     pub fn contains_path_params(sections: &[Section]) -> bool {
         fn check_toc(toc: &fpm::sitemap::toc::TocItem) -> bool {
             if !toc.path_parameters.is_empty() {
@@ -212,6 +214,7 @@ impl Default for Subsection {
         Subsection {
             id: None,
             title: None,
+            icon: None,
             file_location: Default::default(),
             translation_file_location: None,
             visible: true,
