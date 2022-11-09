@@ -230,6 +230,7 @@ mod tests {
                 id: "Dynamic Urls Section".to_string(),
                 title: Some("Dynamic Urls Section".to_string()),
                 icon: None,
+                bury: false,
                 file_location: None,
                 translation_file_location: None,
                 extra_data: Default::default(),
@@ -239,6 +240,7 @@ mod tests {
                     id: None,
                     title: None,
                     icon: None,
+                    bury: false,
                     file_location: None,
                     translation_file_location: None,
                     visible: false,
@@ -250,6 +252,7 @@ mod tests {
                             id: "/person/<string:name>/".to_string(),
                             title: Some("Url 1".to_string()),
                             icon: None,
+                            bury: false,
                             file_location: None,
                             translation_file_location: None,
                             extra_data: vec![
@@ -274,6 +277,7 @@ mod tests {
                             id: "/person/<string:name>/".to_string(),
                             title: Some("Url 2".to_string()),
                             icon: None,
+                            bury: false,
                             file_location: None,
                             translation_file_location: None,
                             extra_data: vec![
