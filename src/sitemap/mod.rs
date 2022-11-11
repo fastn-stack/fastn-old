@@ -77,13 +77,13 @@ impl SitemapElement {
         *element_icon = path;
     }
 
-    pub(crate) fn set_bury(&mut self, path: Option<bool>) {
+    pub(crate) fn set_bury(&mut self, path: bool) {
         let element_bury = match self {
             SitemapElement::Section(s) => &mut s.bury,
             SitemapElement::Subsection(s) => &mut s.bury,
             SitemapElement::TocItem(s) => &mut s.bury,
         };
-        *element_bury = path;
+        *element_bury = Some(path);
     }
 
     pub(crate) fn set_id(&mut self, id: Option<String>) {
@@ -465,7 +465,7 @@ impl SitemapParser {
                                 }
                             })?);
                         } else if k.eq("bury") {
-                            i.set_bury(v.parse::<Option<bool>>().map_err(|e| {
+                            i.set_bury(v.parse::<bool>().map_err(|e| {
                                 ParseError::InvalidTOCItem {
                                     doc_id,
                                     message: e.to_string(),
