@@ -77,7 +77,7 @@ impl SitemapElement {
         *element_icon = path;
     }
 
-    pub(crate) fn set_bury(&mut self, path: bool) {
+    pub(crate) fn set_bury(&mut self, path: Option<bool>) {
         let element_bury = match self {
             SitemapElement::Section(s) => &mut s.bury,
             SitemapElement::Subsection(s) => &mut s.bury,
@@ -465,7 +465,7 @@ impl SitemapParser {
                                 }
                             })?);
                         } else if k.eq("bury") {
-                            i.set_bury(v.parse::<bool>().map_err(|e| {
+                            i.set_bury(v.parse::<Option<bool>>().map_err(|e| {
                                 ParseError::InvalidTOCItem {
                                     doc_id,
                                     message: e.to_string(),
@@ -849,7 +849,7 @@ impl Sitemap {
                             v.readers.clone(),
                             v.writers.clone(),
                             v.icon.clone(),
-                            false,
+                            Some(false),
                         );
                         if active {
                             let mut curr_subsection = toc.clone();
@@ -886,7 +886,7 @@ impl Sitemap {
                     section.readers.clone(),
                     section.writers.clone(),
                     section.icon.clone(),
-                    false,
+                    Some(false),
                 );
                 sections.push(section_toc.clone());
                 if let Some(ref title) = section.nav_title {
@@ -911,7 +911,7 @@ impl Sitemap {
                     section.readers.clone(),
                     section.writers.clone(),
                     section.icon.clone(),
-                    false,
+                    Some(false),
                 );
                 sections.push(section_toc.clone());
                 if let Some(ref title) = section.nav_title {
@@ -930,7 +930,7 @@ impl Sitemap {
                     section.readers.clone(),
                     section.writers.clone(),
                     section.icon.clone(),
-                    false,
+                    Some(false),
                 ));
             }
         }
@@ -947,7 +947,7 @@ impl Sitemap {
                         v.readers.clone(),
                         v.writers.clone(),
                         v.icon.clone(),
-                        false,
+                        Some(false),
                     )
                 }),
         );
@@ -999,7 +999,7 @@ impl Sitemap {
                         subsection.readers.clone(),
                         subsection.writers.clone(),
                         subsection.icon.clone(),
-                        false,
+                        Some(false),
                     );
                     subsection_list.push(subsection_toc.clone());
                     if let Some(ref title) = subsection.nav_title {
@@ -1023,7 +1023,7 @@ impl Sitemap {
                             subsection.readers.clone(),
                             subsection.writers.clone(),
                             subsection.icon.clone(),
-                            false,
+                            Some(false),
                         );
                         subsection_list.push(subsection_toc.clone());
                         if let Some(ref title) = subsection.nav_title {
@@ -1044,7 +1044,7 @@ impl Sitemap {
                         subsection.readers.clone(),
                         subsection.writers.clone(),
                         subsection.icon.clone(),
-                        false,
+                        Some(false),
                     ));
                 }
             }
@@ -1060,7 +1060,7 @@ impl Sitemap {
                             v.readers.clone(),
                             v.writers.clone(),
                             v.icon.clone(),
-                            false,
+                            Some(false),
                         )
                     },
                 ));
@@ -1111,7 +1111,7 @@ impl Sitemap {
                         toc_item.readers.clone(),
                         toc_item.writers.clone(),
                         toc_item.icon.clone(),
-                        false,
+                        Some(false),
                     );
                     current_toc.children = children;
                     if is_open {
