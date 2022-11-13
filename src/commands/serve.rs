@@ -18,6 +18,7 @@ async fn serve_file(config: &mut fpm::Config, path: &camino::Utf8Path) -> fpm::h
         } else {
             return fpm::server_error!("request not set");
         };
+
         match config.can_read(req, path.as_str()).await {
             Ok(can_read) => {
                 if !can_read {
@@ -27,7 +28,18 @@ async fn serve_file(config: &mut fpm::Config, path: &camino::Utf8Path) -> fpm::h
             Err(e) => {
                 return fpm::server_error!("FPM-Error: can_read error: {}, {:?}", path, e);
             }
-        }
+        };
+
+        match fpm::package::app::can_read(config, path.as_str()).await {
+            Ok(can_read) => {
+                if !can_read {
+                    return fpm::unauthorised!("You are unauthorized to access: {}", path);
+                }
+            }
+            Err(err) => {
+                return fpm::server_error!("FPM-Error: can_read error: {}, {:?}", path, err);
+            }
+        };
     }
 
     match f {
@@ -128,7 +140,7 @@ async fn static_file(file_path: camino::Utf8PathBuf) -> fpm::http::Response {
     }
 }
 
-async fn serve(req: fpm::http::Request) -> fpm::Result<fpm::http::Response> {
+pub async fn serve(req: fpm::http::Request) -> fpm::Result<fpm::http::Response> {
     let _lock = LOCK.read().await;
     let r = format!("{} {}", req.method(), req.path());
     let t = fpm::time(r.as_str());
@@ -292,8 +304,37 @@ pub(crate) async fn download_init_package(url: Option<String>) -> std::io::Resul
 }
 
 pub async fn clear_cache(req: fpm::http::Request) -> fpm::Result<fpm::http::Response> {
+    fn is_login(req: &fpm::http::Request) -> bool {
+        dbg!(req.cookie(fpm::auth::COOKIE_TOKEN)).is_some()
+    }
+
+    // TODO: Remove After Demo, Need to think about refresh content from github
+    #[derive(serde::Deserialize)]
+    struct Temp {
+        from: Option<String>,
+    }
+    let from = actix_web::web::Query::<Temp>::from_query(req.query_string())?;
+    if from.from.eq(&Some("temp-github".to_string())) {
+        let _lock = LOCK.write().await;
+        return Ok(fpm::apis::cache::clear(&req).await);
+    }
+    // TODO: Remove After Demo, till here
+
+    if !is_login(&req) {
+        return Ok(actix_web::HttpResponse::Found()
+            .append_header((
+                actix_web::http::header::LOCATION,
+                "/auth/login/?platform=github".to_string(),
+            ))
+            .finish());
+    }
+
     let _lock = LOCK.write().await;
-    Ok(fpm::apis::cache::clear(&req).await)
+    fpm::apis::cache::clear(&req).await;
+    // TODO: Redirect to Referrer uri
+    return Ok(actix_web::HttpResponse::Found()
+        .append_header((actix_web::http::header::LOCATION, "/".to_string()))
+        .finish());
 }
 
 // TODO: Move them to routes folder
@@ -346,8 +387,12 @@ async fn route(
     req: actix_web::HttpRequest,
     body: actix_web::web::Bytes,
 ) -> fpm::Result<fpm::http::Response> {
+    if req.path().starts_with("/auth/") {
+        return fpm::auth::routes::handle_auth(req).await;
+    }
     let req = fpm::http::Request::from_actix(req, body);
-    match (req.method(), req.path()) {
+    dbg!(req.method(), req.path());
+    match (req.method().to_lowercase().as_str(), req.path()) {
         ("post", "/-/sync/") if cfg!(feature = "remote") => sync(req).await,
         ("post", "/-/sync2/") if cfg!(feature = "remote") => sync2(req).await,
         ("get", "/-/clone/") if cfg!(feature = "remote") => clone(req).await,
@@ -357,7 +402,7 @@ async fn route(
         ("get", "/-/editor-sync/") => editor_sync(req).await,
         ("post", "/-/create-cr/") => create_cr(req).await,
         ("get", "/-/create-cr-page/") => create_cr_page(req).await,
-        ("post", "/-/clear-cache/") => clear_cache(req).await,
+        ("get", "/-/clear-cache/") => clear_cache(req).await,
         (_, _) => serve(req).await,
     }
 }
@@ -368,7 +413,7 @@ pub async fn listen(
     package_download_base_url: Option<String>,
 ) -> fpm::Result<()> {
     use colored::Colorize;
-
+    dotenv::dotenv().ok();
     if package_download_base_url.is_some() {
         download_init_package(package_download_base_url).await?;
     }

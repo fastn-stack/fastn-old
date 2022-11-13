@@ -52,13 +52,15 @@ pub fn ok_with_content_type(data: Vec<u8>, content_type: mime_guess::Mime) -> fp
 pub struct Request {
     method: String,
     uri: String,
-    path: String,
+    pub path: String,
     query_string: String,
     cookies: std::collections::HashMap<String, String>,
     headers: reqwest::header::HeaderMap,
     query: std::collections::HashMap<String, serde_json::Value>,
     body: actix_web::web::Bytes,
     ip: Option<String>,
+    scheme: String,
+    host: String,
     // path_params: Vec<(String, )>
 }
 
@@ -87,6 +89,8 @@ impl Request {
                 ).unwrap().0
             },
             ip: req.peer_addr().map(|x| x.ip().to_string()),
+            scheme: req.connection_info().scheme().to_string(),
+            host: req.connection_info().host().to_string(),
         };
 
         fn get_cookies(
@@ -182,14 +186,14 @@ impl Request {
     }
 
     pub fn host(&self) -> String {
-        use std::borrow::Borrow;
-
-        self.headers
-            .borrow()
-            .get("host")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("localhost")
-            .to_string()
+        self.host.to_string()
+        // use std::borrow::Borrow;
+        // self.headers
+        //     .borrow()
+        //     .get("host")
+        //     .and_then(|v| v.to_str().ok())
+        //     .unwrap_or("localhost")
+        //     .to_string()
     }
 
     pub fn headers(&self) -> &reqwest::header::HeaderMap {
@@ -202,6 +206,9 @@ impl Request {
 
     pub fn get_ip(&self) -> Option<String> {
         self.ip.clone()
+    }
+    pub fn scheme(&self) -> String {
+        self.scheme.to_string()
     }
 }
 
@@ -369,26 +376,26 @@ pub(crate) async fn http_get_with_cookie(
     Ok(res.bytes().await?.into())
 }
 
-pub async fn http_get_with_type<T: serde::de::DeserializeOwned>(
-    url: url::Url,
-    headers: reqwest::header::HeaderMap,
-    query: &[(String, String)],
-) -> fpm::Result<T> {
-    let c = reqwest::Client::builder()
-        .default_headers(headers)
-        .build()?;
-
-    let resp = c.get(url.to_string().as_str()).query(query).send().await?;
-    if !resp.status().eq(&reqwest::StatusCode::OK) {
-        return Err(fpm::Error::APIResponseError(format!(
-            "url: {}, response_status: {}, response: {:?}",
-            url,
-            resp.status(),
-            resp.text().await
-        )));
-    }
-    Ok(resp.json::<T>().await?)
-}
+// pub async fn http_get_with_type<T: serde::de::DeserializeOwned>(
+//     url: url::Url,
+//     headers: reqwest::header::HeaderMap,
+//     query: &[(String, String)],
+// ) -> fpm::Result<T> {
+//     let c = reqwest::Client::builder()
+//         .default_headers(headers)
+//         .build()?;
+//
+//     let resp = c.get(url.to_string().as_str()).query(query).send().await?;
+//     if !resp.status().eq(&reqwest::StatusCode::OK) {
+//         return Err(fpm::Error::APIResponseError(format!(
+//             "url: {}, response_status: {}, response: {:?}",
+//             url,
+//             resp.status(),
+//             resp.text().await
+//         )));
+//     }
+//     Ok(resp.json::<T>().await?)
+// }
 
 pub(crate) async fn http_get_str(url: &str) -> fpm::Result<String> {
     let url_f = format!("{:?}", url);

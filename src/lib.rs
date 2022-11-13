@@ -18,6 +18,7 @@ mod history;
 mod package;
 #[macro_use]
 mod http;
+mod auth;
 mod error;
 mod i18n;
 pub mod library;
