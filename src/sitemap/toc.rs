@@ -1,7 +1,10 @@
+use sha2::digest::consts::False;
+
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct TocItem {
     pub id: String,
     pub icon: Option<String>,
+    pub bury: bool,
     pub title: Option<String>,
     pub file_location: Option<camino::Utf8PathBuf>,
     pub translation_file_location: Option<camino::Utf8PathBuf>,
@@ -72,6 +75,7 @@ pub struct TocItemCompat {
     // TODO: Font icon mapping to html?
     #[serde(rename = "font-icon")]
     pub font_icon: Option<ImageSrc>,
+    pub bury: bool,
     #[serde(rename = "is-disabled")]
     pub is_disabled: bool,
     #[serde(rename = "is-active")]
@@ -95,6 +99,7 @@ impl TocItemCompat {
         readers: Vec<String>,
         writers: Vec<String>,
         icon: Option<String>,
+        bury: bool,
     ) -> TocItemCompat {
         TocItemCompat {
             url,
@@ -107,6 +112,7 @@ impl TocItemCompat {
             is_active,
             is_open,
             image_src: None,
+            bury: false,
             children: vec![],
             readers,
             writers,
