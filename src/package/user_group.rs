@@ -77,9 +77,9 @@ pub struct UserGroupTemp {
     pub github: Vec<String>,
     #[serde(rename = "-github")]
     pub excluded_github: Vec<String>,
-    #[serde(rename = "github-like")]
+    #[serde(rename = "github-starred")]
     pub github_like: Vec<String>,
-    #[serde(rename = "-github-like")]
+    #[serde(rename = "-github-starred")]
     pub excluded_github_like: Vec<String>,
     #[serde(rename = "github-team")]
     pub github_team: Vec<String>,
@@ -270,8 +270,11 @@ impl UserGroupTemp {
         ));
         identities.extend(to_user_identity("github", self.github));
         excluded_identities.extend(to_user_identity("-github", self.excluded_github));
-        identities.extend(to_user_identity("github-like", self.github_like));
-        excluded_identities.extend(to_user_identity("-github-like", self.excluded_github_like));
+        identities.extend(to_user_identity("github-starred", self.github_like));
+        excluded_identities.extend(to_user_identity(
+            "-github-starred",
+            self.excluded_github_like,
+        ));
         identities.extend(to_user_identity("github-team", self.github_team));
         excluded_identities.extend(to_user_identity("-github-team", self.excluded_github_team));
         identities.extend(to_user_identity(
@@ -395,7 +398,7 @@ pub fn belongs_to(
 }
 
 /// 'email: abrark.asahi@gmail.com => vec[UId{email: abrark.asahi@gmail.com}]
-pub(crate) fn parse_identities(identities: &str) -> Vec<UserIdentity> {
+pub fn parse_identities(identities: &str) -> Vec<UserIdentity> {
     use itertools::Itertools;
     let identities = identities.split(',').collect_vec();
     identities
@@ -409,7 +412,7 @@ pub(crate) fn parse_identities(identities: &str) -> Vec<UserIdentity> {
 }
 
 /// Get identities from cli `--identities`
-pub(crate) fn parse_cli_identities() -> Vec<UserIdentity> {
+pub fn parse_cli_identities() -> Vec<UserIdentity> {
     let identities = fpm::utils::parse_from_cli("--identities");
     parse_identities(&identities.unwrap_or_default())
 }
@@ -430,25 +433,18 @@ pub async fn access_identities(
     document_name: &str,
     is_read: bool,
 ) -> fpm::Result<Vec<UserIdentity>> {
-    use itertools::Itertools;
-    if cfg!(feature = "remote") {
-        return fpm::controller::get_remote_identities(
-            req.host().as_str(),
-            req.cookies(),
-            get_identities(config, document_name, is_read)?
-                .into_iter()
-                .map(|x| (x.key, x.value))
-                .collect_vec()
-                .as_slice(),
-        )
-        .await;
-    }
+    let sitemap_identities = get_identities(config, document_name, is_read)?;
+    // github-team: fpm-lang/ftd
+    // github-starred: fpm-lang/ftd
+    // discord-server: abrark.com
+    // github-watch: fpm-lang/ftd
+    fpm::auth::get_auth_identities(req.cookies(), sitemap_identities.as_slice()).await
 
-    Ok(if let Some(identity) = req.cookie("identities") {
-        parse_identities(identity.as_str())
-    } else {
-        parse_cli_identities()
-    })
+    // Ok(if let Some(identity) = req.cookie("identities") {
+    //     parse_identities(identity.as_str())
+    // } else {
+    //     parse_cli_identities()
+    // })
 }
 
 pub mod processor {
