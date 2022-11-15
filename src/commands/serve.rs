@@ -10,8 +10,8 @@ async fn serve_file(config: &mut fpm::Config, path: &camino::Utf8Path) -> fpm::h
             return fpm::not_found!("FPM-Error: path: {}, {:?}", path, e);
         }
     };
-    dbg!(config.clone());
-    dbg!(path.clone());
+    // dbg!(config.clone());
+    // dbg!(path.clone());
     // Auth Stuff
     if !f.is_static() {
         let req = if let Some(ref r) = config.request {
@@ -224,8 +224,8 @@ pub async fn serve(req: fpm::http::Request) -> fpm::Result<fpm::http::Response> 
 
         // if request goes with mount-point /todos/api/add-todo/
         // so it should say not found and pass it to proxy
-        dbg!(path.as_path().clone());
-        dbg!(config.clone());
+        //dbg!(path.as_path().clone());
+        //dbg!(config.clone());
         let file_response = serve_file(&mut config, path.as_path()).await;
 
         // If path is not present in sitemap then pass it to proxy
