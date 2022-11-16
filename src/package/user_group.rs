@@ -89,6 +89,10 @@ pub struct UserGroupTemp {
     pub github_contributor: Vec<String>,
     #[serde(rename = "-github-contributor")]
     pub excluded_github_contributor: Vec<String>,
+    #[serde(rename = "github-collaborator")]
+    pub github_collaborator: Vec<String>,
+    #[serde(rename = "-github-collaborator")]
+    pub excluded_github_collaborator: Vec<String>,
     #[serde(rename = "github-watch")]
     pub github_watch: Vec<String>,
     #[serde(rename = "-github-watch")]
@@ -284,6 +288,14 @@ impl UserGroupTemp {
         excluded_identities.extend(to_user_identity(
             "-github-contributor",
             self.excluded_github_contributor,
+        ));
+        identities.extend(to_user_identity(
+            "github-collaborator",
+            self.github_collaborator,
+        ));
+        excluded_identities.extend(to_user_identity(
+            "-github-collaborator",
+            self.excluded_github_collaborator,
         ));
         identities.extend(to_user_identity("github-watch", self.github_watch));
         excluded_identities.extend(to_user_identity(
