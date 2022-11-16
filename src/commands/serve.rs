@@ -10,8 +10,6 @@ async fn serve_file(config: &mut fpm::Config, path: &camino::Utf8Path) -> fpm::h
             return fpm::not_found!("FPM-Error: path: {}, {:?}", path, e);
         }
     };
-    // dbg!(config.clone());
-    // dbg!(path.clone());
     // Auth Stuff
     if !f.is_static() {
         let req = if let Some(ref r) = config.request {
@@ -181,14 +179,14 @@ pub async fn serve(req: fpm::http::Request) -> fpm::Result<fpm::http::Response> 
         // if start with -/ and mount-point exists so send redirect to mount-point
         // We have to do -/<package-name>/remaining-url/ ==> (<package-name>, remaining-url) ==> (/config.package-name.mount-point/remaining-url/)
         // Get all the dependencies with mount-point if path_start with any package-name so send redirect to mount-point
-
-        if req_method.as_str() == "GET" {
+        // fpm::file::is_static: checking for static file, if file is static no need to redirect it.
+        if req_method.as_str() == "GET" && !fpm::file::is_static(path.as_str())? {
             // if any app name starts with package-name to redirect it to /mount-point/remaining-url/
             for (mp, dep) in config
                 .package
                 .apps
                 .iter()
-                .map(|x| (&x.mount_point, &x.package.package))
+                .map(|x| (&x.mount_point, &x.package))
             {
                 if let Some(remaining_path) =
                     fpm::config::utils::trim_package_name(path.as_str(), dep.name.as_str())
@@ -224,10 +222,7 @@ pub async fn serve(req: fpm::http::Request) -> fpm::Result<fpm::http::Response> 
 
         // if request goes with mount-point /todos/api/add-todo/
         // so it should say not found and pass it to proxy
-        //dbg!(path.as_path().clone());
-        //dbg!(config.clone());
         let file_response = serve_file(&mut config, path.as_path()).await;
-
         // If path is not present in sitemap then pass it to proxy
         // TODO: Need to handle other package URL as well, and that will start from `-`
         // and all the static files starts with `-`

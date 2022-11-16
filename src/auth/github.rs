@@ -87,7 +87,6 @@ pub async fn matched_identities(
     access_token: &str,
     identities: &[fpm::user_group::UserIdentity],
 ) -> fpm::Result<Vec<fpm::user_group::UserIdentity>> {
-    //dbg!("matched identities");
     let github_identities = identities
         .iter()
         .filter(|identity| identity.key.starts_with("github"))
@@ -97,21 +96,22 @@ pub async fn matched_identities(
         return Ok(vec![]);
     }
 
-    //dbg!(&github_identities);
     let mut matched_identities = vec![];
     // matched_starred_repositories
     matched_identities
         .extend(matched_starred_repos(access_token, github_identities.as_slice()).await?);
+    // matched: github-watch
     matched_identities
         .extend(matched_watched_repos(access_token, github_identities.as_slice()).await?);
+    // matched: github-follows
     matched_identities
         .extend(matched_followed_org(access_token, github_identities.as_slice()).await?);
+    // matched: github-contributor
     matched_identities
         .extend(matched_org_contributors_repos(access_token, github_identities.as_slice()).await?);
+    // matched: github-team
     matched_identities
         .extend(matched_org_collaborators_repos(access_token, github_identities.as_slice()).await?);
-
-    // TODO: matched_team
 
     Ok(matched_identities)
 }
@@ -177,6 +177,7 @@ pub async fn matched_watched_repos(
         })
         .collect())
 }
+
 pub async fn matched_followed_org(
     access_token: &str,
     identities: &[&fpm::user_group::UserIdentity],
@@ -206,6 +207,7 @@ pub async fn matched_followed_org(
         })
         .collect())
 }
+
 pub async fn matched_org_contributors_repos(
     access_token: &str,
     identities: &[&fpm::user_group::UserIdentity],
@@ -243,6 +245,7 @@ pub async fn matched_org_contributors_repos(
         })
         .collect())
 }
+
 pub async fn matched_org_collaborators_repos(
     access_token: &str,
     identities: &[&fpm::user_group::UserIdentity],
@@ -302,6 +305,7 @@ pub mod apis {
         .await?;
         Ok(starred_repo.into_iter().map(|x| x.full_name).collect())
     }
+
     pub async fn followed_org(access_token: &str) -> fpm::Result<Vec<String>> {
         // API Docs: https://docs.github.com/en/rest/users/followers#list-followers-of-the-authenticated-user
         // TODO: Handle paginated response
@@ -316,6 +320,7 @@ pub mod apis {
         .await?;
         Ok(watched_repo.into_iter().map(|x| x.login).collect())
     }
+
     pub async fn watched_repo(access_token: &str) -> fpm::Result<Vec<String>> {
         // API Docs: https://docs.github.com/en/rest/activity/watching#list-repositories-watched-by-the-authenticated-user
         // TODO: Handle paginated response
