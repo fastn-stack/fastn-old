@@ -20,7 +20,7 @@ pub async fn login(req: actix_web::HttpRequest) -> fpm::Result<fpm::http::Respon
         .authorize_url(oauth2::CsrfToken::new_random)
         .add_scope(oauth2::Scope::new("public_repo".to_string()))
         .add_scope(oauth2::Scope::new("user:email".to_string()))
-        .add_scope(oauth2::Scope::new("read:repo".to_string()))
+        .add_scope(oauth2::Scope::new("read:org".to_string()))
         .url();
 
     // https://openid.net/specs/openid-connect-core-1_0.html#AuthRequest:~:text=an%20appropriate%20display.-,prompt,-OPTIONAL.%20Space%20delimited
@@ -109,13 +109,12 @@ pub async fn matched_identities(
         .extend(matched_followed_org(access_token, github_identities.as_slice()).await?);
     // matched: github-contributor
     matched_identities
-        .extend(matched_org_contributors_repos(access_token, github_identities.as_slice()).await?);
+        .extend(matched_contributed_repos(access_token, github_identities.as_slice()).await?);
     // matched: github-team
     matched_identities
-        .extend(matched_org_collaborators_repos(access_token, github_identities.as_slice()).await?);
+        .extend(matched_collaborated_repos(access_token, github_identities.as_slice()).await?);
 
-    matched_identities
-        .extend(matched_joined_org(access_token, github_identities.as_slice()).await?);
+    matched_identities.extend(matched_org_teams(access_token, github_identities.as_slice()).await?);
 
     Ok(matched_identities)
 }
@@ -142,7 +141,7 @@ pub async fn matched_starred_repos(
     }
     dbg!(&access_token);
     let user_starred_repos = apis::starred_repo(access_token).await?;
-    // filter the user repos with input
+    // filter the user starred repos with input
     Ok(user_starred_repos
         .into_iter()
         .filter(|user_repo| starred_repos.contains(&user_repo.as_str()))
@@ -172,7 +171,7 @@ pub async fn matched_watched_repos(
         return Ok(vec![]);
     }
     let user_watched_repos = apis::watched_repo(access_token).await?;
-    // filter the user repos with input
+    // filter the user watched repos with input
     Ok(user_watched_repos
         .into_iter()
         .filter(|user_repo| watched_repos.contains(&user_repo.as_str()))
@@ -202,53 +201,23 @@ pub async fn matched_followed_org(
         return Ok(vec![]);
     }
     let user_followed_orgs = apis::followed_org(access_token).await?;
-    // filter the user repos with input
+    // filter the user followed orgs with input
     Ok(user_followed_orgs
         .into_iter()
         .filter(|user_org| followed_orgs.contains(&user_org.as_str()))
-        .map(|repo| fpm::user_group::UserIdentity {
+        .map(|org| fpm::user_group::UserIdentity {
             key: "github-follows".to_string(),
-            value: repo,
-        })
-        .collect())
-}
-pub async fn matched_joined_org(
-    access_token: &str,
-    identities: &[&fpm::user_group::UserIdentity],
-) -> fpm::Result<Vec<fpm::user_group::UserIdentity>> {
-    // github-team: FifthTry/admins
-    use itertools::Itertools;
-    let joined_orgs = identities
-        .iter()
-        .filter_map(|i| {
-            if i.key.eq("github-team") {
-                Some(i.value.as_str())
-            } else {
-                None
-            }
-        })
-        .collect_vec();
-    if joined_orgs.is_empty() {
-        return Ok(vec![]);
-    }
-    let user_joined_orgs = apis::user_joined_orgs(access_token).await?;
-    // filter the user repos with input
-    Ok(user_joined_orgs
-        .into_iter()
-        .filter(|user_org| joined_orgs.contains(&user_org.as_str()))
-        .map(|repo| fpm::user_group::UserIdentity {
-            key: "github-team".to_string(),
-            value: repo,
+            value: org,
         })
         .collect())
 }
 
-pub async fn matched_org_contributors_repos(
+pub async fn matched_contributed_repos(
     access_token: &str,
     identities: &[&fpm::user_group::UserIdentity],
 ) -> fpm::Result<Vec<fpm::user_group::UserIdentity>> {
     use itertools::Itertools;
-    let mut org_repo_contributors: Vec<String> = vec![];
+    let mut matched_repo_contributors_list: Vec<String> = vec![];
     let contributed_repos = identities
         .iter()
         .filter_map(|i| {
@@ -267,11 +236,11 @@ pub async fn matched_org_contributors_repos(
         let repo_contributors = apis::repo_contributors(access_token, repo).await?;
 
         if repo_contributors.contains(&user_name) {
-            org_repo_contributors.push(String::from(repo.to_owned()));
+            matched_repo_contributors_list.push(String::from(repo.to_owned()));
         }
     }
-    // filter the contributor repos with input
-    Ok(org_repo_contributors
+    // filter the user contributed repos with input
+    Ok(matched_repo_contributors_list
         .into_iter()
         .filter(|user_repo| contributed_repos.contains(&user_repo.as_str()))
         .map(|repo| fpm::user_group::UserIdentity {
@@ -281,14 +250,13 @@ pub async fn matched_org_contributors_repos(
         .collect())
 }
 
-pub async fn matched_org_collaborators_repos(
+pub async fn matched_collaborated_repos(
     access_token: &str,
     identities: &[&fpm::user_group::UserIdentity],
 ) -> fpm::Result<Vec<fpm::user_group::UserIdentity>> {
     use itertools::Itertools;
-    let mut org_repo_collaborator: Vec<String> = vec![];
-    //dbg!(&identities);
-    let collaborator_repos = identities
+    let mut matched_repo_collaborator_list: Vec<String> = vec![];
+    let collaborated_repos = identities
         .iter()
         .filter_map(|i| {
             if i.key.eq("github-collaborator") {
@@ -299,25 +267,76 @@ pub async fn matched_org_collaborators_repos(
         })
         .collect_vec();
     let user_name = apis::user_details(access_token).await?;
-    if collaborator_repos.is_empty() {
+    if collaborated_repos.is_empty() {
         return Ok(vec![]);
     }
-    dbg!(&collaborator_repos);
-    for repo in &collaborator_repos {
+    //dbg!(&collaborator_repos);
+    for repo in &collaborated_repos {
         let repo_collaborator = apis::repo_collaborators(access_token, repo).await?;
 
         if repo_collaborator.contains(&user_name) {
             //dbg!(&access_token);
-            org_repo_collaborator.push(String::from(repo.to_owned()));
+            matched_repo_collaborator_list.push(String::from(repo.to_owned()));
         }
     }
-    // filter the collaborator repos with input
-    Ok(org_repo_collaborator
+    // filter the user collaborated repos with input
+    Ok(matched_repo_collaborator_list
         .into_iter()
-        .filter(|user_repo| collaborator_repos.contains(&user_repo.as_str()))
+        .filter(|user_repo| collaborated_repos.contains(&user_repo.as_str()))
         .map(|repo| fpm::user_group::UserIdentity {
             key: "github-collaborator".to_string(),
             value: repo,
+        })
+        .collect())
+}
+
+pub async fn matched_org_teams(
+    access_token: &str,
+    identities: &[&fpm::user_group::UserIdentity],
+) -> fpm::Result<Vec<fpm::user_group::UserIdentity>> {
+    use itertools::Itertools;
+    let mut matched_org_team_member_list: Vec<String> = vec![];
+    let org_teams = identities
+        .iter()
+        .filter_map(|i| {
+            if i.key.eq("github-team") {
+                Some(i.value.as_str())
+            } else {
+                None
+            }
+        })
+        .collect_vec();
+    let user_name = apis::user_details(access_token).await?;
+    if org_teams.is_empty() {
+        return Ok(vec![]);
+    }
+    for org_team in &org_teams {
+        let org_team_parts: Vec<&str> = org_team.split('/').collect();
+
+        if org_team_parts.len() > 1 {
+            let org_title: &str = match org_team_parts.first() {
+                Some(val) => val.to_owned(),
+                None => "",
+            };
+            let team_slug: &str = match org_team_parts.get(1) {
+                Some(val) => val.to_owned(),
+                None => "",
+            };
+            let team_members: Vec<String> =
+                apis::team_members(access_token, org_title, team_slug).await?;
+            dbg!(&team_members);
+            if team_members.contains(&user_name) {
+                matched_org_team_member_list.push(String::from(org_team.to_owned()));
+            }
+        }
+    }
+    // filter the user joined teams with input
+    Ok(matched_org_team_member_list
+        .into_iter()
+        .filter(|matched_org_team| org_teams.contains(&matched_org_team.as_str()))
+        .map(|org_team| fpm::user_group::UserIdentity {
+            key: "github-team".to_string(),
+            value: org_team,
         })
         .collect())
 }
@@ -347,10 +366,10 @@ pub mod apis {
         // API Docs: https://docs.github.com/en/rest/users/followers#list-followers-of-the-authenticated-user
         // TODO: Handle paginated response
         #[derive(Debug, serde::Deserialize)]
-        struct UserRepos {
+        struct FollowedOrg {
             login: String,
         }
-        let watched_repo: Vec<UserRepos> = get_api(
+        let watched_repo: Vec<FollowedOrg> = get_api(
             format!("{}?per_page=100", "https://api.github.com/user/following").as_str(),
             access_token,
         )
@@ -358,16 +377,24 @@ pub mod apis {
         Ok(watched_repo.into_iter().map(|x| x.login).collect())
     }
 
-    pub async fn user_joined_orgs(access_token: &str) -> fpm::Result<Vec<String>> {
-        // API Docs: https://docs.github.com/en/rest/orgs/orgs#list-organizations-for-the-authenticated-user
+    pub async fn team_members(
+        access_token: &str,
+        org_title: &str,
+        team_slug: &str,
+    ) -> fpm::Result<Vec<String>> {
+        // API Docs: https://docs.github.com/en/rest/teams/members#list-team-members
         // TODO: Handle paginated response
         #[derive(Debug, serde::Deserialize)]
-        struct UserRepos {
+        struct TeamMembers {
             login: String,
         }
 
-        let user_orgs: Vec<UserRepos> = get_api(
-            format!("{}?per_page=100", "https://api.github.com/user/orgs").as_str(),
+        let user_orgs: Vec<TeamMembers> = get_api(
+            format!(
+                "{}{}{}{}/members?per_page=100",
+                "https://api.github.com/orgs/", org_title, "/teams/", team_slug
+            )
+            .as_str(),
             access_token,
         )
         .await?;
@@ -399,12 +426,12 @@ pub mod apis {
         // API Docs: https://docs.github.com/en/rest/activity/starring#list-repositories-starred-by-the-authenticated-user
         // TODO: Handle paginated response
         #[derive(Debug, serde::Deserialize)]
-        struct UserRepos {
+        struct RepoContributor {
             login: String,
         }
 
         //dbg!(apis::user_details(access_token).await?);
-        let repo_contributor: Vec<UserRepos> = get_api(
+        let repo_contributor: Vec<RepoContributor> = get_api(
             format!(
                 "{}{}/contributors?per_page=100",
                 "https://api.github.com/repos/", repo_name
@@ -422,11 +449,11 @@ pub mod apis {
         // API Docs: https://docs.github.com/en/rest/collaborators/collaborators#list-repository-collaborators
         // TODO: Handle paginated response
         #[derive(Debug, serde::Deserialize)]
-        struct UserRepos {
+        struct RepoCollaborator {
             login: String,
         }
         dbg!(&repo_name);
-        let repo_collaborators_list: Vec<UserRepos> = get_api(
+        let repo_collaborators_list: Vec<RepoCollaborator> = get_api(
             format!(
                 "{}{}/collaborators?per_page=100",
                 "https://api.github.com/repos/", repo_name
