@@ -363,6 +363,8 @@ string list github-team:
 string list -github-team:
 string list github-contributor:
 string list -github-contributor:
+string list github-collaborator:
+string list -github-collaborator:
 string list github-watch:
 string list -github-watch:
 string list github-follows:

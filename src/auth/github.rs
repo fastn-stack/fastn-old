@@ -20,7 +20,7 @@ pub async fn login(req: actix_web::HttpRequest) -> fpm::Result<fpm::http::Respon
         .authorize_url(oauth2::CsrfToken::new_random)
         .add_scope(oauth2::Scope::new("public_repo".to_string()))
         .add_scope(oauth2::Scope::new("user:email".to_string()))
-        .add_scope(oauth2::Scope::new("read:org".to_string()))
+        .add_scope(oauth2::Scope::new("read:repo".to_string()))
         .url();
 
     // https://openid.net/specs/openid-connect-core-1_0.html#AuthRequest:~:text=an%20appropriate%20display.-,prompt,-OPTIONAL.%20Space%20delimited
@@ -281,6 +281,7 @@ pub async fn matched_org_collaborators_repos(
 ) -> fpm::Result<Vec<fpm::user_group::UserIdentity>> {
     use itertools::Itertools;
     let mut org_repo_collaborator: Vec<String> = vec![];
+    //dbg!(&identities);
     let collaborator_repos = identities
         .iter()
         .filter_map(|i| {
@@ -295,11 +296,12 @@ pub async fn matched_org_collaborators_repos(
     if collaborator_repos.is_empty() {
         return Ok(vec![]);
     }
+    dbg!(&collaborator_repos);
     for repo in &collaborator_repos {
         let repo_collaborator = apis::repo_collaborators(access_token, repo).await?;
 
         if repo_collaborator.contains(&user_name) {
-            dbg!(&access_token);
+            //dbg!(&access_token);
             org_repo_collaborator.push(String::from(repo.to_owned()));
         }
     }
@@ -413,9 +415,8 @@ pub mod apis {
         struct UserRepos {
             login: String,
         }
-
-        //dbg!(apis::user_details(access_token).await?);
-        let repo_collaborators: Vec<UserRepos> = get_api(
+        dbg!(&repo_name);
+        let repo_collaborators_list: Vec<UserRepos> = get_api(
             format!(
                 "{}{}/collaborators?per_page=100",
                 "https://api.github.com/repos/", repo_name
@@ -424,7 +425,10 @@ pub mod apis {
             access_token,
         )
         .await?;
-        Ok(repo_collaborators.into_iter().map(|x| x.login).collect())
+        Ok(repo_collaborators_list
+            .into_iter()
+            .map(|x| x.login)
+            .collect())
     }
 
     pub async fn user_details(access_token: &str) -> fpm::Result<String> {
