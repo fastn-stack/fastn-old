@@ -101,7 +101,7 @@ pub async fn matched_identities(
     // matched_starred_repositories
     matched_identities
         .extend(matched_starred_repos(access_token, github_identities.as_slice()).await?);
-    // matched: github-watch
+    // matched: github-watches
     matched_identities
         .extend(matched_watched_repos(access_token, github_identities.as_slice()).await?);
     // matched: github-follows
@@ -160,7 +160,7 @@ pub async fn matched_watched_repos(
     let watched_repos = identities
         .iter()
         .filter_map(|i| {
-            if i.key.eq("github-watch") {
+            if i.key.eq("github-watches") {
                 Some(i.value.as_str())
             } else {
                 None
@@ -176,7 +176,7 @@ pub async fn matched_watched_repos(
         .into_iter()
         .filter(|user_repo| watched_repos.contains(&user_repo.as_str()))
         .map(|repo| fpm::user_group::UserIdentity {
-            key: "github-watch".to_string(),
+            key: "github-watches".to_string(),
             value: repo,
         })
         .collect())
