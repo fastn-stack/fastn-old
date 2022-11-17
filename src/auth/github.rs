@@ -110,10 +110,10 @@ pub async fn matched_identities(
     // matched: github-contributor
     matched_identities
         .extend(matched_contributed_repos(access_token, github_identities.as_slice()).await?);
-    // matched: github-team
+    // matched: github-collaborator
     matched_identities
         .extend(matched_collaborated_repos(access_token, github_identities.as_slice()).await?);
-
+    // matched: github-teams
     matched_identities.extend(matched_org_teams(access_token, github_identities.as_slice()).await?);
 
     Ok(matched_identities)
