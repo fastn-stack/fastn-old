@@ -110,10 +110,10 @@ pub async fn matched_identities(
     // matched: github-contributor
     matched_identities
         .extend(matched_contributed_repos(access_token, github_identities.as_slice()).await?);
-    // matched: github-team
+    // matched: github-collaborator
     matched_identities
         .extend(matched_collaborated_repos(access_token, github_identities.as_slice()).await?);
-
+    // matched: github-team
     matched_identities.extend(matched_org_teams(access_token, github_identities.as_slice()).await?);
 
     Ok(matched_identities)
@@ -295,7 +295,7 @@ pub async fn matched_org_teams(
     identities: &[&fpm::user_group::UserIdentity],
 ) -> fpm::Result<Vec<fpm::user_group::UserIdentity>> {
     use itertools::Itertools;
-    let mut matched_org_team_member_list: Vec<String> = vec![];
+    let mut matched_org_teams: Vec<String> = vec![];
     let org_teams = identities
         .iter()
         .filter_map(|i| {
@@ -310,30 +310,21 @@ pub async fn matched_org_teams(
     if org_teams.is_empty() {
         return Ok(vec![]);
     }
-    for org_team in &org_teams {
-        let org_team_parts: Vec<&str> = org_team.split('/').collect();
 
-        if org_team_parts.len() > 1 {
-            let org_title: &str = match org_team_parts.first() {
-                Some(val) => val.to_owned(),
-                None => "",
-            };
-            let team_slug: &str = match org_team_parts.get(1) {
-                Some(val) => val.to_owned(),
-                None => "",
-            };
+    for org_team in org_teams.iter() {
+        if let Some((org_name, team_name)) = org_team.split_once('/') {
             let team_members: Vec<String> =
-                apis::team_members(access_token, org_title, team_slug).await?;
-            dbg!(&team_members);
+                apis::team_members(access_token, org_name, team_name).await?;
             if team_members.contains(&user_name) {
-                matched_org_team_member_list.push(String::from(org_team.to_owned()));
+                matched_org_teams.push(org_team.to_string());
             }
         }
+        // TODO:
+        // Return Error if org-name/team-name does not come
     }
     // filter the user joined teams with input
-    Ok(matched_org_team_member_list
+    Ok(matched_org_teams
         .into_iter()
-        .filter(|matched_org_team| org_teams.contains(&matched_org_team.as_str()))
         .map(|org_team| fpm::user_group::UserIdentity {
             key: "github-team".to_string(),
             value: org_team,
@@ -468,6 +459,7 @@ pub mod apis {
             .collect())
     }
 
+    // TODO: It can be stored in the request cookies
     pub async fn user_details(access_token: &str) -> fpm::Result<String> {
         // API Docs: https://docs.github.com/en/rest/users/users#get-the-authenticated-user
         // TODO: Handle paginated response
