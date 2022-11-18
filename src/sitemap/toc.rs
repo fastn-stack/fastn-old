@@ -1,5 +1,3 @@
-use sha2::digest::consts::False;
-
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct TocItem {
     pub id: String,
@@ -90,6 +88,7 @@ pub struct TocItemCompat {
     pub document: Option<String>,
 }
 
+#[allow(clippy::too_many_arguments)]
 impl TocItemCompat {
     pub(crate) fn new(
         url: Option<String>,
@@ -99,7 +98,7 @@ impl TocItemCompat {
         readers: Vec<String>,
         writers: Vec<String>,
         icon: Option<String>,
-        bury: bool,
+        _bury: bool,
     ) -> TocItemCompat {
         TocItemCompat {
             url,
@@ -108,11 +107,11 @@ impl TocItemCompat {
             path: None,
             is_heading: false,
             font_icon: icon.map(Into::into),
+            bury: false,
             is_disabled: false,
             is_active,
             is_open,
             image_src: None,
-            bury: false,
             children: vec![],
             readers,
             writers,

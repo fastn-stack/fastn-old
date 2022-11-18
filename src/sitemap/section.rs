@@ -1,5 +1,3 @@
-use sha2::digest::consts::False;
-
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Section {
     /// `id` is the document id (or url) provided in the section
@@ -219,7 +217,7 @@ impl Default for Subsection {
             id: None,
             title: None,
             icon: None,
-            bury: False,
+            bury: false,
             file_location: Default::default(),
             translation_file_location: None,
             visible: true,
