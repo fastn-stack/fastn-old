@@ -151,7 +151,7 @@ pub async fn parse2<'a>(
     base_url: &str,
     download_assets: bool,
 ) -> ftd::p1::Result<ftd::p2::Document> {
-    let package_name = &Some(lib.config.package.name.clone())
+    let package_name = &Some(lib.config.package.name.clone());
     let mut s = ftd::interpret(name, source, package_name)?;
 
     let document;
