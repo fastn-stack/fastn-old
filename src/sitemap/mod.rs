@@ -156,7 +156,7 @@ impl SitemapElement {
             SitemapElement::Subsection(s) => &s.title,
             SitemapElement::TocItem(s) => &s.title,
         }
-            .clone()
+        .clone()
     }
 
     pub(crate) fn get_id(&self) -> Option<String> {
@@ -269,7 +269,7 @@ impl SitemapParser {
                         ParsingState::ParsingSubsection,
                         ParsingState::ParsingTOC,
                     ]
-                        .contains(&self.state)
+                    .contains(&self.state)
                     {
                         return Err(ParseError::InvalidTOCItem {
                             doc_id: self.doc_name.clone(),
@@ -693,8 +693,8 @@ impl Sitemap {
                 )
             } else if toc.get_file_id().trim().is_empty()
                 || crate::http::url_regex()
-                .find(toc.get_file_id().as_str())
-                .is_some()
+                    .find(toc.get_file_id().as_str())
+                    .is_some()
             {
                 (None, None)
             } else {
@@ -991,10 +991,10 @@ impl Sitemap {
                 index = idx;
                 if subsection.visible
                     && subsection
-                    .id
-                    .as_ref()
-                    .map(|v| fpm::utils::ids_matches(v, id))
-                    .unwrap_or(false)
+                        .id
+                        .as_ref()
+                        .map(|v| fpm::utils::ids_matches(v, id))
+                        .unwrap_or(false)
                 {
                     let (toc_list, current_toc) = get_all_toc(subsection.toc.as_slice(), id);
                     toc.extend(toc_list);
@@ -1188,9 +1188,9 @@ impl Sitemap {
             for subsection in subsections {
                 if subsection.visible
                     && fpm::utils::ids_matches(
-                    subsection.id.as_ref().unwrap_or(&"".to_string()),
-                    id,
-                )
+                        subsection.id.as_ref().unwrap_or(&"".to_string()),
+                        id,
+                    )
                 {
                     return Some(subsection.extra_data.to_owned());
                 }

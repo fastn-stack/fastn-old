@@ -98,7 +98,7 @@ impl TocItemCompat {
         readers: Vec<String>,
         writers: Vec<String>,
         icon: Option<String>,
-        bury: bool,
+        _bury: bool,
     ) -> TocItemCompat {
         TocItemCompat {
             url,
