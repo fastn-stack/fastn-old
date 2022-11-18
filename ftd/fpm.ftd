@@ -200,7 +200,7 @@ optional string path:
 optional string number:
 optional ftd.image-src font-icon:
 optional string img-src:
-optional boolean bury:
+boolean bury: false
 optional string document:
 boolean is-heading:
 boolean is-disabled:

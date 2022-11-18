@@ -119,7 +119,7 @@ pub struct Section {
 pub struct Subsection {
     pub id: Option<String>,
     pub icon: Option<String>,
-    pub bury: Option<bool>,
+    pub bury: bool,
     pub title: Option<String>,
     pub file_location: Option<camino::Utf8PathBuf>,
     pub translation_file_location: Option<camino::Utf8PathBuf>,
@@ -217,7 +217,7 @@ impl Default for Subsection {
             id: None,
             title: None,
             icon: None,
-            bury: Some(false),
+            bury: false,
             file_location: Default::default(),
             translation_file_location: None,
             visible: true,

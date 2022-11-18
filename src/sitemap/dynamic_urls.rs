@@ -240,7 +240,7 @@ mod tests {
                     id: None,
                     title: None,
                     icon: None,
-                    bury: Some(false),
+                    bury: false,
                     file_location: None,
                     translation_file_location: None,
                     visible: false,

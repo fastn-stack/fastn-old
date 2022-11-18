@@ -2,7 +2,7 @@
 pub struct TocItem {
     pub id: String,
     pub icon: Option<String>,
-    pub bury: Option<bool>,
+    pub bury: bool,
     pub title: Option<String>,
     pub file_location: Option<camino::Utf8PathBuf>,
     pub translation_file_location: Option<camino::Utf8PathBuf>,
@@ -73,7 +73,7 @@ pub struct TocItemCompat {
     // TODO: Font icon mapping to html?
     #[serde(rename = "font-icon")]
     pub font_icon: Option<ImageSrc>,
-    pub bury: Option<bool>,
+    pub bury: bool,
     #[serde(rename = "is-disabled")]
     pub is_disabled: bool,
     #[serde(rename = "is-active")]
@@ -98,7 +98,7 @@ impl TocItemCompat {
         readers: Vec<String>,
         writers: Vec<String>,
         icon: Option<String>,
-        bury: Option<bool>,
+        bury: bool,
     ) -> TocItemCompat {
         TocItemCompat {
             url,
@@ -107,7 +107,7 @@ impl TocItemCompat {
             path: None,
             is_heading: false,
             font_icon: icon.map(Into::into),
-            bury: Some(false),
+            bury: false,
             is_disabled: false,
             is_active,
             is_open,
