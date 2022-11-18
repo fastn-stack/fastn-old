@@ -252,7 +252,7 @@ mod tests {
                             id: "/person/<string:name>/".to_string(),
                             title: Some("Url 1".to_string()),
                             icon: None,
-                            bury: Some(false),
+                            bury: false,
                             file_location: None,
                             translation_file_location: None,
                             extra_data: vec![
@@ -277,7 +277,7 @@ mod tests {
                             id: "/person/<string:name>/".to_string(),
                             title: Some("Url 2".to_string()),
                             icon: None,
-                            bury: Some(false),
+                            bury: false,
                             file_location: None,
                             translation_file_location: None,
                             extra_data: vec![
