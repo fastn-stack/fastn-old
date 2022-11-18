@@ -5,7 +5,7 @@ pub async fn parse<'a>(
     base_url: &str,
     current_package: Option<&fpm::Package>,
 ) -> ftd::p1::Result<ftd::p2::Document> {
-    let package_name =  &Some(lib.config.package.name.clone());
+    let package_name = &Some(lib.config.package.name.clone());
     let mut s = ftd::interpret(name, source, package_name)?;
 
     let mut packages_under_process = vec![current_package
