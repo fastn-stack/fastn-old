@@ -72,9 +72,10 @@ serde_derive = "1"
 serde_json = "1"
 slug = { version = "0.1" }
 sha2 = "0.10"
-thiserror = "1"
+thiserror = "1.0.37"
 url = "2"
 oauth2 = { version = "4.2.3", optional = true }
+reqwest-graphql = "1.0.0"
 dotenv = "0.15.0"
 # becasue they havent crated a release yet which fixes incompatibility with latest actix-http
 zip = { git = "https://github.com/zip-rs/zip" }
@@ -108,7 +109,6 @@ rev = "4527fa9"
 #
 # path = "../ftd"
 
-
 [dependencies.reqwest]
 # We considered removing dependency from `reqwest`, and only use `hyper`. But `reqwest`
 # does too much (bundled) tls for example, that we can not.
@@ -120,7 +120,6 @@ features = [
     "json",
     "blocking",
 ]
-
 [dependencies.actix-web]
 version = "4.2.1"
 [dependencies.tokio]
@@ -143,7 +142,6 @@ features = [
     # We may be suffering from this problem, we do a lot of reads, each read becomes a task.
     "fs",
 ]
-
 [dependencies.rusqlite]
 version = "0.28"
 features = [

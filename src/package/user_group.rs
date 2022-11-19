@@ -450,6 +450,7 @@ pub async fn access_identities(
     // github-starred: fpm-lang/ftd
     // discord-server: abrark.com
     // github-watches: fpm-lang/ftd
+    // github-sponsors: weiznich
     fpm::auth::get_auth_identities(req.cookies(), sitemap_identities.as_slice()).await
 
     // Ok(if let Some(identity) = req.cookie("identities") {

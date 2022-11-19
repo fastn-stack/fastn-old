@@ -113,8 +113,11 @@ pub async fn matched_identities(
     // matched: github-collaborator
     matched_identities
         .extend(matched_collaborated_repos(access_token, github_identities.as_slice()).await?);
-    // matched: github-teams
+    // matched: github-team
     matched_identities.extend(matched_org_teams(access_token, github_identities.as_slice()).await?);
+    // matched: github-sponsors
+    matched_identities
+        .extend(matched_sponsored_org(access_token, github_identities.as_slice()).await?);
 
     Ok(matched_identities)
 }
@@ -139,7 +142,6 @@ pub async fn matched_starred_repos(
     if starred_repos.is_empty() {
         return Ok(vec![]);
     }
-    dbg!(&access_token);
     let user_starred_repos = apis::starred_repo(access_token).await?;
     // filter the user starred repos with input
     Ok(user_starred_repos
@@ -270,12 +272,10 @@ pub async fn matched_collaborated_repos(
     if collaborated_repos.is_empty() {
         return Ok(vec![]);
     }
-    //dbg!(&collaborator_repos);
     for repo in &collaborated_repos {
         let repo_collaborator = apis::repo_collaborators(access_token, repo).await?;
 
         if repo_collaborator.contains(&user_name) {
-            //dbg!(&access_token);
             matched_repo_collaborator_list.push(String::from(repo.to_owned()));
         }
     }
@@ -295,7 +295,7 @@ pub async fn matched_org_teams(
     identities: &[&fpm::user_group::UserIdentity],
 ) -> fpm::Result<Vec<fpm::user_group::UserIdentity>> {
     use itertools::Itertools;
-    let mut matched_org_team_member_list: Vec<String> = vec![];
+    let mut matched_org_teams: Vec<String> = vec![];
     let org_teams = identities
         .iter()
         .filter_map(|i| {
@@ -310,37 +310,56 @@ pub async fn matched_org_teams(
     if org_teams.is_empty() {
         return Ok(vec![]);
     }
-    for org_team in &org_teams {
-        let org_team_parts: Vec<&str> = org_team.split('/').collect();
 
-        if org_team_parts.len() > 1 {
-            let org_title: &str = match org_team_parts.first() {
-                Some(val) => val.to_owned(),
-                None => "",
-            };
-            let team_slug: &str = match org_team_parts.get(1) {
-                Some(val) => val.to_owned(),
-                None => "",
-            };
+    for org_team in org_teams.iter() {
+        if let Some((org_name, team_name)) = org_team.split_once('/') {
             let team_members: Vec<String> =
-                apis::team_members(access_token, org_title, team_slug).await?;
-            dbg!(&team_members);
+                apis::team_members(access_token, org_name, team_name).await?;
             if team_members.contains(&user_name) {
-                matched_org_team_member_list.push(String::from(org_team.to_owned()));
+                matched_org_teams.push(org_team.to_string());
             }
         }
+        // TODO:
+        // Return Error if org-name/team-name does not come
     }
     // filter the user joined teams with input
-    Ok(matched_org_team_member_list
+    Ok(matched_org_teams
         .into_iter()
-        .filter(|matched_org_team| org_teams.contains(&matched_org_team.as_str()))
         .map(|org_team| fpm::user_group::UserIdentity {
             key: "github-team".to_string(),
             value: org_team,
         })
         .collect())
 }
-
+pub async fn matched_sponsored_org(
+    access_token: &str,
+    identities: &[&fpm::user_group::UserIdentity],
+) -> fpm::Result<Vec<fpm::user_group::UserIdentity>> {
+    use itertools::Itertools;
+    let sponsored_orgs = identities
+        .iter()
+        .filter_map(|i| {
+            if i.key.eq("github-sponsors") {
+                Some(i.value.as_str())
+            } else {
+                None
+            }
+        })
+        .collect_vec();
+    if sponsored_orgs.is_empty() {
+        return Ok(vec![]);
+    }
+    let user_followed_orgs = apis::org_sponsors(access_token).await?;
+    // filter the user followed orgs with input
+    Ok(user_followed_orgs
+        .into_iter()
+        .filter(|user_org| sponsored_orgs.contains(&user_org.as_str()))
+        .map(|org| fpm::user_group::UserIdentity {
+            key: "github-sponsors".to_string(),
+            value: org,
+        })
+        .collect())
+}
 pub mod apis {
 
     // TODO: API to starred a repo on behalf of the user
@@ -452,7 +471,6 @@ pub mod apis {
         struct RepoCollaborator {
             login: String,
         }
-        dbg!(&repo_name);
         let repo_collaborators_list: Vec<RepoCollaborator> = get_api(
             format!(
                 "{}{}/collaborators?per_page=100",
@@ -467,7 +485,29 @@ pub mod apis {
             .map(|x| x.login)
             .collect())
     }
-
+    pub async fn org_sponsors(access_token: &str) -> fpm::Result<Vec<String>> {
+        // API Docs: https://docs.github.com/en/rest/collaborators/collaborators#list-repository-collaborators
+        // TODO: Handle paginated response
+        #[derive(Debug, serde::Deserialize)]
+        struct RepoCollaborator {
+            login: String,
+        }
+        let repo_collaborators_list = post_api(
+            "https://api.github.com/graphql",
+            "query { viewer { login }}",
+            access_token,
+        )
+        .await?;
+        dbg!(repo_collaborators_list);
+        let mut test_vec: Vec<String> = vec![];
+        test_vec.push(String::from("wasif"));
+        Ok(test_vec)
+        /*Ok(repo_collaborators_list
+        .into_iter()
+        .map(|x| x.login)
+        .collect())*/
+    }
+    // TODO: It can be stored in the request cookies
     pub async fn user_details(access_token: &str) -> fpm::Result<String> {
         // API Docs: https://docs.github.com/en/rest/users/users#get-the-authenticated-user
         // TODO: Handle paginated response
@@ -504,6 +544,67 @@ pub mod apis {
             )));
         }
 
+        Ok(response.json().await?)
+    }
+    pub async fn post_api<T: serde::de::DeserializeOwned>(
+        url: &str,
+        query_str: &str,
+        access_token: &str,
+    ) -> fpm::Result<T> {
+        #[derive(Debug,serde::Deserialize)]
+pub struct GraphResp {
+   data: Data
+}
+#[derive(Debug,serde::Deserialize)]
+pub struct Data {
+   viewer: Viewer
+}
+#[derive(Debug,serde::Deserialize)]
+pub struct Viewer {
+   login: String,
+}
+        dbg!(&access_token);
+        /*let mut queryMap: std::collections::HashMap<&str, &str> = std::collections::HashMap::new();
+        queryMap.insert("query", "query { viewer { login }}");
+
+        dbg!(&queryMap);
+       
+        let endpoint = "https://api.github.com/graphql";
+   let query = r#"
+   query { viewer { login }}
+   "#;
+   let mut headers = std::collections::HashMap::new();
+   headers.insert("authorization", "Bearer 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");
+   headers.insert("accept", "application/json");
+   headers.insert("user_agent", "fpm");
+   let client = reqwest_graphql::Client::new_with_headers(endpoint,headers);
+   let data:GraphResp= client.query(query).await.unwrap();
+   dbg!(&data);*/
+   //println!("Login: {}", data.viewer.login);
+   //dbg!(data);
+        let response = reqwest::Client::new()
+            .post(url)
+            //.json(&queryMap)
+            .body( r#"
+            query { viewer { login }}
+            "#)
+            .header(
+                reqwest::header::AUTHORIZATION,
+                format!("{}{}", "Bearer ", access_token),
+            )
+            .header(reqwest::header::ACCEPT, "application/json")
+            .header(
+                reqwest::header::USER_AGENT,
+                reqwest::header::HeaderValue::from_static("fpm"),
+            )
+            .send()
+            .await?;
+        if !response.status().eq(&reqwest::StatusCode::OK) {
+            return Err(fpm::Error::APIResponseError(format!(
+                "GitHub API ERROR: {}",
+                url
+            )));
+        }
         Ok(response.json().await?)
     }
 }
