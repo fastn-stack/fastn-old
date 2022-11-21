@@ -76,10 +76,7 @@ pub async fn access_token(req: actix_web::HttpRequest) -> fpm::Result<actix_web:
                 .append_header((actix_web::http::header::LOCATION, "/".to_string()))
                 .finish());
         }
-        Err(err) => {
-            //dbg!(&err);
-            Ok(actix_web::HttpResponse::InternalServerError().body(err.to_string()))
-        }
+        Err(err) => Ok(actix_web::HttpResponse::InternalServerError().body(err.to_string())),
     }
 }
 
@@ -336,7 +333,9 @@ pub async fn matched_sponsored_org(
     identities: &[&fpm::user_group::UserIdentity],
 ) -> fpm::Result<Vec<fpm::user_group::UserIdentity>> {
     use itertools::Itertools;
-    let sponsored_orgs = identities
+    let mut sponsored_users_list: Vec<String> = vec![];
+
+    let sponsors_list = identities
         .iter()
         .filter_map(|i| {
             if i.key.eq("github-sponsors") {
@@ -346,22 +345,38 @@ pub async fn matched_sponsored_org(
             }
         })
         .collect_vec();
-    if sponsored_orgs.is_empty() {
+    if sponsors_list.is_empty() {
         return Ok(vec![]);
     }
-    let user_followed_orgs = apis::org_sponsors(access_token).await?;
-    // filter the user followed orgs with input
-    Ok(user_followed_orgs
+    let user_name = apis::user_details(access_token).await?;
+    for sponsor in sponsors_list.iter() {
+        if apis::is_user_sponsored(access_token, user_name.as_str(), sponsor.to_owned()).await? {
+            sponsored_users_list.push(sponsor.to_string());
+        }
+    }
+    // return the sponsor list
+    Ok(sponsored_users_list
         .into_iter()
-        .filter(|user_org| sponsored_orgs.contains(&user_org.as_str()))
-        .map(|org| fpm::user_group::UserIdentity {
+        .map(|sponsor| fpm::user_group::UserIdentity {
             key: "github-sponsors".to_string(),
-            value: org,
+            value: sponsor,
         })
         .collect())
 }
 pub mod apis {
-
+    #[derive(Debug, serde::Deserialize)]
+    pub struct GraphQLResp {
+        pub data: Data,
+    }
+    #[derive(Debug, serde::Deserialize)]
+    pub struct Data {
+        pub user: User,
+    }
+    #[derive(Debug, serde::Deserialize)]
+    pub struct User {
+        #[serde(rename = "isSponsoredBy")]
+        pub is_sponsored_by: bool,
+    }
     // TODO: API to starred a repo on behalf of the user
     // API Docs: https://docs.github.com/en/rest/activity/starring#list-repositories-starred-by-the-authenticated-user
 
@@ -448,8 +463,6 @@ pub mod apis {
         struct RepoContributor {
             login: String,
         }
-
-        //dbg!(apis::user_details(access_token).await?);
         let repo_contributor: Vec<RepoContributor> = get_api(
             format!(
                 "{}{}/contributors?per_page=100",
@@ -485,27 +498,37 @@ pub mod apis {
             .map(|x| x.login)
             .collect())
     }
-    pub async fn org_sponsors(access_token: &str) -> fpm::Result<Vec<String>> {
-        // API Docs: https://docs.github.com/en/rest/collaborators/collaborators#list-repository-collaborators
+    pub async fn is_user_sponsored(
+        access_token: &str,
+        user_name: &str,
+        sponsored_by: &str,
+    ) -> fpm::Result<bool> {
+        // API Docs: https://docs.github.com/en/graphql/reference/queries#user
         // TODO: Handle paginated response
-        #[derive(Debug, serde::Deserialize)]
-        struct RepoCollaborator {
-            login: String,
-        }
-        let repo_collaborators_list = post_api(
+
+        let query = format!(
+            "{}{}{}{}{}{}{}{}{}",
+            "query { user(login:",
+            r#"""#,
+            user_name,
+            r#"""#,
+            "){isSponsoredBy(accountLogin:",
+            r#"""#,
+            sponsored_by,
+            r#"""#,
+            ")}}"
+        );
+        let sponsor_obj = graphql_sponsor_api(
             "https://api.github.com/graphql",
-            "query { viewer { login }}",
+            query.as_str(),
             access_token,
         )
         .await?;
-        dbg!(repo_collaborators_list);
-        let mut test_vec: Vec<String> = vec![];
-        test_vec.push(String::from("wasif"));
-        Ok(test_vec)
-        /*Ok(repo_collaborators_list
-        .into_iter()
-        .map(|x| x.login)
-        .collect())*/
+        if sponsor_obj.data.user.is_sponsored_by {
+            Ok(true)
+        } else {
+            Ok(false)
+        }
     }
     // TODO: It can be stored in the request cookies
     pub async fn user_details(access_token: &str) -> fpm::Result<String> {
@@ -546,48 +569,17 @@ pub mod apis {
 
         Ok(response.json().await?)
     }
-    pub async fn post_api<T: serde::de::DeserializeOwned>(
+    pub async fn graphql_sponsor_api(
         url: &str,
         query_str: &str,
         access_token: &str,
-    ) -> fpm::Result<T> {
-        #[derive(Debug,serde::Deserialize)]
-pub struct GraphResp {
-   data: Data
-}
-#[derive(Debug,serde::Deserialize)]
-pub struct Data {
-   viewer: Viewer
-}
-#[derive(Debug,serde::Deserialize)]
-pub struct Viewer {
-   login: String,
-}
-        dbg!(&access_token);
-        /*let mut queryMap: std::collections::HashMap<&str, &str> = std::collections::HashMap::new();
-        queryMap.insert("query", "query { viewer { login }}");
+    ) -> fpm::Result<GraphQLResp> {
+        let mut map: std::collections::HashMap<&str, &str> = std::collections::HashMap::new();
+        map.insert("query", query_str);
 
-        dbg!(&queryMap);
-       
-        let endpoint = "https://api.github.com/graphql";
-   let query = r#"
-   query { viewer { login }}
-   "#;
-   let mut headers = std::collections::HashMap::new();
-   headers.insert("authorization", "Bearer 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");
-   headers.insert("accept", "application/json");
-   headers.insert("user_agent", "fpm");
-   let client = reqwest_graphql::Client::new_with_headers(endpoint,headers);
-   let data:GraphResp= client.query(query).await.unwrap();
-   dbg!(&data);*/
-   //println!("Login: {}", data.viewer.login);
-   //dbg!(data);
         let response = reqwest::Client::new()
             .post(url)
-            //.json(&queryMap)
-            .body( r#"
-            query { viewer { login }}
-            "#)
+            .json(&map)
             .header(
                 reqwest::header::AUTHORIZATION,
                 format!("{}{}", "Bearer ", access_token),
@@ -605,7 +597,9 @@ pub struct Viewer {
                 url
             )));
         }
-        Ok(response.json().await?)
+        let return_obj = response.json::<GraphQLResp>().await?;
+
+        Ok(return_obj)
     }
 }
 
