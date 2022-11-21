@@ -231,6 +231,7 @@ mod tests {
                 title: Some("Dynamic Urls Section".to_string()),
                 icon: None,
                 bury: false,
+                confidential: true,
                 file_location: None,
                 translation_file_location: None,
                 extra_data: Default::default(),
@@ -247,6 +248,7 @@ mod tests {
                     extra_data: Default::default(),
                     is_active: false,
                     nav_title: None,
+                    confidential: true,
                     toc: vec![
                         fpm::sitemap::toc::TocItem {
                             id: "/person/<string:name>/".to_string(),
@@ -272,6 +274,7 @@ mod tests {
                             writers: vec!["writers/person".to_string()],
                             document: Some("person.ftd".to_string()),
                             path_parameters: vec![("string".to_string(), "name".to_string())],
+                            confidential: true,
                         },
                         fpm::sitemap::toc::TocItem {
                             id: "/person/<string:name>/".to_string(),
@@ -297,6 +300,7 @@ mod tests {
                             writers: vec!["writers/person".to_string()],
                             document: Some("person.ftd".to_string()),
                             path_parameters: vec![("string".to_string(), "name".to_string())],
+                            confidential: true,
                         },
                     ],
                     skip: false,

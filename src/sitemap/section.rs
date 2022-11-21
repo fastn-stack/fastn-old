@@ -1,4 +1,4 @@
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Section {
     /// `id` is the document id (or url) provided in the section
     /// Example:
@@ -11,6 +11,7 @@ pub struct Section {
     ///
     /// Here foo/ is store as `id`
     pub id: String,
+    // TODO: It should be ftd::ImageSrc
     pub icon: Option<String>,
     pub bury: bool,
 
@@ -102,17 +103,43 @@ pub struct Section {
     /// ```
     /// default value will be `false`
     pub skip: bool,
+    /// if provided `document` is confidential or not.
+    /// `confidential:true` means totally confidential
+    /// `confidential:false` can be seen some it's data
+    pub confidential: bool,
     pub readers: Vec<String>,
     pub writers: Vec<String>,
     /// In FPM.ftd sitemap, we can use `document` for section, subsection and toc.
     /// # Section: /books/
     ///   document: /books/python/
     pub document: Option<String>,
-    /// If we can define dynamic `url` in section, subsection and toc of a sitemap.
+    /// If we can define dynamic `url` in section, subsection and toc in `dynamic-urls`.
     /// `url: /books/<string:book_name>/<integer:price>/`
     /// here book_name and price are path parameters
     /// path_parameters: [(string, book_name), (integer, price)]
     pub path_parameters: Vec<(String, String)>,
+}
+
+impl Default for Section {
+    fn default() -> Self {
+        Self {
+            id: "".to_string(),
+            icon: None,
+            title: None,
+            file_location: None,
+            translation_file_location: None,
+            extra_data: Default::default(),
+            is_active: false,
+            nav_title: None,
+            subsections: vec![],
+            skip: false,
+            confidential: true,
+            readers: vec![],
+            writers: vec![],
+            document: None,
+            path_parameters: vec![],
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -132,6 +159,10 @@ pub struct Subsection {
     pub readers: Vec<String>,
     pub writers: Vec<String>,
     pub document: Option<String>,
+    /// if provided `document` is confidential or not.
+    /// `confidential:true` means totally confidential
+    /// `confidential:false` can be seen some it's data
+    pub confidential: bool,
     /// /books/<string:book_name>/
     /// here book_name is path parameter
     pub path_parameters: Vec<(String, String)>,
@@ -230,6 +261,7 @@ impl Default for Subsection {
             writers: vec![],
             document: None,
             path_parameters: vec![],
+            confidential: true,
         }
     }
 }
