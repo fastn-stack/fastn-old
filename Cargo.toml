@@ -74,8 +74,7 @@ slug = { version = "0.1" }
 sha2 = "0.10"
 thiserror = "1.0.37"
 url = "2"
-oauth2 = { version = "4.2.3", optional = true }
-reqwest-graphql = "1.0.0"
+oauth2 = { version = "4.3.0", optional = true }
 dotenv = "0.15.0"
 # becasue they havent crated a release yet which fixes incompatibility with latest actix-http
 zip = { git = "https://github.com/zip-rs/zip" }
@@ -99,7 +98,7 @@ features = ["http1", "server"]
 #
 # Once we are closer to release we will stop using this and adopot semver.
 git = "https://github.com/FifthTry/ftd"
-rev = "4527fa9"
+rev = "940dc93"
 
 # If you are testing fpm against local ftd, you can keep ftd and fpm checked out in
 # same folder and uncomment the next `path` line to use local ftd.
