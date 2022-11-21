@@ -346,7 +346,7 @@ pub fn get_identities(
 
     let readers_writers = if let Some(sitemap) = &config.package.sitemap {
         if is_read {
-            sitemap.readers(document_name, &config.package.groups)
+            sitemap.readers(document_name, &config.package.groups).0
         } else {
             sitemap.writers(document_name, &config.package.groups)
         }
@@ -450,8 +450,15 @@ pub async fn access_identities(
     // github-starred: fpm-lang/ftd
     // discord-server: abrark.com
     // github-watches: fpm-lang/ftd
-    // github-sponsors: weiznich
-    fpm::auth::get_auth_identities(req.cookies(), sitemap_identities.as_slice()).await
+
+    match fpm::auth::get_auth_identities(req.cookies(), sitemap_identities.as_slice()).await {
+        Ok(ids) => Ok(ids),
+        Err(fpm::Error::GenericError(err)) => {
+            dbg!(err);
+            Ok(vec![])
+        }
+        e => e,
+    }
 
     // Ok(if let Some(identity) = req.cookie("identities") {
     //     parse_identities(identity.as_str())
@@ -531,6 +538,25 @@ pub mod processor {
                 is_reference: false,
             },
         })
+    }
+
+    // is user can_read the document or not based on defined readers in sitemap
+    pub async fn is_reader<'a>(
+        section: &ftd::p1::Section,
+        doc: &'a ftd::p2::TDoc<'_>,
+        config: &fpm::Config,
+    ) -> ftd::p1::Result<ftd::Value> {
+        let doc_id = fpm::library::document::document_full_id(config, doc)?;
+        let is_reader = config
+            .can_read(config.request.as_ref().unwrap(), &doc_id, false)
+            .await
+            .map_err(|e| ftd::p1::Error::ParseError {
+                message: e.to_string(),
+                doc_id,
+                line_number: section.line_number,
+            })?;
+
+        Ok(ftd::Value::Boolean { value: is_reader })
     }
 }
 

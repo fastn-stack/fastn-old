@@ -1244,7 +1244,6 @@ dependencies = [
  "realm-lang",
  "regex",
  "reqwest",
- "reqwest-graphql",
  "rusqlite",
  "serde",
  "serde_derive",
@@ -2534,16 +2533,6 @@ dependencies = [
  "web-sys",
  "webpki-roots",
  "winreg",
-]
-
-[[package]]
-name = "reqwest-graphql"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "33aaff48fee40ce5c00a89dcad0f14955500f6a0f5309ffb8639fec329480136"
-dependencies = [
- "reqwest",
- "serde",
 ]
 
 [[package]]
