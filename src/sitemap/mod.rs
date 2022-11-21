@@ -464,14 +464,6 @@ impl SitemapParser {
                                     row_content: line.to_string(),
                                 }
                             })?);
-                        } else if k.eq("bury") {
-                            i.set_bury(v.parse::<bool>().map_err(|e| {
-                                ParseError::InvalidTOCItem {
-                                    doc_id,
-                                    message: e.to_string(),
-                                    row_content: line.to_string(),
-                                }
-                            })?);
                         } else if k.eq("icon") {
                             i.set_icon(Some(v.to_string()));
                         } else if k.eq("bury") {
