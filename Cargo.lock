@@ -508,9 +508,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.0.19"
+version = "4.0.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8e67816e006b17427c9b4386915109b494fec2d929c63e3bd3561234cbf1bf1e"
+checksum = "0eb41c13df48950b20eb4cd0eefa618819469df1bffc49d11e8487c4ba0037e5"
 dependencies = [
  "atty",
  "bitflags",
@@ -562,9 +562,25 @@ dependencies = [
  "pest_derive",
  "regex",
  "shell-words",
- "typed-arena",
+ "typed-arena 1.7.0",
  "unicode_categories",
  "xdg",
+]
+
+[[package]]
+name = "comrak"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c11e55664fcff7f4d37cc2adf3a1996913692f037312f4ab0909047fdd2bf962"
+dependencies = [
+ "entities",
+ "memchr",
+ "once_cell",
+ "pest",
+ "pest_derive",
+ "regex",
+ "typed-arena 2.0.1",
+ "unicode_categories",
 ]
 
 [[package]]
@@ -1214,7 +1230,7 @@ dependencies = [
  "fbt-lib",
  "fluent",
  "fpm-utils",
- "ftd 0.2.0 (git+https://github.com/FifthTry/ftd?rev=4527fa9)",
+ "ftd 0.2.0 (git+https://github.com/FifthTry/ftd?rev=940dc93)",
  "futures",
  "hyper",
  "ignore",
@@ -1254,9 +1270,9 @@ dependencies = [
 [[package]]
 name = "ftd"
 version = "0.2.0"
-source = "git+https://github.com/FifthTry/ftd?rev=4527fa9#4527fa97369db065921b6e311b0cdbd0229f5e47"
+source = "git+https://github.com/FifthTry/ftd?rev=940dc93#940dc93b63d8314b7af0d67f67a8163e921f0fea"
 dependencies = [
- "comrak",
+ "comrak 0.15.0",
  "css-color-parser",
  "format_num",
  "include_dir",
@@ -1276,7 +1292,7 @@ name = "ftd"
 version = "0.2.0"
 source = "git+https://github.com/FifthTry/ftd?rev=b698bd6#b698bd6acf4b6dfc1557976ef63f378c473e8432"
 dependencies = [
- "comrak",
+ "comrak 0.14.0",
  "css-color-parser",
  "format_num",
  "include_dir",
@@ -1557,9 +1573,9 @@ checksum = "9a3a5bfb195931eeb336b2a7b4d761daec841b97f947d34394601737a7bba5e4"
 
 [[package]]
 name = "hyper"
-version = "0.14.22"
+version = "0.14.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "abfba89e19b959ca163c7752ba59d737c1ceea53a5d31a149c805446fc958064"
+checksum = "034711faac9d2166cb1baf1a2fb0b60b1f277f8492fd72176c17f3515e1abd3c"
 dependencies = [
  "bytes",
  "futures-channel",
@@ -2038,9 +2054,9 @@ dependencies = [
 
 [[package]]
 name = "oauth2"
-version = "4.2.3"
+version = "4.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6d62c436394991641b970a92e23e8eeb4eb9bca74af4f5badc53bcd568daadbd"
+checksum = "eeaf26a72311c087f8c5ba617c96fac67a5c04f430e716ac8d8ab2de62e23368"
 dependencies = [
  "base64",
  "chrono",
@@ -3113,6 +3129,12 @@ name = "typed-arena"
 version = "1.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a9b2228007eba4120145f785df0f6c92ea538f5a3635a612ecf4e334c8c1446d"
+
+[[package]]
+name = "typed-arena"
+version = "2.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0685c84d5d54d1c26f7d3eb96cd41550adb97baed141a761cf335d3d33bcd0ae"
 
 [[package]]
 name = "typenum"

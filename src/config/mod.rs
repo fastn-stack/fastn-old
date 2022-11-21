@@ -4,6 +4,25 @@
 pub(crate) mod utils;
 
 #[derive(Debug, Clone)]
+pub enum FTDEdition {
+    FTD2021,
+    FTD2022,
+}
+
+impl FTDEdition {
+    pub(crate) fn from_string(s: &str) -> fpm::Result<FTDEdition> {
+        match s {
+            "2021" => Ok(FTDEdition::FTD2021),
+            "2022" => Ok(FTDEdition::FTD2022),
+            t => fpm::usage_error(format!(
+                "Unknown edition `{}`. Help use `2021` or `2022` instead",
+                t
+            )),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct Config {
     // Global Information
     pub package: fpm::Package,
@@ -18,6 +37,7 @@ pub struct Config {
     pub path_parameters: Vec<(String, ftd::Value)>,
     pub current_document: Option<String>,
     pub request: Option<fpm::http::Request>, // TODO: It should only contain reference
+    pub ftd_edition: FTDEdition,
 }
 
 impl Config {
@@ -591,11 +611,7 @@ impl Config {
             ));
         }
 
-        for (mp, dep, app) in package
-            .apps
-            .iter()
-            .map(|x| (&x.mount_point, &x.package.package, x))
-        {
+        for (mp, dep, app) in package.apps.iter().map(|x| (&x.mount_point, &x.package, x)) {
             if path.starts_with(mp.trim_matches('/')) {
                 // TODO: Need to handle for recursive dependencies mount-point
                 // Note: Currently not working because dependency of package does not contain dependencies
@@ -1195,6 +1211,17 @@ impl Config {
         }
     }
 
+    pub fn add_edition(self, edition: Option<String>) -> fpm::Result<Self> {
+        match edition {
+            Some(e) => {
+                let mut config = self;
+                config.ftd_edition = FTDEdition::from_string(e.as_str())?;
+                Ok(config)
+            }
+            None => Ok(self),
+        }
+    }
+
     /// `read()` is the way to read a Config.
     pub async fn read(
         root: Option<String>,
@@ -1235,6 +1262,7 @@ impl Config {
             global_ids: Default::default(),
             request: req.map(ToOwned::to_owned),
             path_parameters: vec![],
+            ftd_edition: FTDEdition::FTD2021,
         };
 
         // Update global_ids map from the current package files
@@ -1279,6 +1307,16 @@ impl Config {
         };
 
         config.add_package(&package);
+
+        // fpm installed Apps
+        config.package.apps = {
+            let apps_temp: Vec<fpm::package::app::AppTemp> = fpm_doc.get("fpm#app")?;
+            let mut apps = vec![];
+            for app in apps_temp.into_iter() {
+                apps.push(app.into_app(&config).await?);
+            }
+            apps
+        };
 
         Ok(config)
     }
@@ -1352,23 +1390,46 @@ impl Config {
         &self,
         req: &fpm::http::Request,
         document_path: &str,
+        with_confidential: bool, // can read should use confidential property or not
     ) -> fpm::Result<bool> {
+        // Function Docs
+        // If user can read the document based on readers, user will have read access to page
+        // If user cannot read the document based on readers, and if confidential is false so user
+        // can access the page, and if confidential is true user will not be able to access the
+        // document
+
+        // can_read: true, confidential: true => true (can access)
+        // can_read: true, confidential: false => true (can access)
+        // can_read: false, confidential: true => false (cannot access)
+        // can_read: false, confidential: false => true (can access)
+
         use itertools::Itertools;
         let document_name = self.document_name_with_default(document_path);
         if let Some(sitemap) = &self.package.sitemap {
             // TODO: This can be buggy in case of: if groups are used directly in sitemap are foreign groups
-            let document_readers = sitemap.readers(document_name.as_str(), &self.package.groups);
-            dbg!(&document_readers);
+            let (document_readers, confidential) =
+                sitemap.readers(document_name.as_str(), &self.package.groups);
+
+            // TODO: Need to check the confidential logic, if readers are not defined in the sitemap
             if document_readers.is_empty() {
                 return Ok(true);
             }
             let access_identities =
                 fpm::user_group::access_identities(self, req, &document_name, true).await?;
-            return fpm::user_group::belongs_to(
+
+            let belongs_to = fpm::user_group::belongs_to(
                 self,
                 document_readers.as_slice(),
                 access_identities.iter().collect_vec().as_slice(),
-            );
+            )?;
+
+            if with_confidential {
+                if belongs_to {
+                    return Ok(true);
+                }
+                return Ok(!confidential);
+            }
+            return Ok(belongs_to);
         }
         Ok(true)
     }

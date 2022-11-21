@@ -5,7 +5,8 @@ pub async fn parse<'a>(
     base_url: &str,
     current_package: Option<&fpm::Package>,
 ) -> ftd::p1::Result<ftd::p2::Document> {
-    let mut s = ftd::interpret(name, source)?;
+    let package_name = &Some(lib.config.package.name.clone());
+    let mut s = ftd::interpret(name, source, package_name)?;
 
     let mut packages_under_process = vec![current_package
         .map(|v| v.to_owned())
@@ -118,6 +119,31 @@ pub async fn parse<'a>(
     Ok(document)
 }
 
+pub async fn interpret_helper<'a>(
+    name: &str,
+    source: &str,
+    lib: &'a mut fpm::Library2,
+) -> ftd::interpreter2::Result<ftd::interpreter2::Document> {
+    let mut s = ftd::interpreter2::interpret(name, source)?;
+    let document;
+    loop {
+        match s {
+            ftd::interpreter2::Interpreter::Done { document: doc } => {
+                document = doc;
+                break;
+            }
+            ftd::interpreter2::Interpreter::StuckOnImport {
+                module,
+                state: mut st,
+            } => {
+                let source = resolve_import_2022(lib, &mut st, module.as_str()).await?;
+                s = st.continue_after_import(module.as_str(), source.as_str())?;
+            }
+        }
+    }
+    Ok(document)
+}
+
 pub async fn parse2<'a>(
     name: &str,
     source: &str,
@@ -125,7 +151,8 @@ pub async fn parse2<'a>(
     base_url: &str,
     download_assets: bool,
 ) -> ftd::p1::Result<ftd::p2::Document> {
-    let mut s = ftd::interpret(name, source)?;
+    let package_name = &Some(lib.config.package.name.clone());
+    let mut s = ftd::interpret(name, source, package_name)?;
 
     let document;
     loop {
@@ -246,6 +273,17 @@ pub async fn resolve_import<'a>(
         lib.get_with_result(module).await?
     };
 
+    Ok(source)
+}
+
+pub async fn resolve_import_2022<'a>(
+    lib: &'a mut fpm::Library2,
+    state: &mut ftd::interpreter2::InterpreterState,
+    module: &str,
+) -> ftd::interpreter2::Result<String> {
+    lib.packages_under_process
+        .truncate(state.document_stack.len());
+    let source = lib.get_with_result(module).await?;
     Ok(source)
 }
 
@@ -614,7 +652,7 @@ pub fn parse_ftd(
     source: &str,
     lib: &fpm::FPMLibrary,
 ) -> ftd::p1::Result<ftd::p2::Document> {
-    let mut s = ftd::interpret(name, source)?;
+    let mut s = ftd::interpret(name, source, &None)?;
     let document;
     loop {
         match s {

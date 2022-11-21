@@ -89,10 +89,14 @@ pub struct UserGroupTemp {
     pub github_contributor: Vec<String>,
     #[serde(rename = "-github-contributor")]
     pub excluded_github_contributor: Vec<String>,
-    #[serde(rename = "github-watch")]
-    pub github_watch: Vec<String>,
-    #[serde(rename = "-github-watch")]
-    pub excluded_github_watch: Vec<String>,
+    #[serde(rename = "github-collaborator")]
+    pub github_collaborator: Vec<String>,
+    #[serde(rename = "-github-collaborator")]
+    pub excluded_github_collaborator: Vec<String>,
+    #[serde(rename = "github-watches")]
+    pub github_watches: Vec<String>,
+    #[serde(rename = "-github-watches")]
+    pub excluded_github_watches: Vec<String>,
     #[serde(rename = "github-follows")]
     pub github_follows: Vec<String>,
     #[serde(rename = "-github-follows")]
@@ -285,10 +289,18 @@ impl UserGroupTemp {
             "-github-contributor",
             self.excluded_github_contributor,
         ));
-        identities.extend(to_user_identity("github-watch", self.github_watch));
+        identities.extend(to_user_identity(
+            "github-collaborator",
+            self.github_collaborator,
+        ));
         excluded_identities.extend(to_user_identity(
-            "-github-watch",
-            self.excluded_github_watch,
+            "-github-collaborator",
+            self.excluded_github_collaborator,
+        ));
+        identities.extend(to_user_identity("github-watches", self.github_watches));
+        excluded_identities.extend(to_user_identity(
+            "-github-watches",
+            self.excluded_github_watches,
         ));
         identities.extend(to_user_identity("github-follows", self.github_follows));
         excluded_identities.extend(to_user_identity(
@@ -334,7 +346,7 @@ pub fn get_identities(
 
     let readers_writers = if let Some(sitemap) = &config.package.sitemap {
         if is_read {
-            sitemap.readers(document_name, &config.package.groups)
+            sitemap.readers(document_name, &config.package.groups).0
         } else {
             sitemap.writers(document_name, &config.package.groups)
         }
@@ -437,8 +449,16 @@ pub async fn access_identities(
     // github-team: fpm-lang/ftd
     // github-starred: fpm-lang/ftd
     // discord-server: abrark.com
-    // github-watch: fpm-lang/ftd
-    fpm::auth::get_auth_identities(req.cookies(), sitemap_identities.as_slice()).await
+    // github-watches: fpm-lang/ftd
+
+    match fpm::auth::get_auth_identities(req.cookies(), sitemap_identities.as_slice()).await {
+        Ok(ids) => Ok(ids),
+        Err(fpm::Error::GenericError(err)) => {
+            dbg!(err);
+            Ok(vec![])
+        }
+        e => e,
+    }
 
     // Ok(if let Some(identity) = req.cookie("identities") {
     //     parse_identities(identity.as_str())
@@ -518,6 +538,25 @@ pub mod processor {
                 is_reference: false,
             },
         })
+    }
+
+    // is user can_read the document or not based on defined readers in sitemap
+    pub async fn is_reader<'a>(
+        section: &ftd::p1::Section,
+        doc: &'a ftd::p2::TDoc<'_>,
+        config: &fpm::Config,
+    ) -> ftd::p1::Result<ftd::Value> {
+        let doc_id = fpm::library::document::document_full_id(config, doc)?;
+        let is_reader = config
+            .can_read(config.request.as_ref().unwrap(), &doc_id, false)
+            .await
+            .map_err(|e| ftd::p1::Error::ParseError {
+                message: e.to_string(),
+                doc_id,
+                line_number: section.line_number,
+            })?;
+
+        Ok(ftd::Value::Boolean { value: is_reader })
     }
 }
 
