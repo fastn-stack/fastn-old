@@ -904,7 +904,7 @@ impl Sitemap {
                     section.readers.clone(),
                     section.writers.clone(),
                     section.icon.clone(),
-                    false,
+                    section.bury,
                 );
                 sections.push(section_toc.clone());
                 if let Some(ref title) = section.nav_title {
@@ -929,7 +929,7 @@ impl Sitemap {
                     section.readers.clone(),
                     section.writers.clone(),
                     section.icon.clone(),
-                    false,
+                    section.bury,
                 );
                 sections.push(section_toc.clone());
                 if let Some(ref title) = section.nav_title {
@@ -948,7 +948,7 @@ impl Sitemap {
                     section.readers.clone(),
                     section.writers.clone(),
                     section.icon.clone(),
-                    false,
+                    section.bury,
                 ));
             }
         }
@@ -965,7 +965,7 @@ impl Sitemap {
                         v.readers.clone(),
                         v.writers.clone(),
                         v.icon.clone(),
-                        false,
+                        v.bury,
                     )
                 }),
         );
@@ -1017,7 +1017,7 @@ impl Sitemap {
                         subsection.readers.clone(),
                         subsection.writers.clone(),
                         subsection.icon.clone(),
-                        false,
+                        subsection.bury,
                     );
                     subsection_list.push(subsection_toc.clone());
                     if let Some(ref title) = subsection.nav_title {
@@ -1041,7 +1041,7 @@ impl Sitemap {
                             subsection.readers.clone(),
                             subsection.writers.clone(),
                             subsection.icon.clone(),
-                            false,
+                            subsection.bury,
                         );
                         subsection_list.push(subsection_toc.clone());
                         if let Some(ref title) = subsection.nav_title {
@@ -1062,7 +1062,7 @@ impl Sitemap {
                         subsection.readers.clone(),
                         subsection.writers.clone(),
                         subsection.icon.clone(),
-                        false,
+                        subsection.bury,
                     ));
                 }
             }
@@ -1078,7 +1078,7 @@ impl Sitemap {
                             v.readers.clone(),
                             v.writers.clone(),
                             v.icon.clone(),
-                            false,
+                            v.bury,
                         )
                     },
                 ));
@@ -1129,7 +1129,7 @@ impl Sitemap {
                         toc_item.readers.clone(),
                         toc_item.writers.clone(),
                         toc_item.icon.clone(),
-                        false,
+                        toc_item.bury,
                     );
                     current_toc.children = children;
                     if is_open {
