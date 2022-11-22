@@ -126,6 +126,7 @@ impl Default for Section {
             id: "".to_string(),
             icon: None,
             title: None,
+            bury: false,
             file_location: None,
             translation_file_location: None,
             extra_data: Default::default(),
