@@ -28,6 +28,7 @@ impl Default for TocItem {
         Self {
             id: "".to_string(),
             icon: None,
+            bury: false,
             title: None,
             file_location: None,
             translation_file_location: None,
