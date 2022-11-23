@@ -404,7 +404,7 @@ async fn route(
     if req.path().starts_with("/auth/") {
         return fpm::auth::routes::handle_auth(req, app_data.edition.clone()).await;
     }
-
+    //dbg!(req.cookies());
     let req = fpm::http::Request::from_actix(req, body);
     dbg!(req.method(), req.path());
     match (req.method().to_lowercase().as_str(), req.path()) {
