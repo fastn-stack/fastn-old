@@ -867,7 +867,7 @@ impl Sitemap {
                             v.readers.clone(),
                             v.writers.clone(),
                             v.icon.clone(),
-                            false,
+                            v.bury,
                         );
                         if active {
                             let mut curr_subsection = toc.clone();
