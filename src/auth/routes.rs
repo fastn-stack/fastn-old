@@ -1,5 +1,9 @@
 pub fn is_login(req: &actix_web::HttpRequest) -> bool {
-    req.cookie(fpm::auth::USER_DETAIL).is_some()
+    req.cookie(fpm::auth::GITHUB_PROVIDER).is_some()
+        || req.cookie(fpm::auth::TELEGRAM_PROVIDER).is_some()
+        || req.cookie(fpm::auth::DISCORD_PROVIDER).is_some()
+        || req.cookie(fpm::auth::SLACK_PROVIDER).is_some()
+        || req.cookie(fpm::auth::GOOGLE_PROVIDER).is_some()
 }
 
 // route: /auth/login/
@@ -27,6 +31,7 @@ pub async fn login(
     };
     match query.platform.as_str() {
         "github" => fpm::auth::github::login(req).await,
+        "telegram" => fpm::auth::telegram::login(req).await,
         // TODO: Remove this after demo
         _ => {
             let mut req = fpm::http::Request::from_actix(req, actix_web::web::Bytes::new());
@@ -42,7 +47,35 @@ pub async fn login(
 pub fn logout(req: actix_web::HttpRequest) -> fpm::Result<actix_web::HttpResponse> {
     Ok(actix_web::HttpResponse::Found()
         .cookie(
-            actix_web::cookie::Cookie::build(fpm::auth::USER_DETAIL, "")
+            actix_web::cookie::Cookie::build(fpm::auth::GITHUB_PROVIDER, "")
+                .domain(fpm::auth::utils::domain(req.connection_info().host()))
+                .path("/")
+                .expires(actix_web::cookie::time::OffsetDateTime::now_utc())
+                .finish(),
+        )
+        .cookie(
+            actix_web::cookie::Cookie::build(fpm::auth::TELEGRAM_PROVIDER, "")
+                .domain(fpm::auth::utils::domain(req.connection_info().host()))
+                .path("/")
+                .expires(actix_web::cookie::time::OffsetDateTime::now_utc())
+                .finish(),
+        )
+        .cookie(
+            actix_web::cookie::Cookie::build(fpm::auth::SLACK_PROVIDER, "")
+                .domain(fpm::auth::utils::domain(req.connection_info().host()))
+                .path("/")
+                .expires(actix_web::cookie::time::OffsetDateTime::now_utc())
+                .finish(),
+        )
+        .cookie(
+            actix_web::cookie::Cookie::build(fpm::auth::DISCORD_PROVIDER, "")
+                .domain(fpm::auth::utils::domain(req.connection_info().host()))
+                .path("/")
+                .expires(actix_web::cookie::time::OffsetDateTime::now_utc())
+                .finish(),
+        )
+        .cookie(
+            actix_web::cookie::Cookie::build(fpm::auth::GOOGLE_PROVIDER, "")
                 .domain(fpm::auth::utils::domain(req.connection_info().host()))
                 .path("/")
                 .expires(actix_web::cookie::time::OffsetDateTime::now_utc())
@@ -63,6 +96,10 @@ pub async fn handle_auth(
         // this will be called after github OAuth login, to set the token
         // It will redirect user to home after the login
         return fpm::auth::github::token(req).await;
+    } else if req.path().eq(fpm::auth::telegram::ACCESS_URL) {
+        // this will be called after telegram OAuth login, to set the token
+        // It will redirect user to home after the login
+        return fpm::auth::telegram::token(req).await;
     } else if req.path().eq("/auth/logout/") {
         return logout(req);
     }

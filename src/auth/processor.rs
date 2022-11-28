@@ -5,7 +5,13 @@ pub fn user_details<'a>(
     config: &fpm::Config,
 ) -> ftd::p1::Result<ftd::Value> {
     let is_login = match &config.request {
-        Some(req) => req.cookie(fpm::auth::USER_DETAIL).is_some(),
+        Some(req) => {
+            req.cookie(fpm::auth::GITHUB_PROVIDER).is_some()
+                || req.cookie(fpm::auth::TELEGRAM_PROVIDER).is_some()
+                || req.cookie(fpm::auth::DISCORD_PROVIDER).is_some()
+                || req.cookie(fpm::auth::SLACK_PROVIDER).is_some()
+                || req.cookie(fpm::auth::GOOGLE_PROVIDER).is_some()
+        }
         None => false,
     };
 

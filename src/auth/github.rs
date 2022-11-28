@@ -2,7 +2,6 @@
 pub const ACCESS_URL: &str = "/auth/github/access/";
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
 pub struct UserDetail {
-    pub provider: String,
     pub token: String,
     pub user_name: String,
 }
@@ -71,27 +70,17 @@ pub async fn token(req: actix_web::HttpRequest) -> fpm::Result<actix_web::HttpRe
     {
         Ok(access_token) => {
             let token = oauth2::TokenResponse::access_token(&access_token).secret();
-            let mut user_detail_list: Vec<UserDetail> = vec![];
             let user_name = apis::user_details(token).await?;
-            user_detail_list.push(UserDetail {
-                provider: String::from(fpm::auth::GITHUB_PROVIDER),
+            let user_detail_obj: UserDetail = UserDetail {
                 token: token.to_owned(),
                 user_name,
-            });
-            let user_detail_str = serde_json::to_string(&user_detail_list)?;
+            };
+            let user_detail_str = serde_json::to_string(&user_detail_obj)?;
             dbg!(&user_detail_str);
             return Ok(actix_web::HttpResponse::Found()
-                /*.cookie(
-                    actix_web::cookie::Cookie::build(fpm::auth::COOKIE_TOKEN, token.as_str())
-                        .domain(fpm::auth::utils::domain(req.connection_info().host()))
-                        .path("/")
-                        .permanent()
-                        .secure(true)
-                        .finish(),
-                )*/
                 .cookie(
                     actix_web::cookie::Cookie::build(
-                        fpm::auth::USER_DETAIL,
+                        fpm::auth::GITHUB_PROVIDER,
                         mc_obj
                             .encrypt_to_base64(&user_detail_str)
                             .as_str()

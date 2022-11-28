@@ -11,12 +11,12 @@ pub(crate) mod telegram;
 pub mod utils;
 
 pub const COOKIE_TOKEN: &str = "token";
-pub const USER_DETAIL: &str = "ud";
+//pub const USER_DETAIL: &str = "ud";
 pub const GITHUB_PROVIDER: &str = "github";
-//pub const TELEGRAM_PROVIDER: &str = "telegram";
-//pub const DISCORD_PROVIDER: &str = "discord";
-//pub const SLACK_PROVIDER: &str = "slack";
-//pub const GOOGLE_PROVIDER: &str = "google";
+pub const TELEGRAM_PROVIDER: &str = "telegram";
+pub const DISCORD_PROVIDER: &str = "discord";
+pub const SLACK_PROVIDER: &str = "slack";
+pub const GOOGLE_PROVIDER: &str = "google";
 
 // TODO: rename the method later
 // bridge between fpm to auth to check
@@ -30,19 +30,20 @@ pub async fn get_auth_identities(
 
     let mut matched_identities: Vec<UserIdentity> = vec![];
 
-    let ud = cookies.get(USER_DETAIL).ok_or_else(|| {
+    let github_ud_encrypted = cookies.get(GITHUB_PROVIDER).ok_or_else(|| {
         fpm::Error::GenericError("user detail not found in the cookies".to_string())
     })?;
-
-    if let Ok(ud_decrypted) = mc_obj.decrypt_base64_to_string(ud) {
-        let ud_list: Vec<github::UserDetail> = serde_json::from_str(ud_decrypted.as_str())?;
-
-        let github_ud_opt = ud_list
+    dbg!(&github_ud_encrypted);
+    if let Ok(github_ud_decrypted) = mc_obj.decrypt_base64_to_string(github_ud_encrypted) {
+        let github_ud: github::UserDetail = serde_json::from_str(github_ud_decrypted.as_str())?;
+        dbg!(&github_ud);
+        matched_identities.extend(github::matched_identities(github_ud, identities).await?);
+        /*let github_ud_opt = ud_list
             .into_iter()
             .find(|ud_obj| ud_obj.provider.eq(GITHUB_PROVIDER));
         if let Some(ud) = github_ud_opt {
             matched_identities.extend(github::matched_identities(ud, identities).await?);
-        };
+        };*/
     }
     //dbg!(dec_obj);
 
