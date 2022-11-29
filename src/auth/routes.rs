@@ -90,20 +90,13 @@ pub async fn handle_auth(
     req: actix_web::HttpRequest,
     edition: Option<String>,
 ) -> fpm::Result<fpm::http::Response> {
-    if req.path().eq("/auth/login/") {
-        return login(req, edition).await;
-    } else if req.path().eq(fpm::auth::github::ACCESS_URL) {
-        // this will be called after github OAuth login, to set the token
-        // It will redirect user to home after the login
-        return fpm::auth::github::token(req).await;
-    } else if req.path().eq(fpm::auth::telegram::ACCESS_URL) {
-        // this will be called after telegram OAuth login, to set the token
-        // It will redirect user to home after the login
-        return fpm::auth::telegram::token(req).await;
-    } else if req.path().eq("/auth/logout/") {
-        return logout(req);
+    match req.path() {
+        "/auth/login/" => login(req, edition).await,
+        fpm::auth::github::CALLBACK_URL => fpm::auth::github::token(req).await,
+        fpm::auth::telegram::CALLBACK_URL => fpm::auth::telegram::token(req).await,
+        "/auth/logout/" => logout(req),
+        _ => Ok(actix_web::HttpResponse::new(
+            actix_web::http::StatusCode::NOT_FOUND,
+        )),
     }
-    Ok(actix_web::HttpResponse::new(
-        actix_web::http::StatusCode::NOT_FOUND,
-    ))
 }

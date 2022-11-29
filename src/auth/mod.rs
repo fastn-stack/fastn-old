@@ -11,7 +11,6 @@ pub(crate) mod telegram;
 pub mod utils;
 
 pub const COOKIE_TOKEN: &str = "token";
-//pub const USER_DETAIL: &str = "ud";
 pub const GITHUB_PROVIDER: &str = "github";
 pub const TELEGRAM_PROVIDER: &str = "telegram";
 pub const DISCORD_PROVIDER: &str = "discord";
@@ -25,29 +24,22 @@ pub async fn get_auth_identities(
     identities: &[fpm::user_group::UserIdentity],
 ) -> fpm::Result<Vec<fpm::user_group::UserIdentity>> {
     use magic_crypt::MagicCryptTrait;
-    let encryption_key = std::env::var("ENCRYPT_KEY").expect("ENCRYPT_KEY not set in env");
-    let mc_obj = magic_crypt::new_magic_crypt!(encryption_key, 256);
+    let secret_key = match std::env::var("SECRET_KEY") {
+        Ok(val) => val,
+        Err(e) => format!("{}{}", "SECRET_KEY not set in env ", e),
+    };
+    let mc_obj = magic_crypt::new_magic_crypt!(secret_key, 256);
 
     let mut matched_identities: Vec<UserIdentity> = vec![];
 
-    let github_ud_encrypted = cookies.get(GITHUB_PROVIDER).ok_or_else(|| {
+    let github_ud_encrypted = cookies.get(fpm::auth::GITHUB_PROVIDER).ok_or_else(|| {
         fpm::Error::GenericError("user detail not found in the cookies".to_string())
     })?;
-    dbg!(&github_ud_encrypted);
     if let Ok(github_ud_decrypted) = mc_obj.decrypt_base64_to_string(github_ud_encrypted) {
         let github_ud: github::UserDetail = serde_json::from_str(github_ud_decrypted.as_str())?;
-        dbg!(&github_ud);
         matched_identities.extend(github::matched_identities(github_ud, identities).await?);
-        /*let github_ud_opt = ud_list
-            .into_iter()
-            .find(|ud_obj| ud_obj.provider.eq(GITHUB_PROVIDER));
-        if let Some(ud) = github_ud_opt {
-            matched_identities.extend(github::matched_identities(ud, identities).await?);
-        };*/
     }
-    //dbg!(dec_obj);
 
-    //dbg!(found_obj);
     // TODO: which API to from which platform based on identity
     // identity can be github-*, discord-*, and etc...
     //let matched_identities = github::matched_identities(token.as_str(), identities).await?;
@@ -55,6 +47,5 @@ pub async fn get_auth_identities(
     //TODO: Call discord::matched_identities
     //TODO: Call google::matched_identities
     //TODO: Call twitter::matched_identities
-    dbg!(&matched_identities);
     Ok(matched_identities)
 }

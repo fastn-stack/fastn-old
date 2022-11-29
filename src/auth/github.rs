@@ -1,5 +1,5 @@
 // TODO: This has be set while creating the GitHub OAuth Application
-pub const ACCESS_URL: &str = "/auth/github/access/";
+pub const CALLBACK_URL: &str = "/auth/github/callback/";
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
 pub struct UserDetail {
     pub token: String,
@@ -13,7 +13,7 @@ pub async fn login(req: actix_web::HttpRequest) -> fpm::Result<fpm::http::Respon
         "{}://{}{}",
         req.connection_info().scheme(),
         req.connection_info().host(),
-        ACCESS_URL
+        CALLBACK_URL
     );
 
     // Set up the config for the Github OAuth2 process.
@@ -33,16 +33,15 @@ pub async fn login(req: actix_web::HttpRequest) -> fpm::Result<fpm::http::Respon
         .query_pairs_mut()
         .append_pair("prompt", "consent");
 
-    //dbg!(&authorize_url);
     // let mut pairs: Vec<(&str, &str)> = vec![("response_type", self.response_type.as_ref())];
 
-    // send redirect to /auth/github/access/
+    // send redirect to /auth/github/callback/
     Ok(actix_web::HttpResponse::Found()
         .append_header((actix_web::http::header::LOCATION, authorize_url.to_string()))
         .finish())
 }
 
-// route: /auth/github/access/
+// route: /auth/github/callback/
 // In this API we are accessing
 // the token and setting it to cookies
 pub async fn token(req: actix_web::HttpRequest) -> fpm::Result<actix_web::HttpResponse> {
@@ -52,15 +51,19 @@ pub async fn token(req: actix_web::HttpRequest) -> fpm::Result<actix_web::HttpRe
         pub code: String,
         pub state: String,
     }
-    let encryption_key = std::env::var("ENCRYPT_KEY").expect("ENCRYPT_KEY not set in env");
-    let mc_obj = magic_crypt::new_magic_crypt!(encryption_key, 256);
+
+    let secret_key = match std::env::var("SECRET_KEY") {
+        Ok(val) => val,
+        Err(e) => format!("{}{}", "SECRET_KEY not set in env ", e),
+    };
+    let mc_obj = magic_crypt::new_magic_crypt!(secret_key, 256);
 
     let query = actix_web::web::Query::<QueryParams>::from_query(req.query_string())?.0;
     let auth_url = format!(
         "{}://{}{}",
         req.connection_info().scheme(),
         req.connection_info().host(),
-        ACCESS_URL
+        CALLBACK_URL
     );
     let client = utils::github_client().set_redirect_uri(oauth2::RedirectUrl::new(auth_url)?);
     match client
@@ -76,7 +79,6 @@ pub async fn token(req: actix_web::HttpRequest) -> fpm::Result<actix_web::HttpRe
                 user_name,
             };
             let user_detail_str = serde_json::to_string(&user_detail_obj)?;
-            dbg!(&user_detail_str);
             return Ok(actix_web::HttpResponse::Found()
                 .cookie(
                     actix_web::cookie::Cookie::build(
@@ -613,17 +615,19 @@ pub mod utils {
     // are set
     static GITHUB_CLIENT_ID: once_cell::sync::Lazy<oauth2::ClientId> = {
         once_cell::sync::Lazy::new(|| {
-            oauth2::ClientId::new(
-                std::env::var("GITHUB_CLIENT_ID").expect("GITHUB_CLIENT_ID not set in env"),
-            )
+            oauth2::ClientId::new(match std::env::var("GITHUB_CLIENT_ID") {
+                Ok(val) => val,
+                Err(e) => format!("{}{}", "GITHUB_CLIENT_ID not set in env ", e),
+            })
         })
     };
 
     static GITHUB_CLIENT_SECRET: once_cell::sync::Lazy<oauth2::ClientSecret> = {
         once_cell::sync::Lazy::new(|| {
-            oauth2::ClientSecret::new(
-                std::env::var("GITHUB_CLIENT_SECRET").expect("GITHUB_CLIENT_SECRET not set in env"),
-            )
+            oauth2::ClientSecret::new(match std::env::var("GITHUB_CLIENT_SECRET") {
+                Ok(val) => val,
+                Err(e) => format!("{}{}", "GITHUB_CLIENT_SECRET not set in env ", e),
+            })
         })
     };
 

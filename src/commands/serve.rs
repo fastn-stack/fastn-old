@@ -150,7 +150,6 @@ pub async fn serve(
 
     // TODO: remove unwrap
     let path: camino::Utf8PathBuf = req.path().replacen('/', "", 1).parse().unwrap();
-    dbg!(path.clone());
     let favicon = camino::Utf8PathBuf::new().join("favicon.ico");
     let response = if path.eq(&favicon) {
         static_file(favicon).await
@@ -482,11 +481,8 @@ You can try without providing port, it will automatically pick unused port."#,
         bind_address,
         tcp_listener.local_addr()?.port()
     );
-    //let listener = std::net::TcpListener::bind("127.0.0.1:80")?;
-
     actix_web::HttpServer::new(app)
         .listen(tcp_listener)?
-        //.listen(listener)?
         .run()
         .await?;
     Ok(())
