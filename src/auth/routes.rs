@@ -1,5 +1,5 @@
 pub fn is_login(req: &actix_web::HttpRequest) -> bool {
-    req.cookie(fpm::auth::AuthProviders::Github.as_str())
+    req.cookie(fpm::auth::AuthProviders::GitHub.as_str())
         .is_some()
         || req
             .cookie(fpm::auth::AuthProviders::TeleGram.as_str())
@@ -56,7 +56,7 @@ pub async fn login(
 pub fn logout(req: actix_web::HttpRequest) -> fpm::Result<actix_web::HttpResponse> {
     Ok(actix_web::HttpResponse::Found()
         .cookie(
-            actix_web::cookie::Cookie::build(fpm::auth::AuthProviders::Github.as_str(), "")
+            actix_web::cookie::Cookie::build(fpm::auth::AuthProviders::GitHub.as_str(), "")
                 .domain(fpm::auth::utils::domain(req.connection_info().host()))
                 .path("/")
                 .expires(actix_web::cookie::time::OffsetDateTime::now_utc())

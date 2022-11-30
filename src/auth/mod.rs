@@ -1,5 +1,3 @@
-use crate::user_group::UserIdentity;
-
 pub(crate) mod config;
 pub(crate) mod discord;
 pub(crate) mod github;
@@ -17,7 +15,7 @@ pub const DISCORD_PROVIDER: &str = "discord";
 pub const SLACK_PROVIDER: &str = "slack";
 pub const GOOGLE_PROVIDER: &str = "google";*/
 pub(crate) enum AuthProviders {
-    Github,
+    GitHub,
     TeleGram,
     Google,
     Discord,
@@ -26,7 +24,7 @@ pub(crate) enum AuthProviders {
 impl AuthProviders {
     pub(crate) fn as_str(&self) -> &'static str {
         match self {
-            AuthProviders::Github => "github",
+            AuthProviders::GitHub => "github",
             AuthProviders::TeleGram => "telegram",
             AuthProviders::Google => "google",
             AuthProviders::Discord => "discord",
@@ -47,10 +45,10 @@ pub async fn get_auth_identities(
     };
     let mc_obj = magic_crypt::new_magic_crypt!(secret_key, 256);
 
-    let mut matched_identities: Vec<UserIdentity> = vec![];
+    let mut matched_identities: Vec<fpm::user_group::UserIdentity> = vec![];
 
     let github_ud_encrypted = cookies
-        .get(fpm::auth::AuthProviders::Github.as_str())
+        .get(fpm::auth::AuthProviders::GitHub.as_str())
         .ok_or_else(|| {
             fpm::Error::GenericError("user detail not found in the cookies".to_string())
         })?;

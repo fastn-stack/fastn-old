@@ -82,7 +82,7 @@ pub async fn token(req: actix_web::HttpRequest) -> fpm::Result<actix_web::HttpRe
             return Ok(actix_web::HttpResponse::Found()
                 .cookie(
                     actix_web::cookie::Cookie::build(
-                        fpm::auth::AuthProviders::Github.as_str(),
+                        fpm::auth::AuthProviders::GitHub.as_str(),
                         mc_obj
                             .encrypt_to_base64(&user_detail_str)
                             .as_str()

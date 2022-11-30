@@ -6,7 +6,7 @@ pub fn user_details<'a>(
 ) -> ftd::p1::Result<ftd::Value> {
     let is_login = match &config.request {
         Some(req) => {
-            req.cookie(fpm::auth::AuthProviders::Github.as_str())
+            req.cookie(fpm::auth::AuthProviders::GitHub.as_str())
                 .is_some()
                 || req
                     .cookie(fpm::auth::AuthProviders::TeleGram.as_str())
