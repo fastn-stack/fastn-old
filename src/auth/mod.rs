@@ -8,12 +8,6 @@ pub(crate) mod slack;
 pub(crate) mod telegram;
 pub mod utils;
 
-pub const COOKIE_TOKEN: &str = "token";
-/*pub const GITHUB_PROVIDER: &str = "github";
-pub const TELEGRAM_PROVIDER: &str = "telegram";
-pub const DISCORD_PROVIDER: &str = "discord";
-pub const SLACK_PROVIDER: &str = "slack";
-pub const GOOGLE_PROVIDER: &str = "google";*/
 pub(crate) enum AuthProviders {
     GitHub,
     TeleGram,

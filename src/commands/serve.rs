@@ -313,7 +313,21 @@ pub(crate) async fn download_init_package(url: Option<String>) -> std::io::Resul
 
 pub async fn clear_cache(req: fpm::http::Request) -> fpm::Result<fpm::http::Response> {
     fn is_login(req: &fpm::http::Request) -> bool {
-        dbg!(req.cookie(fpm::auth::COOKIE_TOKEN)).is_some()
+        // TODO: Need refactor not happy with this
+        req.cookie(fpm::auth::AuthProviders::GitHub.as_str())
+            .is_some()
+            || req
+                .cookie(fpm::auth::AuthProviders::TeleGram.as_str())
+                .is_some()
+            || req
+                .cookie(fpm::auth::AuthProviders::Discord.as_str())
+                .is_some()
+            || req
+                .cookie(fpm::auth::AuthProviders::Slack.as_str())
+                .is_some()
+            || req
+                .cookie(fpm::auth::AuthProviders::Google.as_str())
+                .is_some()
     }
 
     // TODO: Remove After Demo, Need to think about refresh content from github
