@@ -54,6 +54,12 @@ pub async fn login(
 
 // route: /auth/logout/
 pub fn logout(req: actix_web::HttpRequest) -> fpm::Result<actix_web::HttpResponse> {
+    // TODO: Refactor, Not happy with this code, too much of repetition of similar code
+    // It is logging out from all the platforms
+
+    // Ideally it should capture the platform in the request and then logged out
+    // only from that platform
+
     Ok(actix_web::HttpResponse::Found()
         .cookie(
             actix_web::cookie::Cookie::build(fpm::auth::AuthProviders::GitHub.as_str(), "")
