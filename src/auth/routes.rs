@@ -1,9 +1,18 @@
 pub fn is_login(req: &actix_web::HttpRequest) -> bool {
-    req.cookie(fpm::auth::GITHUB_PROVIDER).is_some()
-        || req.cookie(fpm::auth::TELEGRAM_PROVIDER).is_some()
-        || req.cookie(fpm::auth::DISCORD_PROVIDER).is_some()
-        || req.cookie(fpm::auth::SLACK_PROVIDER).is_some()
-        || req.cookie(fpm::auth::GOOGLE_PROVIDER).is_some()
+    req.cookie(fpm::auth::AuthProviders::Github.as_str())
+        .is_some()
+        || req
+            .cookie(fpm::auth::AuthProviders::TeleGram.as_str())
+            .is_some()
+        || req
+            .cookie(fpm::auth::AuthProviders::Discord.as_str())
+            .is_some()
+        || req
+            .cookie(fpm::auth::AuthProviders::Slack.as_str())
+            .is_some()
+        || req
+            .cookie(fpm::auth::AuthProviders::Google.as_str())
+            .is_some()
 }
 
 // route: /auth/login/
@@ -47,35 +56,35 @@ pub async fn login(
 pub fn logout(req: actix_web::HttpRequest) -> fpm::Result<actix_web::HttpResponse> {
     Ok(actix_web::HttpResponse::Found()
         .cookie(
-            actix_web::cookie::Cookie::build(fpm::auth::GITHUB_PROVIDER, "")
+            actix_web::cookie::Cookie::build(fpm::auth::AuthProviders::Github.as_str(), "")
                 .domain(fpm::auth::utils::domain(req.connection_info().host()))
                 .path("/")
                 .expires(actix_web::cookie::time::OffsetDateTime::now_utc())
                 .finish(),
         )
         .cookie(
-            actix_web::cookie::Cookie::build(fpm::auth::TELEGRAM_PROVIDER, "")
+            actix_web::cookie::Cookie::build(fpm::auth::AuthProviders::TeleGram.as_str(), "")
                 .domain(fpm::auth::utils::domain(req.connection_info().host()))
                 .path("/")
                 .expires(actix_web::cookie::time::OffsetDateTime::now_utc())
                 .finish(),
         )
         .cookie(
-            actix_web::cookie::Cookie::build(fpm::auth::SLACK_PROVIDER, "")
+            actix_web::cookie::Cookie::build(fpm::auth::AuthProviders::Slack.as_str(), "")
                 .domain(fpm::auth::utils::domain(req.connection_info().host()))
                 .path("/")
                 .expires(actix_web::cookie::time::OffsetDateTime::now_utc())
                 .finish(),
         )
         .cookie(
-            actix_web::cookie::Cookie::build(fpm::auth::DISCORD_PROVIDER, "")
+            actix_web::cookie::Cookie::build(fpm::auth::AuthProviders::Discord.as_str(), "")
                 .domain(fpm::auth::utils::domain(req.connection_info().host()))
                 .path("/")
                 .expires(actix_web::cookie::time::OffsetDateTime::now_utc())
                 .finish(),
         )
         .cookie(
-            actix_web::cookie::Cookie::build(fpm::auth::GOOGLE_PROVIDER, "")
+            actix_web::cookie::Cookie::build(fpm::auth::AuthProviders::Google.as_str(), "")
                 .domain(fpm::auth::utils::domain(req.connection_info().host()))
                 .path("/")
                 .expires(actix_web::cookie::time::OffsetDateTime::now_utc())

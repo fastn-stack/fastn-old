@@ -11,12 +11,29 @@ pub(crate) mod telegram;
 pub mod utils;
 
 pub const COOKIE_TOKEN: &str = "token";
-pub const GITHUB_PROVIDER: &str = "github";
+/*pub const GITHUB_PROVIDER: &str = "github";
 pub const TELEGRAM_PROVIDER: &str = "telegram";
 pub const DISCORD_PROVIDER: &str = "discord";
 pub const SLACK_PROVIDER: &str = "slack";
-pub const GOOGLE_PROVIDER: &str = "google";
-
+pub const GOOGLE_PROVIDER: &str = "google";*/
+pub(crate) enum AuthProviders {
+    Github,
+    TeleGram,
+    Google,
+    Discord,
+    Slack,
+}
+impl AuthProviders {
+    pub(crate) fn as_str(&self) -> &'static str {
+        match self {
+            AuthProviders::Github => "github",
+            AuthProviders::TeleGram => "telegram",
+            AuthProviders::Google => "google",
+            AuthProviders::Discord => "discord",
+            AuthProviders::Slack => "slack",
+        }
+    }
+}
 // TODO: rename the method later
 // bridge between fpm to auth to check
 pub async fn get_auth_identities(
@@ -32,9 +49,11 @@ pub async fn get_auth_identities(
 
     let mut matched_identities: Vec<UserIdentity> = vec![];
 
-    let github_ud_encrypted = cookies.get(fpm::auth::GITHUB_PROVIDER).ok_or_else(|| {
-        fpm::Error::GenericError("user detail not found in the cookies".to_string())
-    })?;
+    let github_ud_encrypted = cookies
+        .get(fpm::auth::AuthProviders::Github.as_str())
+        .ok_or_else(|| {
+            fpm::Error::GenericError("user detail not found in the cookies".to_string())
+        })?;
     if let Ok(github_ud_decrypted) = mc_obj.decrypt_base64_to_string(github_ud_encrypted) {
         let github_ud: github::UserDetail = serde_json::from_str(github_ud_decrypted.as_str())?;
         matched_identities.extend(github::matched_identities(github_ud, identities).await?);
