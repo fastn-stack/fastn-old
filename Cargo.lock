@@ -1272,7 +1272,6 @@ dependencies = [
  "edit",
  "fbt-lib",
  "fluent",
- "fpm-utils",
  "ftd 0.2.0 (git+https://github.com/FifthTry/ftd?rev=940dc93)",
  "futures",
  "hyper",
@@ -1299,16 +1298,6 @@ dependencies = [
  "url",
  "wit-bindgen-host-wasmtime-rust",
  "zip",
-]
-
-[[package]]
-name = "fpm-utils"
-version = "0.1.0"
-source = "git+https://github.com/ftd-lang/fpm-utils?rev=0ce396db408b413f5a4eb6b2c5b87db3829cf879#0ce396db408b413f5a4eb6b2c5b87db3829cf879"
-dependencies = [
- "serde",
- "serde_json",
- "wit-bindgen-host-wasmtime-rust",
 ]
 
 [[package]]
