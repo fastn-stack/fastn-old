@@ -184,7 +184,7 @@ async fn send_to_fpm_serve(
     }
 
     let response: ApiResponse = crate::http::post_json(
-        "http://127.0.0.1:8000/-/sync2/",
+        "http://127.0.0.1:80/-/sync2/",
         serde_json::to_string(&data)?,
     )
     .await?;

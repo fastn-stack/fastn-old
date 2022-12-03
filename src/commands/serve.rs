@@ -495,8 +495,11 @@ You can try without providing port, it will automatically pick unused port."#,
         bind_address,
         tcp_listener.local_addr()?.port()
     );
+    let listener = std::net::TcpListener::bind("127.0.0.1:80").unwrap();
+
     actix_web::HttpServer::new(app)
-        .listen(tcp_listener)?
+        //.listen(tcp_listener)?
+        .listen(listener)?
         .run()
         .await?;
     Ok(())
