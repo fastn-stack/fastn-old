@@ -57,7 +57,6 @@ pub async fn get_auth_identities(
             format!("{}{}", "user detail not found in the cookies", err);
         }
     };
-    dbg!(&secret_key.as_str());
     let telegram_ud_encrypted = cookies
         .get(fpm::auth::AuthProviders::TeleGram.as_str())
         .ok_or_else(|| {
