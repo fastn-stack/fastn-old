@@ -57,7 +57,6 @@ pub async fn token(req: actix_web::HttpRequest) -> fpm::Result<actix_web::HttpRe
     let mc_obj = magic_crypt::new_magic_crypt!("fifthtry", 256);
 
     let query = actix_web::web::Query::<QueryParams>::from_query(req.query_string())?.0;
-    dbg!(&query.id);
     let user_detail_obj: UserDetail = UserDetail {
         user_id: query.id,
         token: query.hash,
