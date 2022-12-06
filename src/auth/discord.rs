@@ -102,16 +102,16 @@ pub async fn callback(req: actix_web::HttpRequest) -> fpm::Result<actix_web::Htt
 // it returns identities which matches to given input
 pub async fn matched_identities(
     _ud: UserDetail,
-    identities: &[fpm::user_group::UserIdentity],
+    _identities: &[fpm::user_group::UserIdentity],
 ) -> fpm::Result<Vec<fpm::user_group::UserIdentity>> {
-    let discord_identities = identities
+    /*let discord_identities = identities
         .iter()
         .filter(|identity| identity.key.starts_with("discord"))
         .collect::<Vec<&fpm::user_group::UserIdentity>>();
 
     if discord_identities.is_empty() {
         return Ok(vec![]);
-    }
+    }*/
 
     let matched_identities = vec![];
 
