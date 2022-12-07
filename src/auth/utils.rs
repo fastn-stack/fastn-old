@@ -5,3 +5,28 @@ pub fn domain(host: &str) -> String {
         None => host.to_string(),
     }
 }
+pub async fn get_api<T: serde::de::DeserializeOwned>(url: &str, token: &str) -> fpm::Result<T> {
+    let response = reqwest::Client::new()
+        .get(url)
+        .header(
+            reqwest::header::AUTHORIZATION,
+            format!("{}{}", "Bearer ", token),
+        )
+        .header(reqwest::header::ACCEPT, "application/json")
+        .header(
+            reqwest::header::USER_AGENT,
+            reqwest::header::HeaderValue::from_static("fpm"),
+        )
+        .send()
+        .await?;
+
+    if !response.status().eq(&reqwest::StatusCode::OK) {
+        return Err(fpm::Error::APIResponseError(format!(
+            "FPM-API-ERROR: {}, Error: {}",
+            url,
+            response.text().await?
+        )));
+    }
+
+    Ok(response.json().await?)
+}

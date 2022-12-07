@@ -377,8 +377,6 @@ string list github-sponsor:
 string list -github-sponsor:
 string list discord-server:
 string list -discord-server:
-string list discord-family:
-string list -discord-family:
 string list discord-channel:
 string list -discord-channel:
 string list discord-thread:

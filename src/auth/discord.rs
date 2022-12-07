@@ -15,6 +15,21 @@ pub struct DiscordAuthReq {
     pub code: String,
     pub redirect_uri: String,
 }
+pub(crate) enum DiscordScopes {
+    Identify,
+    Guilds,
+    GuildsMembersRead,
+}
+
+impl DiscordScopes {
+    pub(crate) fn as_str(&self) -> &'static str {
+        match self {
+            DiscordScopes::Identify => "identify",
+            DiscordScopes::Guilds => "guilds",
+            DiscordScopes::GuildsMembersRead => "guilds.members.read",
+        }
+    }
+}
 // route: /auth/login/
 pub async fn login(req: actix_web::HttpRequest) -> fpm::Result<fpm::http::Response> {
     // Discord will be redirect to this url after login process completed
@@ -25,26 +40,31 @@ pub async fn login(req: actix_web::HttpRequest) -> fpm::Result<fpm::http::Respon
         req.connection_info().host(),
         CALLBACK_URL
     );
-    let client_id = match std::env::var("DISCROD_CLIENT_ID") {
+    let client_id = match std::env::var("DISCORD_CLIENT_ID") {
         Ok(id) => id,
         Err(_e) => {
-            println!("WARN: DISCROD_CLIENT_ID not set");
+            println!("WARN: DISCORD_CLIENT_ID not set");
             // TODO: Need to change this approach later
-            "FPM_TEMP_DISCROD_CLIENT_ID".to_string()
+            "FPM_TEMP_DISCORD_CLIENT_ID".to_string()
         }
     };
-    let generated_link = format!(
-        "{}{}{}{}{}{}",
+    let discord_auth_url = format!(
+        "{}{}{}{}{}{}{}{}{}{}{}",
         AUTH_URL,
         "?client_id=",
         client_id,
         "&redirect_uri=",
         redirect_url,
-        "&response_type=code&scope=identify%20guilds%20guilds.members.read"
+        "&response_type=code&scope=",
+        DiscordScopes::Identify.as_str(),
+        " ",
+        DiscordScopes::Guilds.as_str(),
+        " ",
+        DiscordScopes::GuildsMembersRead.as_str()
     );
     // send redirect to /auth/discord/callback/
     Ok(actix_web::HttpResponse::Found()
-        .append_header((actix_web::http::header::LOCATION, generated_link))
+        .append_header((actix_web::http::header::LOCATION, discord_auth_url))
         .finish())
 }
 
@@ -58,9 +78,6 @@ pub async fn callback(req: actix_web::HttpRequest) -> fpm::Result<actix_web::Htt
         pub code: String,
     }
 
-    let secret_key = fpm::auth::secret_key();
-    let mc_obj = magic_crypt::new_magic_crypt!(secret_key.as_str(), 256);
-
     let query = actix_web::web::Query::<QueryParams>::from_query(req.query_string())?.0;
     let redirect_url = format!(
         "{}://{}{}",
@@ -69,7 +86,7 @@ pub async fn callback(req: actix_web::HttpRequest) -> fpm::Result<actix_web::Htt
         CALLBACK_URL
     );
     let discord_auth =
-        apis::discord_token_api(TOKEN_URL, redirect_url.as_str(), query.code.as_str()).await;
+        apis::discord_token(TOKEN_URL, redirect_url.as_str(), query.code.as_str()).await;
     match discord_auth {
         Ok(access_token) => {
             let user_name = apis::user_details(&access_token).await?;
@@ -78,7 +95,8 @@ pub async fn callback(req: actix_web::HttpRequest) -> fpm::Result<actix_web::Htt
                 user_name,
             };
             let user_detail_str = serde_json::to_string(&user_detail_obj)?;
-
+            let secret_key = fpm::auth::secret_key();
+            let mc_obj = magic_crypt::new_magic_crypt!(secret_key.as_str(), 256);
             return Ok(actix_web::HttpResponse::Found()
                 .cookie(
                     actix_web::cookie::Cookie::build(
@@ -134,47 +152,20 @@ pub mod apis {
         struct UserDetails {
             username: String,
         }
-        let user_obj: UserDetails = get_api("https://discord.com/api/users/@me", token).await?;
+        let user_obj: UserDetails =
+            fpm::auth::utils::get_api("https://discord.com/api/users/@me", token).await?;
 
-        Ok(String::from(&user_obj.username))
+        Ok(user_obj.username)
     }
-    pub async fn get_api<T: serde::de::DeserializeOwned>(url: &str, token: &str) -> fpm::Result<T> {
-        let response = reqwest::Client::new()
-            .get(url)
-            .header(
-                reqwest::header::AUTHORIZATION,
-                format!("{}{}", "Bearer ", token),
-            )
-            .header(reqwest::header::ACCEPT, "application/json")
-            .header(
-                reqwest::header::USER_AGENT,
-                reqwest::header::HeaderValue::from_static("fpm"),
-            )
-            .send()
-            .await?;
 
-        if !response.status().eq(&reqwest::StatusCode::OK) {
-            return Err(fpm::Error::APIResponseError(format!(
-                "DISCORD-API-ERROR: {}, Error: {}",
-                url,
-                response.text().await?
-            )));
-        }
-
-        Ok(response.json().await?)
-    }
     //This API will only be used to get access token for discord
-    pub async fn discord_token_api(
-        url: &str,
-        redirect_url: &str,
-        code: &str,
-    ) -> fpm::Result<String> {
-        let client_id = match std::env::var("DISCROD_CLIENT_ID") {
+    pub async fn discord_token(url: &str, redirect_url: &str, code: &str) -> fpm::Result<String> {
+        let client_id = match std::env::var("DISCORD_CLIENT_ID") {
             Ok(id) => id,
             Err(_e) => {
-                println!("WARN: DISCROD_CLIENT_ID not set");
+                println!("WARN: DISCORD_CLIENT_ID not set");
                 // TODO: Need to change this approach later
-                "FPM_TEMP_DISCROD_CLIENT_ID".to_string()
+                "FPM_TEMP_DISCORD_CLIENT_ID".to_string()
             }
         };
         let client_secret = match std::env::var("DISCORD_CLIENT_SECRET") {

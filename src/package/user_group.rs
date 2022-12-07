@@ -114,10 +114,6 @@ pub struct UserGroupTemp {
     pub discord_server: Vec<String>,
     #[serde(rename = "-discord-server")]
     pub excluded_discord_server: Vec<String>,
-    #[serde(rename = "discord-family")]
-    pub discord_family: Vec<String>,
-    #[serde(rename = "-discord-family")]
-    pub excluded_discord_family: Vec<String>,
     #[serde(rename = "discord-channel")]
     pub discord_channel: Vec<String>,
     #[serde(rename = "-discord-channel")]
@@ -347,11 +343,7 @@ impl UserGroupTemp {
             "-discord-server",
             self.excluded_discord_server,
         ));
-        identities.extend(to_user_identity("discord-family", self.discord_family));
-        excluded_identities.extend(to_user_identity(
-            "-discord-family",
-            self.excluded_discord_family,
-        ));
+
         identities.extend(to_user_identity("discord-channel", self.discord_channel));
         excluded_identities.extend(to_user_identity(
             "-discord-channel",
