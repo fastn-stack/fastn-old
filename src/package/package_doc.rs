@@ -337,6 +337,7 @@ pub(crate) async fn read_ftd_2022(
         main.id_with_package().as_str(),
         doc_content.as_str(),
         &mut lib,
+        Some(current_package),
     )
     .await)
     {

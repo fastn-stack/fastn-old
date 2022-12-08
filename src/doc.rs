@@ -123,7 +123,12 @@ pub async fn interpret_helper<'a>(
     name: &str,
     source: &str,
     lib: &'a mut fpm::Library2,
+    current_package: Option<&fpm::Package>,
 ) -> ftd::interpreter2::Result<ftd::interpreter2::Document> {
+    let mut packages_under_process = vec![current_package
+        .map(|v| v.to_owned())
+        .unwrap_or_else(|| lib.config.package.clone())];
+
     let mut s = ftd::interpreter2::interpret(name, source)?;
     let document;
     loop {
@@ -136,8 +141,10 @@ pub async fn interpret_helper<'a>(
                 module,
                 state: mut st,
             } => {
+                packages_under_process.truncate(st.to_process.len());
                 let (source, foreign_variable, foreign_function) =
                     resolve_import_2022(lib, &mut st, module.as_str()).await?;
+
                 s = st.continue_after_import(
                     module.as_str(),
                     source.as_str(),
