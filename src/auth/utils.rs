@@ -8,10 +8,7 @@ pub fn domain(host: &str) -> String {
 pub async fn get_api<T: serde::de::DeserializeOwned>(url: &str, token: &str) -> fpm::Result<T> {
     let response = reqwest::Client::new()
         .get(url)
-        .header(
-            reqwest::header::AUTHORIZATION,
-            format!("{}{}", "Bearer ", token),
-        )
+        .header(reqwest::header::AUTHORIZATION, token)
         .header(reqwest::header::ACCEPT, "application/json")
         .header(
             reqwest::header::USER_AGENT,

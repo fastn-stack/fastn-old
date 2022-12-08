@@ -405,7 +405,7 @@ pub mod apis {
         }
         let starred_repo: Vec<UserRepos> = fpm::auth::utils::get_api(
             format!("{}?per_page=100", "https://api.github.com/user/starred").as_str(),
-            token,
+            format!("{}{}", "Bearer ", token).as_str(),
         )
         .await?;
         Ok(starred_repo.into_iter().map(|x| x.full_name).collect())
@@ -420,7 +420,7 @@ pub mod apis {
         }
         let watched_repo: Vec<FollowedOrg> = fpm::auth::utils::get_api(
             format!("{}?per_page=100", "https://api.github.com/user/following").as_str(),
-            token,
+            format!("{}{}", "Bearer ", token).as_str(),
         )
         .await?;
         Ok(watched_repo.into_iter().map(|x| x.login).collect())
@@ -444,7 +444,7 @@ pub mod apis {
                 "https://api.github.com/orgs/", org_title, "/teams/", team_slug
             )
             .as_str(),
-            token,
+            format!("{}{}", "Bearer ", token).as_str(),
         )
         .await?;
         Ok(user_orgs.into_iter().map(|x| x.login).collect())
@@ -463,7 +463,7 @@ pub mod apis {
                 "https://api.github.com/user/subscriptions"
             )
             .as_str(),
-            token,
+            format!("{}{}", "Bearer ", token).as_str(),
         )
         .await?;
         Ok(watched_repo.into_iter().map(|x| x.full_name).collect())
@@ -481,7 +481,7 @@ pub mod apis {
                 "https://api.github.com/repos/", repo_name
             )
             .as_str(),
-            token,
+            format!("{}{}", "Bearer ", token).as_str(),
         )
         .await?;
         Ok(repo_contributor.into_iter().map(|x| x.login).collect())
@@ -499,7 +499,7 @@ pub mod apis {
                 "https://api.github.com/repos/", repo_name
             )
             .as_str(),
-            token,
+            format!("{}{}", "Bearer ", token).as_str(),
         )
         .await?;
         Ok(repo_collaborators_list
@@ -543,8 +543,11 @@ pub mod apis {
         struct UserDetails {
             login: String,
         }
-        let user_obj: UserDetails =
-            fpm::auth::utils::get_api("https://api.github.com/user", token).await?;
+        let user_obj: UserDetails = fpm::auth::utils::get_api(
+            "https://api.github.com/user",
+            format!("{}{}", "Bearer ", token).as_str(),
+        )
+        .await?;
 
         Ok(String::from(&user_obj.login))
     }

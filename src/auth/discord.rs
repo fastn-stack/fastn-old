@@ -6,6 +6,7 @@ pub const TOKEN_URL: &str = "https://discord.com/api/oauth2/token";
 pub struct UserDetail {
     pub token: String,
     pub user_name: String,
+    pub user_id: String,
 }
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
 pub struct DiscordAuthReq {
@@ -90,10 +91,11 @@ pub async fn callback(req: actix_web::HttpRequest) -> fpm::Result<actix_web::Htt
     match discord_auth {
         Ok(access_token) => {
             dbg!(&access_token);
-            let user_name = apis::user_details(&access_token).await?;
+            let (user_name, user_id) = apis::user_details(&access_token).await?;
             let user_detail_obj: UserDetail = UserDetail {
                 token: access_token.to_owned(),
                 user_name,
+                user_id,
             };
             let user_detail_str = serde_json::to_string(&user_detail_obj)?;
             let secret_key = fpm::auth::secret_key();
@@ -135,7 +137,7 @@ pub async fn matched_identities(
     let mut matched_identities = vec![];
     // matched_user_servers
     matched_identities.extend(matched_user_servers(&ud, discord_identities.as_slice()).await?);
-
+    matched_identities.extend(matched_thread_members(&ud, discord_identities.as_slice()).await?);
     Ok(matched_identities)
 }
 pub async fn matched_user_servers(
@@ -170,6 +172,46 @@ pub async fn matched_user_servers(
         })
         .collect())
 }
+pub async fn matched_thread_members(
+    ud: &UserDetail,
+    identities: &[&fpm::user_group::UserIdentity],
+) -> fpm::Result<Vec<fpm::user_group::UserIdentity>> {
+    use itertools::Itertools;
+    let mut user_joined_threads: Vec<String> = vec![];
+    let user_threads = identities
+        .iter()
+        .filter_map(|i| {
+            if i.key.eq("discord-thread") {
+                Some(i.value.as_str())
+            } else {
+                None
+            }
+        })
+        .collect_vec();
+
+    if user_threads.is_empty() {
+        return Ok(vec![]);
+    }
+    for thread in user_threads.iter() {
+        let group_administrator_list: Vec<String> = apis::thread_members(thread).await?;
+        dbg!(&group_administrator_list);
+        if group_administrator_list.contains(&ud.user_id) {
+            user_joined_threads.push(thread.to_string());
+        }
+        // TODO:
+        // Return Error if group administrator does not exist
+    }
+    //let user_joined_servers = apis::user_servers(ud.token.as_str()).await?;
+    //dbg!(&user_joined_servers);
+    // filter the user starred repos with input
+    Ok(user_joined_threads
+        .into_iter()
+        .map(|thread| fpm::user_group::UserIdentity {
+            key: "discord-thread".to_string(),
+            value: thread,
+        })
+        .collect())
+}
 pub mod apis {
     #[derive(Debug, serde::Deserialize)]
     pub struct DiscordAuthResp {
@@ -179,17 +221,21 @@ pub mod apis {
     // API Docs: https://discord.com/developers/docs/getting-started
     //API EndPoints: https://github.com/GregTCLTK/Discord-Api-Endpoints/blob/master/Endpoints.md
     // TODO: It can be stored in the request cookies
-    pub async fn user_details(token: &str) -> fpm::Result<String> {
+    pub async fn user_details(token: &str) -> fpm::Result<(String, String)> {
         // API Docs: https://discord.com/api/users/@me
         // TODO: Handle paginated response
         #[derive(Debug, serde::Deserialize)]
         struct UserDetails {
             username: String,
+            id: String,
         }
-        let user_obj: UserDetails =
-            fpm::auth::utils::get_api("https://discord.com/api/users/@me", token).await?;
+        let user_obj: UserDetails = fpm::auth::utils::get_api(
+            "https://discord.com/api/users/@me",
+            format!("{}{}", "Bearer ", token).as_str(),
+        )
+        .await?;
 
-        Ok(user_obj.username)
+        Ok((user_obj.username, user_obj.id))
     }
 
     //This API will only be used to get access token for discord
@@ -239,9 +285,35 @@ pub mod apis {
         }
         let user_server_list: Vec<UserGuilds> = fpm::auth::utils::get_api(
             format!("{}?limit=100", "https://discord.com/api/users/@me/guilds").as_str(),
-            token,
+            format!("{}{}", "Bearer ", token).as_str(),
         )
         .await?;
         Ok(user_server_list.into_iter().map(|x| x.name).collect())
+    }
+    pub async fn thread_members(thread_id: &str) -> fpm::Result<Vec<String>> {
+        // API Docs: https://discord.com/api/channels/{thread-id}/thread-members
+        // TODO: Handle paginated response
+        let discord_bot_id = match std::env::var("DISCORD_BOT_ID") {
+            Ok(id) => id,
+            Err(_e) => {
+                println!("WARN: DISCORD_BOT_ID not set");
+                // TODO: Need to change this approach later
+                "FPM_TEMP_DISCORD_BOT_ID".to_string()
+            }
+        };
+        #[derive(Debug, serde::Deserialize)]
+        struct ThreadMembers {
+            user_id: String,
+        }
+        let thread_member_list: Vec<ThreadMembers> = fpm::auth::utils::get_api(
+            format!(
+                "{}{}{}?limit=100",
+                "https://discord.com/api/channels/", thread_id, "/thread-members"
+            )
+            .as_str(),
+            format!("{}{}", "Bot ", discord_bot_id).as_str(),
+        )
+        .await?;
+        Ok(thread_member_list.into_iter().map(|x| x.user_id).collect())
     }
 }
