@@ -89,6 +89,7 @@ pub async fn callback(req: actix_web::HttpRequest) -> fpm::Result<actix_web::Htt
         apis::discord_token(TOKEN_URL, redirect_url.as_str(), query.code.as_str()).await;
     match discord_auth {
         Ok(access_token) => {
+            dbg!(&access_token);
             let user_name = apis::user_details(&access_token).await?;
             let user_detail_obj: UserDetail = UserDetail {
                 token: access_token.to_owned(),
@@ -119,23 +120,56 @@ pub async fn callback(req: actix_web::HttpRequest) -> fpm::Result<actix_web::Htt
 }
 // it returns identities which matches to given input
 pub async fn matched_identities(
-    _ud: UserDetail,
-    _identities: &[fpm::user_group::UserIdentity],
+    ud: UserDetail,
+    identities: &[fpm::user_group::UserIdentity],
 ) -> fpm::Result<Vec<fpm::user_group::UserIdentity>> {
-    /*let discord_identities = identities
+    let discord_identities = identities
         .iter()
         .filter(|identity| identity.key.starts_with("discord"))
         .collect::<Vec<&fpm::user_group::UserIdentity>>();
 
     if discord_identities.is_empty() {
         return Ok(vec![]);
-    }*/
+    }
 
-    let matched_identities = vec![];
+    let mut matched_identities = vec![];
+    // matched_user_servers
+    matched_identities.extend(matched_user_servers(&ud, discord_identities.as_slice()).await?);
 
     Ok(matched_identities)
 }
+pub async fn matched_user_servers(
+    ud: &UserDetail,
+    identities: &[&fpm::user_group::UserIdentity],
+) -> fpm::Result<Vec<fpm::user_group::UserIdentity>> {
+    use itertools::Itertools;
 
+    let user_servers = identities
+        .iter()
+        .filter_map(|i| {
+            if i.key.eq("discord-server") {
+                Some(i.value.as_str())
+            } else {
+                None
+            }
+        })
+        .collect_vec();
+
+    if user_servers.is_empty() {
+        return Ok(vec![]);
+    }
+    let user_joined_servers = apis::user_servers(ud.token.as_str()).await?;
+    dbg!(&user_joined_servers);
+    // filter the user starred repos with input
+    Ok(user_joined_servers
+        .into_iter()
+        .filter(|user_server| user_servers.contains(&user_server.as_str()))
+        .map(|repo| fpm::user_group::UserIdentity {
+            key: "discord-server".to_string(),
+            value: repo,
+        })
+        .collect())
+}
 pub mod apis {
     #[derive(Debug, serde::Deserialize)]
     pub struct DiscordAuthResp {
@@ -194,5 +228,20 @@ pub mod apis {
         }
         let auth_obj = response.json::<DiscordAuthResp>().await?;
         Ok(auth_obj.access_token)
+    }
+    pub async fn user_servers(token: &str) -> fpm::Result<Vec<String>> {
+        // API Docs: https://discord.com/api/users/@me/guilds
+        // TODO: Handle paginated response
+
+        #[derive(Debug, serde::Deserialize)]
+        struct UserGuilds {
+            name: String,
+        }
+        let user_server_list: Vec<UserGuilds> = fpm::auth::utils::get_api(
+            format!("{}?limit=100", "https://discord.com/api/users/@me/guilds").as_str(),
+            token,
+        )
+        .await?;
+        Ok(user_server_list.into_iter().map(|x| x.name).collect())
     }
 }
