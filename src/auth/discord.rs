@@ -137,7 +137,10 @@ pub async fn matched_identities(
     let mut matched_identities = vec![];
     // matched_user_servers
     matched_identities.extend(matched_user_servers(&ud, discord_identities.as_slice()).await?);
+    // matched_thread_members
     matched_identities.extend(matched_thread_members(&ud, discord_identities.as_slice()).await?);
+    //matched_event_members
+    matched_identities.extend(matched_event_members(&ud, discord_identities.as_slice()).await?);
     Ok(matched_identities)
 }
 pub async fn matched_user_servers(
@@ -193,9 +196,9 @@ pub async fn matched_thread_members(
         return Ok(vec![]);
     }
     for thread in user_threads.iter() {
-        let group_administrator_list: Vec<String> = apis::thread_members(thread).await?;
-        dbg!(&group_administrator_list);
-        if group_administrator_list.contains(&ud.user_id) {
+        let thread_member_list: Vec<String> = apis::thread_members(thread).await?;
+        dbg!(&thread_member_list);
+        if thread_member_list.contains(&ud.user_id) {
             user_joined_threads.push(thread.to_string());
         }
         // TODO:
@@ -212,8 +215,48 @@ pub async fn matched_thread_members(
         })
         .collect())
 }
+pub async fn matched_event_members(
+    ud: &UserDetail,
+    identities: &[&fpm::user_group::UserIdentity],
+) -> fpm::Result<Vec<fpm::user_group::UserIdentity>> {
+    use itertools::Itertools;
+    let mut user_joined_events: Vec<String> = vec![];
+    let user_events = identities
+        .iter()
+        .filter_map(|i| {
+            if i.key.eq("discord-event") {
+                Some(i.value.as_str())
+            } else {
+                None
+            }
+        })
+        .collect_vec();
+
+    if user_events.is_empty() {
+        return Ok(vec![]);
+    }
+    for thread in user_events.iter() {
+        let event_member_list: Vec<String> = apis::event_members(thread).await?;
+        dbg!(&event_member_list);
+        if event_member_list.contains(&ud.user_id) {
+            user_joined_events.push(thread.to_string());
+        }
+        // TODO:
+        // Return Error if group administrator does not exist
+    }
+    //let user_joined_servers = apis::user_servers(ud.token.as_str()).await?;
+    //dbg!(&user_joined_servers);
+    // filter the user starred repos with input
+    Ok(user_joined_events
+        .into_iter()
+        .map(|event| fpm::user_group::UserIdentity {
+            key: "discord-event".to_string(),
+            value: event,
+        })
+        .collect())
+}
 pub mod apis {
-    #[derive(Debug, serde::Deserialize)]
+    #[derive(serde::Deserialize)]
     pub struct DiscordAuthResp {
         pub access_token: String,
     }
@@ -224,7 +267,7 @@ pub mod apis {
     pub async fn user_details(token: &str) -> fpm::Result<(String, String)> {
         // API Docs: https://discord.com/api/users/@me
         // TODO: Handle paginated response
-        #[derive(Debug, serde::Deserialize)]
+        #[derive(serde::Deserialize)]
         struct UserDetails {
             username: String,
             id: String,
@@ -315,5 +358,47 @@ pub mod apis {
         )
         .await?;
         Ok(thread_member_list.into_iter().map(|x| x.user_id).collect())
+    }
+    pub async fn event_members(event_id: &str) -> fpm::Result<Vec<String>> {
+        // API Docs: https://discord.com/api/guilds/{guild-id}/scheduled-events/{event-id}/users
+        // TODO: Handle paginated response
+        let discord_bot_id = match std::env::var("DISCORD_BOT_ID") {
+            Ok(id) => id,
+            Err(_e) => {
+                println!("WARN: DISCORD_BOT_ID not set");
+                // TODO: Need to change this approach later
+                "FPM_TEMP_DISCORD_BOT_ID".to_string()
+            }
+        };
+        let discord_guild_id = match std::env::var("DISCORD_GUILD_ID") {
+            Ok(id) => id,
+            Err(_e) => {
+                println!("WARN: DISCORD_GUILD_ID not set");
+                // TODO: Need to change this approach later
+                "FPM_TEMP_DISCORD_GUILD_ID".to_string()
+            }
+        };
+        #[derive(Debug, serde::Deserialize)]
+        struct EventMembers {
+            user: EventMemberObj,
+        }
+        #[derive(Debug, serde::Deserialize)]
+        struct EventMemberObj {
+            id: String,
+        }
+        let event_member_list: Vec<EventMembers> = fpm::auth::utils::get_api(
+            format!(
+                "{}{}{}{}{}?limit=100",
+                "https://discord.com/api/guilds/",
+                discord_guild_id,
+                "/scheduled-events/",
+                event_id,
+                "/users"
+            )
+            .as_str(),
+            format!("{}{}", "Bot ", discord_bot_id).as_str(),
+        )
+        .await?;
+        Ok(event_member_list.into_iter().map(|x| x.user.id).collect())
     }
 }
