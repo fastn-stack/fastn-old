@@ -45,9 +45,6 @@ pub async fn get_auth_identities(
     cookies: &std::collections::HashMap<String, String>,
     identities: &[fpm::user_group::UserIdentity],
 ) -> fpm::Result<Vec<fpm::user_group::UserIdentity>> {
-    use magic_crypt::MagicCryptTrait;
-    let secret_key = fpm::auth::secret_key();
-    let mc_obj = magic_crypt::new_magic_crypt!(&secret_key, 256);
     let mut matched_identities: Vec<fpm::user_group::UserIdentity> = vec![];
 
     let github_ud_encrypted = cookies
@@ -57,7 +54,7 @@ pub async fn get_auth_identities(
         });
     match github_ud_encrypted {
         Ok(encrypt_str) => {
-            if let Ok(github_ud_decrypted) = mc_obj.decrypt_base64_to_string(encrypt_str) {
+            if let Ok(github_ud_decrypted) = utils::decrypt_str(encrypt_str).await {
                 let github_ud: github::UserDetail =
                     serde_json::from_str(github_ud_decrypted.as_str())?;
                 matched_identities.extend(github::matched_identities(github_ud, identities).await?);
@@ -78,7 +75,7 @@ pub async fn get_auth_identities(
         });
     match telegram_ud_encrypted {
         Ok(encrypt_str) => {
-            if let Ok(telegram_ud_decrypted) = mc_obj.decrypt_base64_to_string(encrypt_str) {
+            if let Ok(telegram_ud_decrypted) = utils::decrypt_str(encrypt_str).await {
                 let telegram_ud: telegram::UserDetail =
                     serde_json::from_str(telegram_ud_decrypted.as_str())?;
                 matched_identities
@@ -96,10 +93,9 @@ pub async fn get_auth_identities(
         });
     match discord_ud_encrypted {
         Ok(encrypt_str) => {
-            if let Ok(discord_ud_decrypted) = mc_obj.decrypt_base64_to_string(encrypt_str) {
+            if let Ok(discord_ud_decrypted) = utils::decrypt_str(encrypt_str).await {
                 let discord_ud: discord::UserDetail =
                     serde_json::from_str(discord_ud_decrypted.as_str())?;
-
                 matched_identities
                     .extend(discord::matched_identities(discord_ud, identities).await?);
             }

@@ -44,13 +44,15 @@ pub async fn login(req: actix_web::HttpRequest) -> fpm::Result<fpm::http::Respon
     let client_id = match std::env::var("DISCORD_CLIENT_ID") {
         Ok(id) => id,
         Err(_e) => {
-            println!("WARN: DISCORD_CLIENT_ID not set");
+            return Err(fpm::Error::APIResponseError(
+                "WARN: FPM_TEMP_DISCORD_CLIENT_ID not set.".to_string(),
+            ));
             // TODO: Need to change this approach later
-            "FPM_TEMP_DISCORD_CLIENT_ID".to_string()
+            //"FPM_TEMP_DISCORD_CLIENT_ID".to_string()
         }
     };
     let discord_auth_url = format!(
-        "{}{}{}{}{}{}{}{}{}{}{}",
+        "{}{}{}{}{}{}{} {} {}",
         AUTH_URL,
         "?client_id=",
         client_id,
@@ -58,9 +60,7 @@ pub async fn login(req: actix_web::HttpRequest) -> fpm::Result<fpm::http::Respon
         redirect_url,
         "&response_type=code&scope=",
         DiscordScopes::Identify.as_str(),
-        " ",
         DiscordScopes::Guilds.as_str(),
-        " ",
         DiscordScopes::GuildsMembersRead.as_str()
     );
     // send redirect to /auth/discord/callback/
@@ -73,7 +73,6 @@ pub async fn login(req: actix_web::HttpRequest) -> fpm::Result<fpm::http::Respon
 // In this API we are accessing
 // the token and setting it to cookies
 pub async fn callback(req: actix_web::HttpRequest) -> fpm::Result<actix_web::HttpResponse> {
-    use magic_crypt::MagicCryptTrait;
     #[derive(Debug, serde::Deserialize)]
     pub struct QueryParams {
         pub code: String,
@@ -98,16 +97,12 @@ pub async fn callback(req: actix_web::HttpRequest) -> fpm::Result<actix_web::Htt
                 user_id,
             };
             let user_detail_str = serde_json::to_string(&user_detail_obj)?;
-            let secret_key = fpm::auth::secret_key();
-            let mc_obj = magic_crypt::new_magic_crypt!(secret_key.as_str(), 256);
+
             return Ok(actix_web::HttpResponse::Found()
                 .cookie(
                     actix_web::cookie::Cookie::build(
                         fpm::auth::AuthProviders::Discord.as_str(),
-                        mc_obj
-                            .encrypt_to_base64(&user_detail_str)
-                            .as_str()
-                            .to_owned(),
+                        fpm::auth::utils::encrypt_str(&user_detail_str).await,
                     )
                     .domain(fpm::auth::utils::domain(req.connection_info().host()))
                     .path("/")
@@ -141,6 +136,8 @@ pub async fn matched_identities(
     matched_identities.extend(matched_thread_members(&ud, discord_identities.as_slice()).await?);
     //matched_event_members
     matched_identities.extend(matched_event_members(&ud, discord_identities.as_slice()).await?);
+    //matched_member_permission
+    matched_identities.extend(matched_member_permission(&ud, discord_identities.as_slice()).await?);
     Ok(matched_identities)
 }
 pub async fn matched_user_servers(
@@ -164,8 +161,7 @@ pub async fn matched_user_servers(
         return Ok(vec![]);
     }
     let user_joined_servers = apis::user_servers(ud.token.as_str()).await?;
-    dbg!(&user_joined_servers);
-    // filter the user starred repos with input
+    // filter the user joined servers with input
     Ok(user_joined_servers
         .into_iter()
         .filter(|user_server| user_servers.contains(&user_server.as_str()))
@@ -197,16 +193,13 @@ pub async fn matched_thread_members(
     }
     for thread in user_threads.iter() {
         let thread_member_list: Vec<String> = apis::thread_members(thread).await?;
-        dbg!(&thread_member_list);
         if thread_member_list.contains(&ud.user_id) {
             user_joined_threads.push(thread.to_string());
         }
         // TODO:
-        // Return Error if group administrator does not exist
+        // Return Error if user thread does not exist
     }
-    //let user_joined_servers = apis::user_servers(ud.token.as_str()).await?;
-    //dbg!(&user_joined_servers);
-    // filter the user starred repos with input
+    // filter the user joined threads with input
     Ok(user_joined_threads
         .into_iter()
         .map(|thread| fpm::user_group::UserIdentity {
@@ -235,18 +228,15 @@ pub async fn matched_event_members(
     if user_events.is_empty() {
         return Ok(vec![]);
     }
-    for thread in user_events.iter() {
-        let event_member_list: Vec<String> = apis::event_members(thread).await?;
-        dbg!(&event_member_list);
+    for event in user_events.iter() {
+        let event_member_list: Vec<String> = apis::event_members(event).await?;
         if event_member_list.contains(&ud.user_id) {
-            user_joined_events.push(thread.to_string());
+            user_joined_events.push(event.to_string());
         }
         // TODO:
-        // Return Error if group administrator does not exist
+        // Return Error if event member does not exist
     }
-    //let user_joined_servers = apis::user_servers(ud.token.as_str()).await?;
-    //dbg!(&user_joined_servers);
-    // filter the user starred repos with input
+    // filter the user joined events with input
     Ok(user_joined_events
         .into_iter()
         .map(|event| fpm::user_group::UserIdentity {
@@ -255,18 +245,47 @@ pub async fn matched_event_members(
         })
         .collect())
 }
+pub async fn matched_member_permission(
+    ud: &UserDetail,
+    identities: &[&fpm::user_group::UserIdentity],
+) -> fpm::Result<Vec<fpm::user_group::UserIdentity>> {
+    use itertools::Itertools;
+    let user_roles = identities
+        .iter()
+        .filter_map(|i| {
+            if i.key.eq("discord-permission") {
+                Some(i.value.as_str())
+            } else {
+                None
+            }
+        })
+        .collect_vec();
+
+    if user_roles.is_empty() {
+        return Ok(vec![]);
+    }
+    // filter the user assigned roles with input
+    let member_role_list = apis::member_roles(ud.user_id.as_str()).await?;
+    Ok(member_role_list
+        .into_iter()
+        .filter(|user_role| user_roles.contains(&user_role.as_str()))
+        .map(|permission| fpm::user_group::UserIdentity {
+            key: "discord-permission".to_string(),
+            value: permission,
+        })
+        .collect())
+}
 pub mod apis {
     #[derive(serde::Deserialize)]
     pub struct DiscordAuthResp {
         pub access_token: String,
     }
-    // TODO: API to starred a repo on behalf of the user
+    // TODO: API to get user detail.
     // API Docs: https://discord.com/developers/docs/getting-started
     //API EndPoints: https://github.com/GregTCLTK/Discord-Api-Endpoints/blob/master/Endpoints.md
     // TODO: It can be stored in the request cookies
     pub async fn user_details(token: &str) -> fpm::Result<(String, String)> {
         // API Docs: https://discord.com/api/users/@me
-        // TODO: Handle paginated response
         #[derive(serde::Deserialize)]
         struct UserDetails {
             username: String,
@@ -274,7 +293,7 @@ pub mod apis {
         }
         let user_obj: UserDetails = fpm::auth::utils::get_api(
             "https://discord.com/api/users/@me",
-            format!("{}{}", "Bearer ", token).as_str(),
+            format!("{} {}", "Bearer", token).as_str(),
         )
         .await?;
 
@@ -286,17 +305,17 @@ pub mod apis {
         let client_id = match std::env::var("DISCORD_CLIENT_ID") {
             Ok(id) => id,
             Err(_e) => {
-                println!("WARN: DISCORD_CLIENT_ID not set");
-                // TODO: Need to change this approach later
-                "FPM_TEMP_DISCORD_CLIENT_ID".to_string()
+                return Err(fpm::Error::APIResponseError(
+                    "WARN: DISCORD_CLIENT_ID not set.".to_string(),
+                ));
             }
         };
         let client_secret = match std::env::var("DISCORD_CLIENT_SECRET") {
             Ok(secret) => secret,
             Err(_e) => {
-                println!("WARN: DISCORD_CLIENT_SECRET not set");
-                // TODO: Need to change this approach later
-                "FPM_TEMP_DISCORD_CLIENT_SECRET".to_string()
+                return Err(fpm::Error::APIResponseError(
+                    "WARN: DISCORD_SECRET not set.".to_string(),
+                ));
             }
         };
         let mut map: std::collections::HashMap<&str, &str> = std::collections::HashMap::new();
@@ -328,7 +347,7 @@ pub mod apis {
         }
         let user_server_list: Vec<UserGuilds> = fpm::auth::utils::get_api(
             format!("{}?limit=100", "https://discord.com/api/users/@me/guilds").as_str(),
-            format!("{}{}", "Bearer ", token).as_str(),
+            format!("{} {}", "Bearer", token).as_str(),
         )
         .await?;
         Ok(user_server_list.into_iter().map(|x| x.name).collect())
@@ -339,9 +358,9 @@ pub mod apis {
         let discord_bot_id = match std::env::var("DISCORD_BOT_ID") {
             Ok(id) => id,
             Err(_e) => {
-                println!("WARN: DISCORD_BOT_ID not set");
-                // TODO: Need to change this approach later
-                "FPM_TEMP_DISCORD_BOT_ID".to_string()
+                return Err(fpm::Error::APIResponseError(
+                    "WARN: DISCORD_BOT_ID not set.".to_string(),
+                ));
             }
         };
         #[derive(Debug, serde::Deserialize)]
@@ -354,7 +373,7 @@ pub mod apis {
                 "https://discord.com/api/channels/", thread_id, "/thread-members"
             )
             .as_str(),
-            format!("{}{}", "Bot ", discord_bot_id).as_str(),
+            format!("{} {}", "Bot", discord_bot_id).as_str(),
         )
         .await?;
         Ok(thread_member_list.into_iter().map(|x| x.user_id).collect())
@@ -365,17 +384,17 @@ pub mod apis {
         let discord_bot_id = match std::env::var("DISCORD_BOT_ID") {
             Ok(id) => id,
             Err(_e) => {
-                println!("WARN: DISCORD_BOT_ID not set");
-                // TODO: Need to change this approach later
-                "FPM_TEMP_DISCORD_BOT_ID".to_string()
+                return Err(fpm::Error::APIResponseError(
+                    "WARN: DISCORD_BOT_ID not set.".to_string(),
+                ));
             }
         };
         let discord_guild_id = match std::env::var("DISCORD_GUILD_ID") {
             Ok(id) => id,
             Err(_e) => {
-                println!("WARN: DISCORD_GUILD_ID not set");
-                // TODO: Need to change this approach later
-                "FPM_TEMP_DISCORD_GUILD_ID".to_string()
+                return Err(fpm::Error::APIResponseError(
+                    "WARN: DISCORD_GUILD_ID not set.".to_string(),
+                ));
             }
         };
         #[derive(Debug, serde::Deserialize)]
@@ -396,9 +415,42 @@ pub mod apis {
                 "/users"
             )
             .as_str(),
-            format!("{}{}", "Bot ", discord_bot_id).as_str(),
+            format!("{} {}", "Bot", discord_bot_id).as_str(),
         )
         .await?;
         Ok(event_member_list.into_iter().map(|x| x.user.id).collect())
+    }
+    pub async fn member_roles(user_id: &str) -> fpm::Result<Vec<String>> {
+        // API Docs: https://discord.com/api/guilds/{guild-id}/members/{user-id}
+        let discord_bot_id = match std::env::var("DISCORD_BOT_ID") {
+            Ok(id) => id,
+            Err(_e) => {
+                return Err(fpm::Error::APIResponseError(
+                    "WARN: DISCORD_BOT_ID not set.".to_string(),
+                ));
+            }
+        };
+        let discord_guild_id = match std::env::var("DISCORD_GUILD_ID") {
+            Ok(id) => id,
+            Err(_e) => {
+                return Err(fpm::Error::APIResponseError(
+                    "WARN: DISCORD_GUILD_ID not set.".to_string(),
+                ));
+            }
+        };
+        #[derive(Debug, serde::Deserialize)]
+        struct MemberRoles {
+            roles: Vec<String>,
+        }
+        let member_roles: MemberRoles = fpm::auth::utils::get_api(
+            format!(
+                "{}{}{}{}",
+                "https://discord.com/api/guilds/", discord_guild_id, "/members/", user_id
+            )
+            .as_str(),
+            format!("{} {}", "Bot", discord_bot_id).as_str(),
+        )
+        .await?;
+        Ok(member_roles.roles)
     }
 }
