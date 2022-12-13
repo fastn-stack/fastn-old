@@ -16,6 +16,7 @@ mod file;
 mod font;
 mod history;
 mod package;
+pub(crate) mod watcher;
 #[macro_use]
 mod http;
 mod auth;
@@ -49,7 +50,7 @@ pub use error::Error;
 pub use file::File;
 pub(crate) use file::{get_file, paths_to_files, Document, Static};
 pub(crate) use font::Font;
-pub use library::{FPMLibrary, Library, Library2};
+pub use library::{FPMLibrary, Library, Library2, Library2022};
 pub(crate) use package::dependency::Dependency;
 pub use package::user_group;
 pub(crate) use package::Package;

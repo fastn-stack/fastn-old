@@ -1,4 +1,5 @@
 impl fpm::Package {
+    #[exec_time::exec_time(prefix = "package/package_doc")]
     pub(crate) async fn fs_fetch_by_file_name(
         &self,
         name: &str,
@@ -16,22 +17,39 @@ impl fpm::Package {
                 }
             }
         };
-        Ok(tokio::fs::read(package_root.join(name)).await?)
+
+        let file_path = package_root.join(name.trim_start_matches('/'));
+        // Issue 1: Need to remove / from the start of the name
+        match tokio::fs::read(&file_path).await {
+            Ok(content) => Ok(content),
+            Err(err) => {
+                println!("fs:file-not-found => {}", file_path);
+                Err(Err(err)?)
+            }
+        }
     }
 
+    #[exec_time::exec_time(prefix = "package/package_doc")]
     pub(crate) async fn fs_fetch_by_id(
         &self,
         id: &str,
         package_root: Option<&camino::Utf8PathBuf>,
     ) -> fpm::Result<(String, Vec<u8>)> {
-        for name in file_id_to_names(id) {
-            if let Ok(data) = self
-                .fs_fetch_by_file_name(name.as_str(), package_root)
-                .await
-            {
-                return Ok((name, data));
+        if fpm::file::is_static(id)? {
+            if let Ok(data) = self.fs_fetch_by_file_name(id, package_root).await {
+                return Ok((id.to_string(), data));
+            }
+        } else {
+            for name in file_id_to_names(id) {
+                if let Ok(data) = self
+                    .fs_fetch_by_file_name(name.as_str(), package_root)
+                    .await
+                {
+                    return Ok((name, data));
+                }
             }
         }
+
         Err(fpm::Error::PackageError {
             message: format!(
                 "fs_fetch_by_id:: Corresponding file not found for id: {}. Package: {}",
@@ -56,10 +74,17 @@ impl fpm::Package {
         .await
     }
 
+    #[exec_time::exec_time(prefix = "package/package_doc")]
     async fn http_fetch_by_id(&self, id: &str) -> fpm::Result<(String, Vec<u8>)> {
-        for name in file_id_to_names(id) {
-            if let Ok(data) = self.http_fetch_by_file_name(name.as_str()).await {
-                return Ok((name, data));
+        if fpm::file::is_static(id)? {
+            if let Ok(data) = self.http_fetch_by_file_name(id).await {
+                return Ok((id.to_string(), data));
+            }
+        } else {
+            for name in file_id_to_names(id) {
+                if let Ok(data) = self.http_fetch_by_file_name(name.as_str()).await {
+                    return Ok((name, data));
+                }
             }
         }
 
@@ -197,6 +222,7 @@ impl fpm::Package {
         }
     }
 
+    #[exec_time::exec_time(prefix = "package/package_doc")]
     pub(crate) async fn resolve_by_id(
         &self,
         id: &str,
@@ -236,20 +262,6 @@ impl fpm::Package {
                 })
             }
         };
-
-        /*let root = if let Some(package_root) = package_root {
-            package_root.to_owned()
-        } else {
-            match self.fpm_path.as_ref() {
-                Some(path) if path.parent().is_some() => path.parent().unwrap().to_path_buf(),
-                _ => {
-                    return Err(fpm::Error::PackageError {
-                        message: format!("package root not found. Package: {}", &self.name),
-                    })
-                }
-            }
-        };
-        let id = id.trim_matches('/');*/
 
         if let Ok(response) = self.fs_fetch_by_id(new_id.as_str(), package_root).await {
             // fpm::utils::copy(&root.join(new_id), &root.join(id)).await?;
@@ -302,7 +314,7 @@ pub(crate) async fn read_ftd(
 ) -> fpm::Result<Vec<u8>> {
     match config.ftd_edition {
         fpm::FTDEdition::FTD2021 => read_ftd_2021(config, main, base_url, download_assets).await,
-        fpm::FTDEdition::FTD2022 => read_ftd_2022(config, main, base_url).await,
+        fpm::FTDEdition::FTD2022 => read_ftd_2022(config, main, base_url, download_assets).await,
     }
 }
 
@@ -311,6 +323,7 @@ pub(crate) async fn read_ftd_2022(
     config: &mut fpm::Config,
     main: &fpm::Document,
     base_url: &str,
+    download_assets: bool,
 ) -> fpm::Result<Vec<u8>> {
     let lib_config = config.clone();
     let mut all_packages = config.all_packages.borrow_mut();
@@ -318,13 +331,13 @@ pub(crate) async fn read_ftd_2022(
         .get(main.package_name.as_str())
         .unwrap_or(&config.package);
 
-    let mut lib = fpm::Library2 {
+    let mut lib = fpm::Library2022 {
         config: lib_config,
         markdown: None,
         document_id: main.id.clone(),
         translated_data: Default::default(),
         base_url: base_url.to_string(),
-        packages_under_process: vec![current_package.name.to_string()],
+        module_package_map: Default::default(),
     };
 
     // Get Prefix Body => [AutoImports + Actual Doc content]
@@ -337,6 +350,8 @@ pub(crate) async fn read_ftd_2022(
         main.id_with_package().as_str(),
         doc_content.as_str(),
         &mut lib,
+        base_url,
+        download_assets,
     )
     .await)
     {

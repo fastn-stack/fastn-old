@@ -692,55 +692,55 @@ impl Config {
         //
         // Sanitize the mountpoint request.
         // Get the package and sanitized path
-        dbg!(&path);
         let package1;
-        let (path_with_package_name, sanitized_package, sanitized_path) =
-            match self.get_mountpoint_sanitized_path(&self.package, path) {
-                Some((new_path, package, remaining_path, _)) => {
-                    // Update the sitemap of the package, if it does ot contain the sitemap information
-                    dbg!(&new_path, &package.name, &remaining_path);
-                    if package.name != self.package.name {
-                        package1 = self.update_sitemap(package).await?;
-                        (new_path, &package1, remaining_path)
-                    } else {
-                        (new_path, package, remaining_path)
+
+        // TODO: The shitty code written by me ever
+        let (path_with_package_name, document, path_params) = if !fpm::file::is_static(path)? {
+            let (path_with_package_name, sanitized_package, sanitized_path) =
+                match self.get_mountpoint_sanitized_path(&self.package, path) {
+                    Some((new_path, package, remaining_path, _)) => {
+                        // Update the sitemap of the package, if it does not contain the sitemap information
+                        if package.name != self.package.name {
+                            package1 = self.update_sitemap(package).await?;
+                            (new_path, &package1, remaining_path)
+                        } else {
+                            (new_path, package, remaining_path)
+                        }
                     }
-                }
-                None => (path.to_string(), &self.package, path.to_string()),
+                    None => (path.to_string(), &self.package, path.to_string()),
+                };
+
+            // Getting `document` with dynamic parameters, if exists
+            let (document, path_params) = match sanitized_package.sitemap.as_ref() {
+                //1. First resolve document in sitemap
+                Some(sitemap) => match sitemap.resolve_document(sanitized_path.as_str()) {
+                    Some(document) => (Some(document), vec![]),
+                    //2.  Else resolve document in dynamic urls
+                    None => match sanitized_package.dynamic_urls.as_ref() {
+                        Some(dynamic_urls) => {
+                            dynamic_urls.resolve_document(sanitized_path.as_str())?
+                        }
+                        None => (None, vec![]),
+                    },
+                },
+                None => (None, vec![]),
             };
 
-        dbg!(
-            &path_with_package_name,
-            &sanitized_package.name,
-            &sanitized_path
-        );
-
-        // Getting `document` with dynamic parameters, if exists
-        let (document, path_params) = match sanitized_package.sitemap.as_ref() {
-            //1. First resolve document in sitemap
-            Some(sitemap) => match sitemap.resolve_document(sanitized_path.as_str()) {
-                Some(document) => (Some(document), vec![]),
-                //2.  Else resolve document in dynamic urls
-                None => match sanitized_package.dynamic_urls.as_ref() {
-                    Some(dynamic_urls) => dynamic_urls.resolve_document(sanitized_path.as_str())?,
-                    None => (None, vec![]),
-                },
-            },
-            None => (None, vec![]),
+            // document with package-name prefix
+            let document = document.map(|doc| {
+                format!(
+                    "-/{}/{}",
+                    sanitized_package.name.trim_matches('/'),
+                    doc.trim_matches('/')
+                )
+            });
+            (path_with_package_name, document, path_params)
+        } else {
+            (path.to_string(), None, vec![])
         };
 
-        // document with package-name prefix
-        let document = document.map(|doc| {
-            format!(
-                "-/{}/{}",
-                sanitized_package.name.trim_matches('/'),
-                doc.trim_matches('/')
-            )
-        });
-
-        dbg!(&document);
-
         let path = path_with_package_name.as_str();
+
         if let Some(id) = document {
             let file_name = self.get_file_path_and_resolve(id.as_str()).await?;
             let package = self.find_package_by_id(id.as_str()).await?.1;
@@ -756,16 +756,14 @@ impl Config {
         } else {
             // -/fifthtry.github.io/todos/add-todo/
             // -/fifthtry.github.io/doc-site/add-todo/
-            dbg!(path);
             let file_name = self.get_file_path_and_resolve(path).await?;
             // .packages/todos/add-todo.ftd
             // .packages/fifthtry.github.io/doc-site/add-todo.ftd
-            dbg!(&file_name);
 
             let package = self.find_package_by_id(path).await?.1;
             let mut file = fpm::get_file(
                 package.name.to_string(),
-                &self.root.join(file_name),
+                &self.root.join(file_name.trim_start_matches('/')),
                 &self.get_root_for_package(&package),
             )
             .await?;
@@ -781,7 +779,6 @@ impl Config {
                 };
                 file.set_id(format!("{}{}", url, extension).as_str());
             }
-            dbg!(&file.get_id());
             self.current_document = Some(file.get_id());
             Ok(file)
         }
@@ -832,6 +829,7 @@ impl Config {
 
     pub(crate) async fn get_file_and_resolve(&self, id: &str) -> fpm::Result<(String, Vec<u8>)> {
         let (package_name, package) = self.find_package_by_id(id).await?;
+
         let package = self.resolve_package(&package).await?;
         self.add_package(&package);
         let mut id = id.to_string();
@@ -857,9 +855,7 @@ impl Config {
             }
             id
         };
-
         let (file_name, content) = package.resolve_by_id(id, None).await?;
-
         Ok((format!("{}{}", add_packages, file_name), content))
     }
 
