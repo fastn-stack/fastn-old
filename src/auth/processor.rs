@@ -20,6 +20,66 @@ pub fn user_details<'a>(
                 || req
                     .cookie(fpm::auth::AuthProviders::Google.as_str())
                     .is_some()
+                || req
+                    .cookie(fpm::auth::AuthProviders::Amazon.as_str())
+                    .is_some()
+                || req
+                    .cookie(fpm::auth::AuthProviders::Apple.as_str())
+                    .is_some()
+                || req
+                    .cookie(fpm::auth::AuthProviders::Baidu.as_str())
+                    .is_some()
+                || req
+                    .cookie(fpm::auth::AuthProviders::BitBucket.as_str())
+                    .is_some()
+                || req
+                    .cookie(fpm::auth::AuthProviders::DigitalOcean.as_str())
+                    .is_some()
+                || req
+                    .cookie(fpm::auth::AuthProviders::DoorKeeper.as_str())
+                    .is_some()
+                || req
+                    .cookie(fpm::auth::AuthProviders::DropBox.as_str())
+                    .is_some()
+                || req
+                    .cookie(fpm::auth::AuthProviders::Facebook.as_str())
+                    .is_some()
+                || req
+                    .cookie(fpm::auth::AuthProviders::GitLab.as_str())
+                    .is_some()
+                || req
+                    .cookie(fpm::auth::AuthProviders::Instagram.as_str())
+                    .is_some()
+                || req
+                    .cookie(fpm::auth::AuthProviders::LinkedIn.as_str())
+                    .is_some()
+                || req
+                    .cookie(fpm::auth::AuthProviders::Microsoft.as_str())
+                    .is_some()
+                || req
+                    .cookie(fpm::auth::AuthProviders::Okta.as_str())
+                    .is_some()
+                || req
+                    .cookie(fpm::auth::AuthProviders::Pintrest.as_str())
+                    .is_some()
+                || req
+                    .cookie(fpm::auth::AuthProviders::TikTok.as_str())
+                    .is_some()
+                || req
+                    .cookie(fpm::auth::AuthProviders::Twitch.as_str())
+                    .is_some()
+                || req
+                    .cookie(fpm::auth::AuthProviders::Twitter.as_str())
+                    .is_some()
+                || req
+                    .cookie(fpm::auth::AuthProviders::WeChat.as_str())
+                    .is_some()
+                || req
+                    .cookie(fpm::auth::AuthProviders::Yahoo.as_str())
+                    .is_some()
+                || req
+                    .cookie(fpm::auth::AuthProviders::Zoho.as_str())
+                    .is_some()
         }
         None => false,
     };

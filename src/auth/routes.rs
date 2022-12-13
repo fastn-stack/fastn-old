@@ -13,6 +13,66 @@ pub fn is_login(req: &actix_web::HttpRequest) -> bool {
         || req
             .cookie(fpm::auth::AuthProviders::Google.as_str())
             .is_some()
+        || req
+            .cookie(fpm::auth::AuthProviders::Amazon.as_str())
+            .is_some()
+        || req
+            .cookie(fpm::auth::AuthProviders::Apple.as_str())
+            .is_some()
+        || req
+            .cookie(fpm::auth::AuthProviders::Baidu.as_str())
+            .is_some()
+        || req
+            .cookie(fpm::auth::AuthProviders::BitBucket.as_str())
+            .is_some()
+        || req
+            .cookie(fpm::auth::AuthProviders::DigitalOcean.as_str())
+            .is_some()
+        || req
+            .cookie(fpm::auth::AuthProviders::DoorKeeper.as_str())
+            .is_some()
+        || req
+            .cookie(fpm::auth::AuthProviders::DropBox.as_str())
+            .is_some()
+        || req
+            .cookie(fpm::auth::AuthProviders::Facebook.as_str())
+            .is_some()
+        || req
+            .cookie(fpm::auth::AuthProviders::GitLab.as_str())
+            .is_some()
+        || req
+            .cookie(fpm::auth::AuthProviders::Instagram.as_str())
+            .is_some()
+        || req
+            .cookie(fpm::auth::AuthProviders::LinkedIn.as_str())
+            .is_some()
+        || req
+            .cookie(fpm::auth::AuthProviders::Microsoft.as_str())
+            .is_some()
+        || req
+            .cookie(fpm::auth::AuthProviders::Okta.as_str())
+            .is_some()
+        || req
+            .cookie(fpm::auth::AuthProviders::Pintrest.as_str())
+            .is_some()
+        || req
+            .cookie(fpm::auth::AuthProviders::TikTok.as_str())
+            .is_some()
+        || req
+            .cookie(fpm::auth::AuthProviders::Twitch.as_str())
+            .is_some()
+        || req
+            .cookie(fpm::auth::AuthProviders::Twitter.as_str())
+            .is_some()
+        || req
+            .cookie(fpm::auth::AuthProviders::WeChat.as_str())
+            .is_some()
+        || req
+            .cookie(fpm::auth::AuthProviders::Yahoo.as_str())
+            .is_some()
+        || req
+            .cookie(fpm::auth::AuthProviders::Zoho.as_str())
+            .is_some()
 }
 
 // route: /auth/login/
@@ -92,6 +152,146 @@ pub fn logout(req: actix_web::HttpRequest) -> fpm::Result<actix_web::HttpRespons
         )
         .cookie(
             actix_web::cookie::Cookie::build(fpm::auth::AuthProviders::Google.as_str(), "")
+                .domain(fpm::auth::utils::domain(req.connection_info().host()))
+                .path("/")
+                .expires(actix_web::cookie::time::OffsetDateTime::now_utc())
+                .finish(),
+        )
+        .cookie(
+            actix_web::cookie::Cookie::build(fpm::auth::AuthProviders::Amazon.as_str(), "")
+                .domain(fpm::auth::utils::domain(req.connection_info().host()))
+                .path("/")
+                .expires(actix_web::cookie::time::OffsetDateTime::now_utc())
+                .finish(),
+        )
+        .cookie(
+            actix_web::cookie::Cookie::build(fpm::auth::AuthProviders::Apple.as_str(), "")
+                .domain(fpm::auth::utils::domain(req.connection_info().host()))
+                .path("/")
+                .expires(actix_web::cookie::time::OffsetDateTime::now_utc())
+                .finish(),
+        )
+        .cookie(
+            actix_web::cookie::Cookie::build(fpm::auth::AuthProviders::Baidu.as_str(), "")
+                .domain(fpm::auth::utils::domain(req.connection_info().host()))
+                .path("/")
+                .expires(actix_web::cookie::time::OffsetDateTime::now_utc())
+                .finish(),
+        )
+        .cookie(
+            actix_web::cookie::Cookie::build(fpm::auth::AuthProviders::BitBucket.as_str(), "")
+                .domain(fpm::auth::utils::domain(req.connection_info().host()))
+                .path("/")
+                .expires(actix_web::cookie::time::OffsetDateTime::now_utc())
+                .finish(),
+        )
+        .cookie(
+            actix_web::cookie::Cookie::build(fpm::auth::AuthProviders::DigitalOcean.as_str(), "")
+                .domain(fpm::auth::utils::domain(req.connection_info().host()))
+                .path("/")
+                .expires(actix_web::cookie::time::OffsetDateTime::now_utc())
+                .finish(),
+        )
+        .cookie(
+            actix_web::cookie::Cookie::build(fpm::auth::AuthProviders::DoorKeeper.as_str(), "")
+                .domain(fpm::auth::utils::domain(req.connection_info().host()))
+                .path("/")
+                .expires(actix_web::cookie::time::OffsetDateTime::now_utc())
+                .finish(),
+        )
+        .cookie(
+            actix_web::cookie::Cookie::build(fpm::auth::AuthProviders::DropBox.as_str(), "")
+                .domain(fpm::auth::utils::domain(req.connection_info().host()))
+                .path("/")
+                .expires(actix_web::cookie::time::OffsetDateTime::now_utc())
+                .finish(),
+        )
+        .cookie(
+            actix_web::cookie::Cookie::build(fpm::auth::AuthProviders::Facebook.as_str(), "")
+                .domain(fpm::auth::utils::domain(req.connection_info().host()))
+                .path("/")
+                .expires(actix_web::cookie::time::OffsetDateTime::now_utc())
+                .finish(),
+        )
+        .cookie(
+            actix_web::cookie::Cookie::build(fpm::auth::AuthProviders::GitLab.as_str(), "")
+                .domain(fpm::auth::utils::domain(req.connection_info().host()))
+                .path("/")
+                .expires(actix_web::cookie::time::OffsetDateTime::now_utc())
+                .finish(),
+        )
+        .cookie(
+            actix_web::cookie::Cookie::build(fpm::auth::AuthProviders::Instagram.as_str(), "")
+                .domain(fpm::auth::utils::domain(req.connection_info().host()))
+                .path("/")
+                .expires(actix_web::cookie::time::OffsetDateTime::now_utc())
+                .finish(),
+        )
+        .cookie(
+            actix_web::cookie::Cookie::build(fpm::auth::AuthProviders::LinkedIn.as_str(), "")
+                .domain(fpm::auth::utils::domain(req.connection_info().host()))
+                .path("/")
+                .expires(actix_web::cookie::time::OffsetDateTime::now_utc())
+                .finish(),
+        )
+        .cookie(
+            actix_web::cookie::Cookie::build(fpm::auth::AuthProviders::Microsoft.as_str(), "")
+                .domain(fpm::auth::utils::domain(req.connection_info().host()))
+                .path("/")
+                .expires(actix_web::cookie::time::OffsetDateTime::now_utc())
+                .finish(),
+        )
+        .cookie(
+            actix_web::cookie::Cookie::build(fpm::auth::AuthProviders::Okta.as_str(), "")
+                .domain(fpm::auth::utils::domain(req.connection_info().host()))
+                .path("/")
+                .expires(actix_web::cookie::time::OffsetDateTime::now_utc())
+                .finish(),
+        )
+        .cookie(
+            actix_web::cookie::Cookie::build(fpm::auth::AuthProviders::Pintrest.as_str(), "")
+                .domain(fpm::auth::utils::domain(req.connection_info().host()))
+                .path("/")
+                .expires(actix_web::cookie::time::OffsetDateTime::now_utc())
+                .finish(),
+        )
+        .cookie(
+            actix_web::cookie::Cookie::build(fpm::auth::AuthProviders::TikTok.as_str(), "")
+                .domain(fpm::auth::utils::domain(req.connection_info().host()))
+                .path("/")
+                .expires(actix_web::cookie::time::OffsetDateTime::now_utc())
+                .finish(),
+        )
+        .cookie(
+            actix_web::cookie::Cookie::build(fpm::auth::AuthProviders::Twitch.as_str(), "")
+                .domain(fpm::auth::utils::domain(req.connection_info().host()))
+                .path("/")
+                .expires(actix_web::cookie::time::OffsetDateTime::now_utc())
+                .finish(),
+        )
+        .cookie(
+            actix_web::cookie::Cookie::build(fpm::auth::AuthProviders::Twitter.as_str(), "")
+                .domain(fpm::auth::utils::domain(req.connection_info().host()))
+                .path("/")
+                .expires(actix_web::cookie::time::OffsetDateTime::now_utc())
+                .finish(),
+        )
+        .cookie(
+            actix_web::cookie::Cookie::build(fpm::auth::AuthProviders::WeChat.as_str(), "")
+                .domain(fpm::auth::utils::domain(req.connection_info().host()))
+                .path("/")
+                .expires(actix_web::cookie::time::OffsetDateTime::now_utc())
+                .finish(),
+        )
+        .cookie(
+            actix_web::cookie::Cookie::build(fpm::auth::AuthProviders::Yahoo.as_str(), "")
+                .domain(fpm::auth::utils::domain(req.connection_info().host()))
+                .path("/")
+                .expires(actix_web::cookie::time::OffsetDateTime::now_utc())
+                .finish(),
+        )
+        .cookie(
+            actix_web::cookie::Cookie::build(fpm::auth::AuthProviders::Zoho.as_str(), "")
                 .domain(fpm::auth::utils::domain(req.connection_info().host()))
                 .path("/")
                 .expires(actix_web::cookie::time::OffsetDateTime::now_utc())

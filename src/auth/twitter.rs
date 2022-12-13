@@ -10,7 +10,7 @@ pub async fn matched_identities(
 ) -> fpm::Result<Vec<fpm::user_group::UserIdentity>> {
     let twitter_identities = identities
         .iter()
-        .filter(|identity| identity.key.starts_with("discord"))
+        .filter(|identity| identity.key.starts_with("twitter"))
         .collect::<Vec<&fpm::user_group::UserIdentity>>();
 
     if twitter_identities.is_empty() {
