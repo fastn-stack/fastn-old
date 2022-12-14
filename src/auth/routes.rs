@@ -102,6 +102,7 @@ pub async fn login(
         "github" => fpm::auth::github::login(req).await,
         "telegram" => fpm::auth::telegram::login(req).await,
         "discord" => fpm::auth::discord::login(req).await,
+        "twitter" => fpm::auth::twitter::login(req).await,
         // TODO: Remove this after demo
         _ => {
             let mut req = fpm::http::Request::from_actix(req, actix_web::web::Bytes::new());
@@ -311,6 +312,7 @@ pub async fn handle_auth(
         fpm::auth::github::CALLBACK_URL => fpm::auth::github::callback(req).await,
         fpm::auth::telegram::CALLBACK_URL => fpm::auth::telegram::token(req).await,
         fpm::auth::discord::CALLBACK_URL => fpm::auth::discord::callback(req).await,
+        fpm::auth::twitter::CALLBACK_URL => fpm::auth::twitter::callback(req).await,
         "/auth/logout/" => logout(req),
         _ => Ok(actix_web::HttpResponse::new(
             actix_web::http::StatusCode::NOT_FOUND,
