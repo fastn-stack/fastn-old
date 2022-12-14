@@ -5,7 +5,7 @@ pub struct UserDetail {
     pub user_id: String,
 }
 pub async fn matched_identities(
-_ud: UserDetail,
+    _ud: UserDetail,
     _identities: &[fpm::user_group::UserIdentity],
 ) -> fpm::Result<Vec<fpm::user_group::UserIdentity>> {
     /*let wechat_identities = identities

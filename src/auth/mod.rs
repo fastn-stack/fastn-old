@@ -213,7 +213,8 @@ pub async fn get_auth_identities(
             if let Ok(facebook_ud_decrypted) = utils::decrypt_str(encrypt_str).await {
                 let facebook_ud: facebook::UserDetail =
                     serde_json::from_str(facebook_ud_decrypted.as_str())?;
-                matched_identities.extend(facebook::matched_identities(facebook_ud, identities).await?);
+                matched_identities
+                    .extend(facebook::matched_identities(facebook_ud, identities).await?);
             }
         }
         Err(err) => {
@@ -592,7 +593,8 @@ pub async fn get_auth_identities(
     match google_ud_encrypted {
         Ok(encrypt_str) => {
             if let Ok(google_ud_decrypted) = utils::decrypt_str(encrypt_str).await {
-                let google_ud: google::UserDetail = serde_json::from_str(google_ud_decrypted.as_str())?;
+                let google_ud: google::UserDetail =
+                    serde_json::from_str(google_ud_decrypted.as_str())?;
                 matched_identities.extend(google::matched_identities(google_ud, identities).await?);
             }
         }
