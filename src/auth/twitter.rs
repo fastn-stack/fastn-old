@@ -106,7 +106,7 @@ pub async fn login(req: actix_web::HttpRequest) -> fpm::Result<fpm::http::Respon
         .append_header((actix_web::http::header::LOCATION, twitter_auth_url))
         .finish())
 }
-// route: /auth/discord/callback/
+// route: /auth/twitter/callback/
 // In this API we are accessing
 // the token and setting it to cookies
 pub async fn callback(req: actix_web::HttpRequest) -> fpm::Result<actix_web::HttpResponse> {
@@ -135,7 +135,6 @@ pub async fn callback(req: actix_web::HttpRequest) -> fpm::Result<actix_web::Htt
                 user_id,
             };
             let user_detail_str = serde_json::to_string(&user_detail_obj)?;
-            dbg!(&user_detail_obj);
             return Ok(actix_web::HttpResponse::Found()
                 .cookie(
                     actix_web::cookie::Cookie::build(
@@ -154,49 +153,67 @@ pub async fn callback(req: actix_web::HttpRequest) -> fpm::Result<actix_web::Htt
     }
 }
 pub async fn matched_identities(
-    _ud: UserDetail,
-    _identities: &[fpm::user_group::UserIdentity],
+    ud: UserDetail,
+    identities: &[fpm::user_group::UserIdentity],
 ) -> fpm::Result<Vec<fpm::user_group::UserIdentity>> {
-    /*let twitter_identities = identities
+    let twitter_identities = identities
         .iter()
         .filter(|identity| identity.key.starts_with("twitter"))
         .collect::<Vec<&fpm::user_group::UserIdentity>>();
 
     if twitter_identities.is_empty() {
         return Ok(vec![]);
-    }*/
+    }
 
-    let matched_identities = vec![];
-
+    let mut matched_identities = vec![];
+    // matched_liking_member
+    matched_identities.extend(matched_liking_member(&ud, twitter_identities.as_slice()).await?);
     Ok(matched_identities)
+}
+pub async fn matched_liking_member(
+    ud: &UserDetail,
+    identities: &[&fpm::user_group::UserIdentity],
+) -> fpm::Result<Vec<fpm::user_group::UserIdentity>> {
+    use itertools::Itertools;
+    let mut member_liked_tweets: Vec<String> = vec![];
+    let tweet_ids = identities
+        .iter()
+        .filter_map(|i| {
+            if i.key.eq("twitter-liking") {
+                Some(i.value.as_str())
+            } else {
+                None
+            }
+        })
+        .collect_vec();
+
+    if tweet_ids.is_empty() {
+        return Ok(vec![]);
+    }
+    for tweet_id in tweet_ids.iter() {
+        let tweet_liking_member: Vec<String> = apis::liking_members(&ud.token, tweet_id).await?;
+        if tweet_liking_member.contains(&ud.user_id) {
+            member_liked_tweets.push(tweet_id.to_string());
+        }
+        // TODO:
+        // Return Error if tweet liking does not exist
+    }
+    // filter the user liked tweets with input
+    Ok(member_liked_tweets
+        .into_iter()
+        .map(|tweet_id| fpm::user_group::UserIdentity {
+            key: "twitter-liking".to_string(),
+            value: tweet_id,
+        })
+        .collect())
 }
 pub mod apis {
     #[derive(serde::Deserialize)]
     pub struct TwitterAuthResp {
         pub access_token: String,
     }
-    // TODO: API to get user detail.
-    // API Docs: https://developer.twitter.com/en/docs/authentication/guides/v2-authentication-mapping
-    // TODO: It can be stored in the request cookies
-    pub async fn user_details(token: &str) -> fpm::Result<(String, String)> {
-        // API Docs: https://api.twitter.com/2/users/me
-        #[derive(serde::Deserialize)]
-        struct UserDetails {
-            data: UserObj,
-        }
-        #[derive(serde::Deserialize)]
-        struct UserObj {
-            username: String,
-            id: String,
-        }
-        let user_obj: UserDetails = fpm::auth::utils::get_api(
-            "https://api.twitter.com/2/users/me",
-            format!("{} {}", "Bearer", token).as_str(),
-        )
-        .await?;
 
-        Ok((user_obj.data.username, user_obj.data.id))
-    }
+    // API Docs: https://developer.twitter.com/en/docs/authentication/guides/v2-authentication-mapping
 
     //This API will only be used to get access token for discord
     pub async fn twitter_token(url: &str, redirect_url: &str, code: &str) -> fpm::Result<String> {
@@ -229,5 +246,49 @@ pub mod apis {
         }
         let auth_obj = response.json::<TwitterAuthResp>().await?;
         Ok(auth_obj.access_token)
+    }
+
+    // TODO: API to get user detail.
+    // TODO: It can be stored in the request cookies
+    pub async fn user_details(token: &str) -> fpm::Result<(String, String)> {
+        // API Docs: https://api.twitter.com/2/users/me
+        #[derive(serde::Deserialize)]
+        struct DataObj {
+            data: UserDetail,
+        }
+        #[derive(serde::Deserialize)]
+        struct UserDetail {
+            username: String,
+            id: String,
+        }
+        let user_obj: DataObj = fpm::auth::utils::get_api(
+            "https://api.twitter.com/2/users/me",
+            format!("{} {}", "Bearer", token).as_str(),
+        )
+        .await?;
+
+        Ok((user_obj.data.username, user_obj.data.id))
+    }
+    pub async fn liking_members(token: &str, tweet_id: &str) -> fpm::Result<Vec<String>> {
+        // API Docs: https://api.twitter.com/2/tweets/{tweet-id}/liking_users?max_results=100
+        // TODO: Handle paginated response
+        #[derive(serde::Deserialize)]
+        struct DataObj {
+            data: Vec<UserDetail>,
+        }
+        #[derive(serde::Deserialize)]
+        struct UserDetail {
+            id: String,
+        }
+        let liking_member_list: DataObj = fpm::auth::utils::get_api(
+            format!(
+                "{}{}{}?max_results=100",
+                "https://api.twitter.com/2/tweets/", tweet_id, "/liking_users"
+            )
+            .as_str(),
+            format!("{} {}", "Bearer", token).as_str(),
+        )
+        .await?;
+        Ok(liking_member_list.data.into_iter().map(|x| x.id).collect())
     }
 }

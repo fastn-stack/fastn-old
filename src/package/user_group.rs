@@ -134,6 +134,10 @@ pub struct UserGroupTemp {
     pub discord_event: Vec<String>,
     #[serde(rename = "-discord-event")]
     pub excluded_discord_event: Vec<String>,
+    #[serde(rename = "twitter-liking")]
+    pub twitter_liking: Vec<String>,
+    #[serde(rename = "-twitter-liking")]
+    pub excluded_twitter_liking: Vec<String>,
 }
 
 #[derive(Debug, serde::Serialize)]
@@ -372,6 +376,11 @@ impl UserGroupTemp {
             "-discord-event",
             self.excluded_discord_event,
         ));
+        identities.extend(to_user_identity("twitter-liking", self.twitter_liking));
+        excluded_identities.extend(to_user_identity(
+            "-twitter-liking",
+            self.excluded_twitter_liking,
+        ));
 
         Ok(UserGroup {
             id: self.id,
@@ -496,7 +505,7 @@ pub async fn access_identities(
     is_read: bool,
 ) -> fpm::Result<Vec<UserIdentity>> {
     let sitemap_identities = get_identities(config, document_name, is_read)?;
-    dbg!(&sitemap_identities);
+    //dbg!(&sitemap_identities);
     // github-team: fpm-lang/ftd
     // github-starred: fpm-lang/ftd
     // discord-server: abrark.com

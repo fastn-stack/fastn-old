@@ -387,6 +387,8 @@ string list discord-event:
 string list -discord-event:
 string list discord-role:
 string list -discord-role:
+string list twitter-liking:
+string list -twitter-liking:
 
 -- user-group-data list user-group:
 

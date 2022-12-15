@@ -126,10 +126,7 @@ pub async fn get_auth_identities(
         }
         Err(err) => {
             // TODO: What to do with this error
-            dbg!(format!(
-                "{}{}",
-                "github user detail not found in the cookies", err
-            ));
+            format!("{}{}", "github user detail not found in the cookies", err);
         }
     };
     let telegram_ud_encrypted = cookies
@@ -173,6 +170,7 @@ pub async fn get_auth_identities(
         .ok_or_else(|| {
             fpm::Error::GenericError("twitter user detail not found in the cookies".to_string())
         });
+
     match twitter_ud_encrypted {
         Ok(encrypt_str) => {
             if let Ok(twitter_ud_decrypted) = utils::decrypt_str(encrypt_str).await {

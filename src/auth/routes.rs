@@ -108,9 +108,7 @@ pub async fn login(
             let mut req = fpm::http::Request::from_actix(req, actix_web::web::Bytes::new());
             req.path = "/sorry/".to_string();
             fpm::commands::serve::serve(req, edition).await
-        }
-        // "discord" => unreachable!(),
-        // _ => unreachable!(),
+        } // _ => unreachable!(),
     }
 }
 
