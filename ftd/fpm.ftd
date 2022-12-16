@@ -389,6 +389,8 @@ string list discord-role:
 string list -discord-role:
 string list twitter-liking:
 string list -twitter-liking:
+string list twitter-followers:
+string list -twitter-followers:
 
 -- user-group-data list user-group:
 

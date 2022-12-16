@@ -138,6 +138,10 @@ pub struct UserGroupTemp {
     pub twitter_liking: Vec<String>,
     #[serde(rename = "-twitter-liking")]
     pub excluded_twitter_liking: Vec<String>,
+    #[serde(rename = "twitter-followers")]
+    pub twitter_followers: Vec<String>,
+    #[serde(rename = "-twitter-followers")]
+    pub excluded_twitter_followers: Vec<String>,
 }
 
 #[derive(Debug, serde::Serialize)]
@@ -380,6 +384,14 @@ impl UserGroupTemp {
         excluded_identities.extend(to_user_identity(
             "-twitter-liking",
             self.excluded_twitter_liking,
+        ));
+        identities.extend(to_user_identity(
+            "twitter-followers",
+            self.twitter_followers,
+        ));
+        excluded_identities.extend(to_user_identity(
+            "-twitter-followers",
+            self.excluded_twitter_followers,
         ));
 
         Ok(UserGroup {
