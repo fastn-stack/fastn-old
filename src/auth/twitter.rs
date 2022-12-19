@@ -170,6 +170,10 @@ pub async fn matched_identities(
     matched_identities.extend(matched_liking_member(&ud, twitter_identities.as_slice()).await?);
     // matched_member_followers
     matched_identities.extend(matched_member_followers(&ud, twitter_identities.as_slice()).await?);
+    // matched_member_followings
+    matched_identities.extend(matched_member_followings(&ud, twitter_identities.as_slice()).await?);
+    // matched_member_followings
+    matched_identities.extend(matched_retweet_member(&ud, twitter_identities.as_slice()).await?);
     Ok(matched_identities)
 }
 pub async fn matched_liking_member(
@@ -209,6 +213,44 @@ pub async fn matched_liking_member(
         })
         .collect())
 }
+pub async fn matched_retweet_member(
+    ud: &UserDetail,
+    identities: &[&fpm::user_group::UserIdentity],
+) -> fpm::Result<Vec<fpm::user_group::UserIdentity>> {
+    use itertools::Itertools;
+    let mut member_retweeted_tweet: Vec<String> = vec![];
+    let tweet_ids = identities
+        .iter()
+        .filter_map(|i| {
+            if i.key.eq("twitter-retweet") {
+                Some(i.value.as_str())
+            } else {
+                None
+            }
+        })
+        .collect_vec();
+
+    if tweet_ids.is_empty() {
+        return Ok(vec![]);
+    }
+    for tweet_id in tweet_ids.iter() {
+        let tweet_retweeted_member: Vec<String> =
+            apis::tweet_retweeted_members(&ud.token, tweet_id).await?;
+        if tweet_retweeted_member.contains(&ud.user_id) {
+            member_retweeted_tweet.push(tweet_id.to_string());
+        }
+        // TODO:
+        // Return Error if tweet liking does not exist
+    }
+    // filter the user liked tweets with input
+    Ok(member_retweeted_tweet
+        .into_iter()
+        .map(|tweet_id| fpm::user_group::UserIdentity {
+            key: "twitter-retweet".to_string(),
+            value: tweet_id,
+        })
+        .collect())
+}
 //This method will be used to find given user twitter followers.
 pub async fn matched_member_followers(
     ud: &UserDetail,
@@ -216,7 +258,7 @@ pub async fn matched_member_followers(
 ) -> fpm::Result<Vec<fpm::user_group::UserIdentity>> {
     use itertools::Itertools;
     let mut followed_member_list: Vec<String> = vec![];
-    let member_ids = identities
+    let member_names = identities
         .iter()
         .filter_map(|i| {
             if i.key.eq("twitter-followers") {
@@ -227,13 +269,15 @@ pub async fn matched_member_followers(
         })
         .collect_vec();
 
-    if member_ids.is_empty() {
+    if member_names.is_empty() {
         return Ok(vec![]);
     }
-    for member_id in member_ids.iter() {
-        let member_followers: Vec<String> = apis::member_followers(&ud.token, member_id).await?;
+    for member_name in member_names.iter() {
+        let user_id = apis::user_details_by_name(&ud.token, member_name).await?;
+        let member_followers: Vec<String> =
+            apis::member_followers(&ud.token, user_id.as_str()).await?;
         if member_followers.contains(&ud.user_id) {
-            followed_member_list.push(member_id.to_string());
+            followed_member_list.push(member_name.to_string());
         }
         // TODO:
         // Return Error if member follower does not exist
@@ -243,6 +287,45 @@ pub async fn matched_member_followers(
         .into_iter()
         .map(|member_id| fpm::user_group::UserIdentity {
             key: "twitter-followers".to_string(),
+            value: member_id,
+        })
+        .collect())
+}
+pub async fn matched_member_followings(
+    ud: &UserDetail,
+    identities: &[&fpm::user_group::UserIdentity],
+) -> fpm::Result<Vec<fpm::user_group::UserIdentity>> {
+    use itertools::Itertools;
+    let mut following_member_list: Vec<String> = vec![];
+    let member_names = identities
+        .iter()
+        .filter_map(|i| {
+            if i.key.eq("twitter-follows") {
+                Some(i.value.as_str())
+            } else {
+                None
+            }
+        })
+        .collect_vec();
+
+    if member_names.is_empty() {
+        return Ok(vec![]);
+    }
+    for member_name in member_names.iter() {
+        let user_id = apis::user_details_by_name(&ud.token, member_name).await?;
+        let member_followings: Vec<String> =
+            apis::member_followings(&ud.token, user_id.as_str()).await?;
+        if member_followings.contains(&ud.user_id) {
+            following_member_list.push(member_name.to_string());
+        }
+        // TODO:
+        // Return Error if member follower does not exist
+    }
+    // filter the user followers with input
+    Ok(following_member_list
+        .into_iter()
+        .map(|member_id| fpm::user_group::UserIdentity {
+            key: "twitter-follows".to_string(),
             value: member_id,
         })
         .collect())
@@ -309,6 +392,31 @@ pub mod apis {
 
         Ok((user_obj.data.username, user_obj.data.id))
     }
+    // TODO: API to get user detail by name.
+    // TODO: It can be stored in the request cookies
+    pub async fn user_details_by_name(token: &str, username: &str) -> fpm::Result<String> {
+        // API Docs: https://api.twitter.com/2/users/by/username/{username}
+        #[derive(serde::Deserialize)]
+        struct DataObj {
+            data: UserDetail,
+        }
+        #[derive(serde::Deserialize)]
+        struct UserDetail {
+            id: String,
+        }
+
+        let user_obj: DataObj = fpm::auth::utils::get_api(
+            format!(
+                "{}{}",
+                "https://api.twitter.com/2/users/by/username/", username
+            )
+            .as_str(),
+            format!("{} {}", "Bearer", token).as_str(),
+        )
+        .await?;
+
+        Ok(user_obj.data.id)
+    }
     pub async fn liking_members(token: &str, tweet_id: &str) -> fpm::Result<Vec<String>> {
         // API Docs: https://api.twitter.com/2/tweets/{tweet-id}/liking_users?max_results=100
         // TODO: Handle paginated response
@@ -331,6 +439,32 @@ pub mod apis {
         .await?;
         Ok(liking_member_list.data.into_iter().map(|x| x.id).collect())
     }
+    pub async fn tweet_retweeted_members(token: &str, tweet_id: &str) -> fpm::Result<Vec<String>> {
+        // API Docs: https://api.twitter.com/2/tweets/{tweet-id}/retweeted_by?max_results=100
+        // TODO: Handle paginated response
+        #[derive(serde::Deserialize)]
+        struct DataObj {
+            data: Vec<UserDetail>,
+        }
+        #[derive(serde::Deserialize)]
+        struct UserDetail {
+            id: String,
+        }
+        let retweeted_member_list: DataObj = fpm::auth::utils::get_api(
+            format!(
+                "{}{}{}?max_results=100",
+                "https://api.twitter.com/2/tweets/", tweet_id, "/retweeted_by"
+            )
+            .as_str(),
+            format!("{} {}", "Bearer", token).as_str(),
+        )
+        .await?;
+        Ok(retweeted_member_list
+            .data
+            .into_iter()
+            .map(|x| x.id)
+            .collect())
+    }
     pub async fn member_followers(token: &str, member_id: &str) -> fpm::Result<Vec<String>> {
         // API Docs: https://api.twitter.com/2/users/{user-id}/followers?max_results=100
         // TODO: Handle paginated response
@@ -352,6 +486,32 @@ pub mod apis {
         )
         .await?;
         Ok(member_follower_list
+            .data
+            .into_iter()
+            .map(|x| x.id)
+            .collect())
+    }
+    pub async fn member_followings(token: &str, member_id: &str) -> fpm::Result<Vec<String>> {
+        // API Docs: https://api.twitter.com/2/users/{user-id}/following?max_results=100
+        // TODO: Handle paginated response
+        #[derive(serde::Deserialize)]
+        struct DataObj {
+            data: Vec<UserDetail>,
+        }
+        #[derive(serde::Deserialize)]
+        struct UserDetail {
+            id: String,
+        }
+        let member_following_list: DataObj = fpm::auth::utils::get_api(
+            format!(
+                "{}{}{}?max_results=100",
+                "https://api.twitter.com/2/users/", member_id, "/following"
+            )
+            .as_str(),
+            format!("{} {}", "Bearer", token).as_str(),
+        )
+        .await?;
+        Ok(member_following_list
             .data
             .into_iter()
             .map(|x| x.id)

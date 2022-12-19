@@ -391,6 +391,12 @@ string list twitter-liking:
 string list -twitter-liking:
 string list twitter-followers:
 string list -twitter-followers:
+string list twitter-follows:
+string list -twitter-follows:
+string list twitter-space:
+string list -twitter-space:
+string list twitter-retweet:
+string list -twitter-retweet:
 
 -- user-group-data list user-group:
 

@@ -142,6 +142,18 @@ pub struct UserGroupTemp {
     pub twitter_followers: Vec<String>,
     #[serde(rename = "-twitter-followers")]
     pub excluded_twitter_followers: Vec<String>,
+    #[serde(rename = "twitter-follows")]
+    pub twitter_follows: Vec<String>,
+    #[serde(rename = "-twitter-follows")]
+    pub excluded_twitter_follows: Vec<String>,
+    #[serde(rename = "twitter-space")]
+    pub twitter_space: Vec<String>,
+    #[serde(rename = "-twitter-space")]
+    pub excluded_twitter_space: Vec<String>,
+    #[serde(rename = "twitter-retweet")]
+    pub twitter_retweet: Vec<String>,
+    #[serde(rename = "-twitter-retweet")]
+    pub excluded_twitter_retweet: Vec<String>,
 }
 
 #[derive(Debug, serde::Serialize)]
@@ -392,6 +404,21 @@ impl UserGroupTemp {
         excluded_identities.extend(to_user_identity(
             "-twitter-followers",
             self.excluded_twitter_followers,
+        ));
+        identities.extend(to_user_identity("twitter-follows", self.twitter_follows));
+        excluded_identities.extend(to_user_identity(
+            "-twitter-follows",
+            self.excluded_twitter_follows,
+        ));
+        identities.extend(to_user_identity("twitter-space", self.twitter_space));
+        excluded_identities.extend(to_user_identity(
+            "-twitter-space",
+            self.excluded_twitter_space,
+        ));
+        identities.extend(to_user_identity("twitter-retweet", self.twitter_retweet));
+        excluded_identities.extend(to_user_identity(
+            "-twitter-retweet",
+            self.excluded_twitter_retweet,
         ));
 
         Ok(UserGroup {
