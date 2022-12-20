@@ -52,13 +52,10 @@ pub async fn get_github_ud_from_cookies(
         });
     match github_ud_encrypted {
         Ok(encrypt_str) => {
-            dbg!(encrypt_str);
             if let Ok(github_ud_decrypted) = utils::decrypt_str(encrypt_str).await {
                 let github_ud: github::UserDetail =
                     serde_json::from_str(github_ud_decrypted.as_str()).ok()?;
                 let ud_string = format!("{}-{}", &github_ud.user_name, &github_ud.token);
-                dbg!(&github_ud.token);
-                dbg!(&github_ud.user_name);
                 return Some(ud_string);
             }
         }

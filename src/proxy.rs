@@ -82,10 +82,8 @@ pub(crate) async fn get_out(
     }
 
     if let Some(user_data) = fpm::auth::get_github_ud_from_cookies(req.cookies()).await {
-        println!("From proxy: ");
-        println!("decrypted user_data: {}", &user_data);
         proxy_request.headers_mut().insert(
-            reqwest::header::HeaderName::from_static("X-FPM-USER-ID"),
+            "X-FPM-USER-ID",
             reqwest::header::HeaderValue::from_str(user_data.as_str()).unwrap(),
         );
     }
