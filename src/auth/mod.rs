@@ -29,7 +29,7 @@ pub(crate) mod yahoo;
 pub(crate) mod zoho;
 
 pub mod utils;
-
+#[derive(Debug)]
 pub(crate) enum AuthProviders {
     GitHub,
     TeleGram,
@@ -60,6 +60,34 @@ pub(crate) enum AuthProviders {
 }
 
 impl AuthProviders {
+    const AUTH_ITER: [AuthProviders; 26] = [
+        AuthProviders::GitHub,
+        AuthProviders::TeleGram,
+        AuthProviders::Google,
+        AuthProviders::Discord,
+        AuthProviders::Slack,
+        AuthProviders::Amazon,
+        AuthProviders::Apple,
+        AuthProviders::Baidu,
+        AuthProviders::BitBucket,
+        AuthProviders::DigitalOcean,
+        AuthProviders::DoorKeeper,
+        AuthProviders::DropBox,
+        AuthProviders::Facebook,
+        AuthProviders::GitLab,
+        AuthProviders::Instagram,
+        AuthProviders::LinkedIn,
+        AuthProviders::Microsoft,
+        AuthProviders::Okta,
+        AuthProviders::Pintrest,
+        AuthProviders::TikTok,
+        AuthProviders::Twitch,
+        AuthProviders::Twitter,
+        AuthProviders::WeChat,
+        AuthProviders::Yahoo,
+        AuthProviders::Zoho,
+        AuthProviders::Gmail,
+    ];
     pub(crate) fn as_str(&self) -> &'static str {
         match self {
             AuthProviders::GitHub => "github",

@@ -174,6 +174,8 @@ pub async fn matched_identities(
     matched_identities.extend(matched_member_followings(&ud, twitter_identities.as_slice()).await?);
     // matched_member_followings
     matched_identities.extend(matched_retweet_member(&ud, twitter_identities.as_slice()).await?);
+    // matched_space_buyers
+    matched_identities.extend(matched_space_buyers(&ud, twitter_identities.as_slice()).await?);
     Ok(matched_identities)
 }
 pub async fn matched_liking_member(
@@ -319,9 +321,9 @@ pub async fn matched_member_followings(
             following_member_list.push(member_name.to_string());
         }
         // TODO:
-        // Return Error if member follower does not exist
+        // Return Error if member following does not exist
     }
-    // filter the user followers with input
+    // filter the user following with input
     Ok(following_member_list
         .into_iter()
         .map(|member_id| fpm::user_group::UserIdentity {
@@ -330,12 +332,57 @@ pub async fn matched_member_followings(
         })
         .collect())
 }
+pub async fn matched_space_buyers(
+    ud: &UserDetail,
+    identities: &[&fpm::user_group::UserIdentity],
+) -> fpm::Result<Vec<fpm::user_group::UserIdentity>> {
+    use itertools::Itertools;
+    let mut space_allowed_list: Vec<String> = vec![];
+    let space_ids = identities
+        .iter()
+        .filter_map(|i| {
+            if i.key.eq("twitter-space") {
+                Some(i.value.as_str())
+            } else {
+                None
+            }
+        })
+        .collect_vec();
+
+    if space_ids.is_empty() {
+        return Ok(vec![]);
+    }
+    for space_id in space_ids.iter() {
+        let space_ticket_buyers: Vec<String> =
+            apis::space_ticket_buyers(&ud.token, space_id).await?;
+        if space_ticket_buyers.contains(&ud.user_id) {
+            space_allowed_list.push(space_id.to_string());
+        }
+        // TODO:
+        // Return Error if spaces does not exist
+    }
+    // filter the user spaces with input
+    Ok(space_allowed_list
+        .into_iter()
+        .map(|space_id| fpm::user_group::UserIdentity {
+            key: "twitter-space".to_string(),
+            value: space_id,
+        })
+        .collect())
+}
 pub mod apis {
     #[derive(serde::Deserialize)]
     pub struct TwitterAuthResp {
         pub access_token: String,
     }
-
+    #[derive(serde::Deserialize)]
+    pub struct DataObj {
+        pub data: Vec<UserDetail>,
+    }
+    #[derive(serde::Deserialize)]
+    pub struct UserDetail {
+        pub id: String,
+    }
     // API Docs: https://developer.twitter.com/en/docs/authentication/guides/v2-authentication-mapping
 
     //This API will only be used to get access token for discord
@@ -404,7 +451,6 @@ pub mod apis {
         struct UserDetail {
             id: String,
         }
-
         let user_obj: DataObj = fpm::auth::utils::get_api(
             format!(
                 "{}{}",
@@ -414,20 +460,12 @@ pub mod apis {
             format!("{} {}", "Bearer", token).as_str(),
         )
         .await?;
-
         Ok(user_obj.data.id)
     }
     pub async fn liking_members(token: &str, tweet_id: &str) -> fpm::Result<Vec<String>> {
         // API Docs: https://api.twitter.com/2/tweets/{tweet-id}/liking_users?max_results=100
         // TODO: Handle paginated response
-        #[derive(serde::Deserialize)]
-        struct DataObj {
-            data: Vec<UserDetail>,
-        }
-        #[derive(serde::Deserialize)]
-        struct UserDetail {
-            id: String,
-        }
+
         let liking_member_list: DataObj = fpm::auth::utils::get_api(
             format!(
                 "{}{}{}?max_results=100",
@@ -442,14 +480,7 @@ pub mod apis {
     pub async fn tweet_retweeted_members(token: &str, tweet_id: &str) -> fpm::Result<Vec<String>> {
         // API Docs: https://api.twitter.com/2/tweets/{tweet-id}/retweeted_by?max_results=100
         // TODO: Handle paginated response
-        #[derive(serde::Deserialize)]
-        struct DataObj {
-            data: Vec<UserDetail>,
-        }
-        #[derive(serde::Deserialize)]
-        struct UserDetail {
-            id: String,
-        }
+
         let retweeted_member_list: DataObj = fpm::auth::utils::get_api(
             format!(
                 "{}{}{}?max_results=100",
@@ -468,14 +499,7 @@ pub mod apis {
     pub async fn member_followers(token: &str, member_id: &str) -> fpm::Result<Vec<String>> {
         // API Docs: https://api.twitter.com/2/users/{user-id}/followers?max_results=100
         // TODO: Handle paginated response
-        #[derive(serde::Deserialize)]
-        struct DataObj {
-            data: Vec<UserDetail>,
-        }
-        #[derive(serde::Deserialize)]
-        struct UserDetail {
-            id: String,
-        }
+
         let member_follower_list: DataObj = fpm::auth::utils::get_api(
             format!(
                 "{}{}{}?max_results=100",
@@ -494,14 +518,7 @@ pub mod apis {
     pub async fn member_followings(token: &str, member_id: &str) -> fpm::Result<Vec<String>> {
         // API Docs: https://api.twitter.com/2/users/{user-id}/following?max_results=100
         // TODO: Handle paginated response
-        #[derive(serde::Deserialize)]
-        struct DataObj {
-            data: Vec<UserDetail>,
-        }
-        #[derive(serde::Deserialize)]
-        struct UserDetail {
-            id: String,
-        }
+
         let member_following_list: DataObj = fpm::auth::utils::get_api(
             format!(
                 "{}{}{}?max_results=100",
@@ -512,6 +529,25 @@ pub mod apis {
         )
         .await?;
         Ok(member_following_list
+            .data
+            .into_iter()
+            .map(|x| x.id)
+            .collect())
+    }
+    pub async fn space_ticket_buyers(token: &str, space_id: &str) -> fpm::Result<Vec<String>> {
+        // API Docs: https://api.twitter.com/2/spaces/{space_id}/buyers?max_results=100
+        // TODO: Handle paginated response
+
+        let space_ticket_buyers_list: DataObj = fpm::auth::utils::get_api(
+            format!(
+                "{}{}{}?max_results=100",
+                "https://api.twitter.com/2/spaces/", space_id, "/buyers"
+            )
+            .as_str(),
+            format!("{} {}", "Bearer", token).as_str(),
+        )
+        .await?;
+        Ok(space_ticket_buyers_list
             .data
             .into_iter()
             .map(|x| x.id)
