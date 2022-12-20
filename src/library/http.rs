@@ -32,7 +32,7 @@ pub async fn processor<'a>(
         }
     };
 
-    let (_, mut url, conf) =
+    let (_, mut url, mut conf) =
         fpm::config::utils::get_clean_url(config, url.as_str()).map_err(|e| {
             ftd::p1::Error::ParseError {
                 message: format!("invalid url: {:?}", e),
@@ -58,6 +58,18 @@ pub async fn processor<'a>(
     }
 
     println!("calling `http` processor with url: {}", &url);
+
+    // If github cookie exists pass it on before making http request
+    if let Some(req) = config.request.as_ref() {
+        if let Some(user_data) = fpm::auth::get_github_ud_from_cookies(&req.cookies()).await{
+            println!("From http processor: ");
+            println!("decrypted user_data: {}", &user_data);
+            conf.insert(
+                "X-FPM-USER-ID".to_string(),
+                user_data,
+            );
+        }
+    }
 
     let response = match crate::http::http_get_with_cookie(
         url.as_str(),
