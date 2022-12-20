@@ -86,7 +86,7 @@ pub(crate) async fn get_out(
         println!("decrypted user_data: {}", &user_data);
         proxy_request.headers_mut().insert(
             reqwest::header::HeaderName::from_static("X-FPM-USER-ID"),
-            reqwest::header::HeaderValue::from_str(user_data.as_str()).unwrap()
+            reqwest::header::HeaderValue::from_str(user_data.as_str()).unwrap(),
         );
     }
 

@@ -42,9 +42,9 @@ pub fn secret_key() -> String {
 /// will fetch out the decrypted github user data from cookies
 /// and return it as string
 /// if no github cookie found then it returns None
-pub async fn get_github_ud_from_cookies(cookies: &std::collections::HashMap<String, String>)
--> Option<String>{
-
+pub async fn get_github_ud_from_cookies(
+    cookies: &std::collections::HashMap<String, String>,
+) -> Option<String> {
     let github_ud_encrypted = cookies
         .get(fpm::auth::AuthProviders::GitHub.as_str())
         .ok_or_else(|| {
@@ -56,7 +56,7 @@ pub async fn get_github_ud_from_cookies(cookies: &std::collections::HashMap<Stri
             if let Ok(github_ud_decrypted) = utils::decrypt_str(encrypt_str).await {
                 let github_ud: github::UserDetail =
                     serde_json::from_str(github_ud_decrypted.as_str()).ok()?;
-                let ud_string = format!("{}-{}",&github_ud.user_name, &github_ud.token);
+                let ud_string = format!("{}-{}", &github_ud.user_name, &github_ud.token);
                 dbg!(&github_ud.token);
                 dbg!(&github_ud.user_name);
                 return Some(ud_string);
