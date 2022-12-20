@@ -63,7 +63,7 @@ pub async fn processor<'a>(
     if let Some(req) = config.request.as_ref() {
         if let Some(user_data) = fpm::auth::get_github_ud_from_cookies(&req.cookies()).await {
             println!("From http processor: ");
-            println!("decrypted user_data: {}", &user_data);
+            println!("decrypted user_data: {}", user_data.as_str());
             conf.insert("X-FPM-USER-ID".to_string(), user_data);
         }
     }

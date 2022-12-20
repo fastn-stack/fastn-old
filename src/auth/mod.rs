@@ -68,7 +68,7 @@ pub async fn get_github_ud_from_cookies(
             dbg!(&error_msg);
         }
     };
-    return None;
+    None
 }
 
 // TODO: rename the method later
