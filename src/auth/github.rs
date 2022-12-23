@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 // TODO: This has be set while creating the GitHub OAuth Application
 pub const CALLBACK_URL: &str = "/auth/github/callback/";
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
@@ -9,11 +11,19 @@ pub struct UserDetail {
 pub async fn login(req: actix_web::HttpRequest) -> fpm::Result<fpm::http::Response> {
     // GitHub will be redirect to this url after login process completed
 
+    let mut next_url = "/".to_string();
+    if let Ok(queries) = actix_web::web::Query::<HashMap<String, String>>::from_query(req.query_string()) {
+        if queries.get("next").is_some(){
+            next_url = queries.get("next").unwrap().to_string();
+        }
+    }
+
     let redirect_url: String = format!(
-        "{}://{}{}",
+        "{}://{}{}?next={}",
         req.connection_info().scheme(),
         req.connection_info().host(),
-        CALLBACK_URL
+        CALLBACK_URL,
+        next_url,
     );
 
     // Set up the config for the Github OAuth2 process.
@@ -49,6 +59,7 @@ pub async fn callback(req: actix_web::HttpRequest) -> fpm::Result<actix_web::Htt
     pub struct QueryParams {
         pub code: String,
         pub state: String,
+        pub next: String,
     }
     let query = actix_web::web::Query::<QueryParams>::from_query(req.query_string())?.0;
     let auth_url = format!(
@@ -85,7 +96,7 @@ pub async fn callback(req: actix_web::HttpRequest) -> fpm::Result<actix_web::Htt
                     // .secure(true)
                     .finish(),
                 )
-                .append_header((actix_web::http::header::LOCATION, "/".to_string()))
+                .append_header((actix_web::http::header::LOCATION, query.next))
                 .finish());
         }
         Err(err) => Ok(actix_web::HttpResponse::InternalServerError().body(err.to_string())),

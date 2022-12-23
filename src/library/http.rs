@@ -62,7 +62,7 @@ pub async fn processor<'a>(
     // If github cookie exists pass it on before making http request
     if let Some(req) = config.request.as_ref() {
         if let Some(user_data) = fpm::auth::get_github_ud_from_cookies(req.cookies()).await {
-            conf.insert("X-FPM-USER-ID-3".to_string(), user_data);
+            conf.insert("X-FPM-USER-ID".to_string(), user_data);
         }
     }
 
