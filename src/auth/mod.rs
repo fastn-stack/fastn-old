@@ -72,9 +72,7 @@ pub async fn get_user_data_from_cookies(
                         let github_ud: github::UserDetail =
                             serde_json::from_str(ud_decrypted.as_str())?;
                         return match requested_field {
-                            "username" | "user_name" | "user-name" => {
-                                Ok(Some(github_ud.user_name))
-                            }
+                            "username" | "user_name" | "user-name" => Ok(Some(github_ud.user_name)),
                             "token" => Ok(Some(github_ud.token)),
                             _ => Err(fpm::Error::GenericError(format!(
                                 "invalid field {} requested for platform {}",
@@ -112,7 +110,7 @@ pub async fn get_user_data_from_cookies(
                             ))),
                         };
                     }
-                    _ => unimplemented!()
+                    _ => unimplemented!(),
                 }
             }
         }
