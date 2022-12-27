@@ -112,8 +112,7 @@ pub async fn get_user_data_from_cookies(
                             ))),
                         };
                     }
-                    fpm::auth::AuthProviders::Google => unimplemented!(),
-                    fpm::auth::AuthProviders::Slack => unimplemented!(),
+                    _ => unimplemented!()
                 }
             }
         }
