@@ -68,14 +68,24 @@ pub async fn get_user_data_from_cookies(
             if let Ok(ud_decrypted) = utils::decrypt_str(encrypt_str).await {
                 match fpm::auth::AuthProviders::from_str(platform) {
                     fpm::auth::AuthProviders::GitHub => {
-                        let user_data: github::UserDetail =
+                        let github_ud: github::UserDetail =
                             serde_json::from_str(ud_decrypted.as_str()).ok()?;
-                        let ud_string = format!("{}-{}", &user_data.user_name, &user_data.token);
+                        let ud_string = format!("{}-{}", &github_ud.user_name, &github_ud.token);
                         return Some(ud_string);
                     }
-                    fpm::auth::AuthProviders::TeleGram => unimplemented!(),
+                    fpm::auth::AuthProviders::TeleGram => {
+                        let telegram_ud: telegram::UserDetail =
+                            serde_json::from_str(ud_decrypted.as_str()).ok()?;
+                        let ud_string = format!("{}-{}", &telegram_ud.user_name, &telegram_ud.token);
+                        return Some(ud_string);
+                    },
+                    fpm::auth::AuthProviders::Discord => {
+                        let discord_ud: discord::UserDetail =
+                            serde_json::from_str(ud_decrypted.as_str()).ok()?;
+                        let ud_string = format!("{}-{}", &discord_ud.user_name, &discord_ud.token);
+                        return Some(ud_string);
+                    },
                     fpm::auth::AuthProviders::Google => unimplemented!(),
-                    fpm::auth::AuthProviders::Discord => unimplemented!(),
                     fpm::auth::AuthProviders::Slack => unimplemented!(),
                 }
             }
