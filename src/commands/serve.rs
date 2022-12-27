@@ -261,17 +261,18 @@ pub async fn serve(
 
             // TODO: read app config and send them to service as header
 
-            // Adjust x-fpm header from cookies based on the platform
+            // Adjust x-fpm header from based on the platform and the requested field
             if let Some(user_id) = conf.get("user-id") {
                 match user_id.split_once('-') {
-                    Some((platform, id)) => {
-                        if let Some(user_data) =
-                            fpm::auth::get_user_data_from_cookies(platform, &req.cookies()).await
+                    Some((platform, requested_field)) => {
+                        if let Some(user_data) = fpm::auth::get_user_data_from_cookies(
+                            platform,
+                            requested_field,
+                            &req.cookies(),
+                        )
+                        .await?
                         {
-                            let xfpm_header_key = format!("X-FPM-{}", id.to_string());
-                            let xfpm_header_value = user_data;
-
-                            conf.insert(xfpm_header_key, xfpm_header_value);
+                            conf.insert("X-FPM-USER-ID".to_string(), user_data);
                         }
                     }
                     _ => return Ok(fpm::unauthorised!("invalid user-id provided")),

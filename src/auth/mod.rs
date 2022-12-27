@@ -55,8 +55,9 @@ pub fn secret_key() -> String {
 /// if no cookie wrt to platform found it throws an error
 pub async fn get_user_data_from_cookies(
     platform: &str,
+    requested_field: &str,
     cookies: &std::collections::HashMap<String, String>,
-) -> Option<String> {
+) -> fpm::Result<Option<String>> {
     let ud_encrypted = cookies.get(platform).ok_or_else(|| {
         fpm::Error::GenericError(format!(
             "user detail not found for platform {} in the cookies",
@@ -69,22 +70,48 @@ pub async fn get_user_data_from_cookies(
                 match fpm::auth::AuthProviders::from_str(platform) {
                     fpm::auth::AuthProviders::GitHub => {
                         let github_ud: github::UserDetail =
-                            serde_json::from_str(ud_decrypted.as_str()).ok()?;
-                        let ud_string = format!("{}-{}", &github_ud.user_name, &github_ud.token);
-                        return Some(ud_string);
+                            serde_json::from_str(ud_decrypted.as_str())?;
+                        return match requested_field {
+                            "username" | "user_name" | "user-name" => {
+                                Ok(Some(github_ud.user_name.clone()))
+                            }
+                            "token" => Ok(Some(github_ud.token.clone())),
+                            _ => Err(fpm::Error::GenericError(format!(
+                                "invalid field {} requested for platform {}",
+                                requested_field, platform
+                            ))),
+                        };
                     }
                     fpm::auth::AuthProviders::TeleGram => {
                         let telegram_ud: telegram::UserDetail =
-                            serde_json::from_str(ud_decrypted.as_str()).ok()?;
-                        let ud_string = format!("{}-{}", &telegram_ud.user_name, &telegram_ud.token);
-                        return Some(ud_string);
-                    },
+                            serde_json::from_str(ud_decrypted.as_str())?;
+                        return match requested_field {
+                            "username" | "user_name" | "user-name" => {
+                                Ok(Some(telegram_ud.user_name.clone()))
+                            }
+                            "uid" | "userid" | "user-id" => Ok(Some(telegram_ud.user_id.clone())),
+                            "token" => Ok(Some(telegram_ud.token.clone())),
+                            _ => Err(fpm::Error::GenericError(format!(
+                                "invalid field {} requested for platform {}",
+                                requested_field, platform
+                            ))),
+                        };
+                    }
                     fpm::auth::AuthProviders::Discord => {
                         let discord_ud: discord::UserDetail =
-                            serde_json::from_str(ud_decrypted.as_str()).ok()?;
-                        let ud_string = format!("{}-{}", &discord_ud.user_name, &discord_ud.token);
-                        return Some(ud_string);
-                    },
+                            serde_json::from_str(ud_decrypted.as_str())?;
+                        return match requested_field {
+                            "username" | "user_name" | "user-name" => {
+                                Ok(Some(discord_ud.user_name.clone()))
+                            }
+                            "id" | "userid" | "user-id" => Ok(Some(discord_ud.user_id.clone())),
+                            "token" => Ok(Some(discord_ud.token.clone())),
+                            _ => Err(fpm::Error::GenericError(format!(
+                                "invalid field {} requested for platform {}",
+                                requested_field, platform
+                            ))),
+                        };
+                    }
                     fpm::auth::AuthProviders::Google => unimplemented!(),
                     fpm::auth::AuthProviders::Slack => unimplemented!(),
                 }
@@ -96,7 +123,7 @@ pub async fn get_user_data_from_cookies(
             dbg!(&error_msg);
         }
     };
-    None
+    Ok(None)
 }
 
 // TODO: rename the method later

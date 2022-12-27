@@ -41,18 +41,23 @@ pub async fn processor<'a>(
             }
         })?;
 
-    // Setup the x-fpm-user-id header from cookies based on the platform
+    // Setup the x-fpm-user-id header based on the platform and requested field
     if let Some(user_id) = conf.get("user-id") {
         match user_id.split_once('-') {
-            Some((platform, id)) => {
+            Some((platform, requested_field)) => {
                 if let Some(req) = config.request.as_ref() {
-                    if let Some(user_data) =
-                        fpm::auth::get_user_data_from_cookies(platform, req.cookies()).await
-                    {
-                        let xfpm_header_key = format!("X-FPM-{}", id.to_string());
-                        let xfpm_header_value = user_data;
-
-                        conf.insert(xfpm_header_key, xfpm_header_value);
+                    if let Some(user_data) = fpm::auth::get_user_data_from_cookies(
+                        platform,
+                        requested_field,
+                        req.cookies(),
+                    )
+                    .await
+                    .map_err(|e| ftd::p1::Error::ForbiddenUsage {
+                        message: format!("fpm auth error: {}", e.to_string()),
+                        doc_id: doc.name.to_string(),
+                        line_number: section.line_number,
+                    })? {
+                        conf.insert("X-FPM-USER-ID".to_string(), user_data);
                     }
                 }
             }
