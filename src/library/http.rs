@@ -41,6 +41,31 @@ pub async fn processor<'a>(
             }
         })?;
 
+    // Setup the x-fpm-user-id header from cookies based on the platform
+    if let Some(user_id) = conf.get("user-id") {
+        match user_id.split_once('-') {
+            Some((platform, id)) => {
+                if let Some(req) = config.request.as_ref() {
+                    if let Some(user_data) =
+                        fpm::auth::get_user_data_from_cookies(platform, req.cookies()).await
+                    {
+                        let xfpm_header_key = format!("X-FPM-{}", id.to_string());
+                        let xfpm_header_value = user_data;
+
+                        conf.insert(xfpm_header_key, xfpm_header_value);
+                    }
+                }
+            }
+            _ => {
+                return ftd::p2::utils::e2(
+                    format!("Invalid user-id provided: {}", user_id),
+                    doc.name,
+                    section.line_number,
+                )
+            }
+        }
+    }
+
     for (line, key, value) in section.header.0.iter() {
         if key == "$processor$" || key == "url" || key == "method" {
             continue;
@@ -58,13 +83,6 @@ pub async fn processor<'a>(
     }
 
     println!("calling `http` processor with url: {}", &url);
-
-    // If github cookie exists pass it on before making http request
-    if let Some(req) = config.request.as_ref() {
-        if let Some(user_data) = fpm::auth::get_github_ud_from_cookies(req.cookies()).await {
-            conf.insert("X-FPM-USER-ID".to_string(), user_data);
-        }
-    }
 
     let response = match crate::http::http_get_with_cookie(
         url.as_str(),

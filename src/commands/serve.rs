@@ -244,7 +244,8 @@ pub async fn serve(
             // TODO: Check if path exists in dynamic urls also, otherwise pass to endpoint
             // Already checked in the above method serve_file
             println!("executing proxy: {}", &path);
-            let (package_name, url, conf) =
+            println!("proxy url: {}", path.as_str());
+            let (package_name, url, mut conf) =
                 fpm::config::utils::get_clean_url(&config, path.as_str())?;
             let package_name = package_name.unwrap_or_else(|| config.package.name.to_string());
 
@@ -260,6 +261,23 @@ pub async fn serve(
             };
 
             // TODO: read app config and send them to service as header
+
+            // Adjust x-fpm header from cookies based on the platform
+            if let Some(user_id) = conf.get("user-id") {
+                match user_id.split_once('-') {
+                    Some((platform, id)) => {
+                        if let Some(user_data) =
+                            fpm::auth::get_user_data_from_cookies(platform, &req.cookies()).await
+                        {
+                            let xfpm_header_key = format!("X-FPM-{}", id.to_string());
+                            let xfpm_header_value = user_data;
+
+                            conf.insert(xfpm_header_key, xfpm_header_value);
+                        }
+                    }
+                    _ => return Ok(fpm::unauthorised!("invalid user-id provided")),
+                }
+            }
 
             return fpm::proxy::get_out(
                 host.as_str(),

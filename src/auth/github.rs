@@ -12,8 +12,10 @@ pub async fn login(req: actix_web::HttpRequest) -> fpm::Result<fpm::http::Respon
     // GitHub will be redirect to this url after login process completed
 
     let mut next_url = "/".to_string();
-    if let Ok(queries) = actix_web::web::Query::<HashMap<String, String>>::from_query(req.query_string()) {
-        if queries.get("next").is_some(){
+    if let Ok(queries) =
+        actix_web::web::Query::<HashMap<String, String>>::from_query(req.query_string())
+    {
+        if queries.get("next").is_some() {
             next_url = queries.get("next").unwrap().to_string();
         }
     }

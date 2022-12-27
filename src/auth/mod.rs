@@ -26,6 +26,17 @@ impl AuthProviders {
             AuthProviders::Slack => "slack",
         }
     }
+
+    pub(crate) fn from_str(s: &str) -> Self {
+        match s {
+            "github" => AuthProviders::GitHub,
+            "telegram" => AuthProviders::TeleGram,
+            "google" => AuthProviders::Google,
+            "discord" => AuthProviders::Discord,
+            "slack" => AuthProviders::Slack,
+            _ => panic!("Invalid auth provider {}", s),
+        }
+    }
 }
 
 pub fn secret_key() -> String {
@@ -39,29 +50,39 @@ pub fn secret_key() -> String {
     }
 }
 
-/// will fetch out the decrypted github user data from cookies
+/// will fetch out the decrypted user data from cookies
 /// and return it as string
-/// if no github cookie found then it returns None
-pub async fn get_github_ud_from_cookies(
+/// if no cookie wrt to platform found it throws an error
+pub async fn get_user_data_from_cookies(
+    platform: &str,
     cookies: &std::collections::HashMap<String, String>,
 ) -> Option<String> {
-    let github_ud_encrypted = cookies
-        .get(fpm::auth::AuthProviders::GitHub.as_str())
-        .ok_or_else(|| {
-            fpm::Error::GenericError("github user detail not found in the cookies".to_string())
-        });
-    match github_ud_encrypted {
+    let ud_encrypted = cookies.get(platform).ok_or_else(|| {
+        fpm::Error::GenericError(format!(
+            "user detail not found for platform {} in the cookies",
+            platform
+        ))
+    });
+    match ud_encrypted {
         Ok(encrypt_str) => {
-            if let Ok(github_ud_decrypted) = utils::decrypt_str(encrypt_str).await {
-                let github_ud: github::UserDetail =
-                    serde_json::from_str(github_ud_decrypted.as_str()).ok()?;
-                let ud_string = format!("{}-{}", &github_ud.user_name, &github_ud.token);
-                return Some(ud_string);
+            if let Ok(ud_decrypted) = utils::decrypt_str(encrypt_str).await {
+                match fpm::auth::AuthProviders::from_str(platform) {
+                    fpm::auth::AuthProviders::GitHub => {
+                        let user_data: github::UserDetail =
+                            serde_json::from_str(ud_decrypted.as_str()).ok()?;
+                        let ud_string = format!("{}-{}", &user_data.user_name, &user_data.token);
+                        return Some(ud_string);
+                    }
+                    fpm::auth::AuthProviders::TeleGram => unimplemented!(),
+                    fpm::auth::AuthProviders::Google => unimplemented!(),
+                    fpm::auth::AuthProviders::Discord => unimplemented!(),
+                    fpm::auth::AuthProviders::Slack => unimplemented!(),
+                }
             }
         }
         Err(err) => {
             // Debug out the error and return None
-            let error_msg = format!("GITHUB UD error: {}", err);
+            let error_msg = format!("User data error: {}", err);
             dbg!(&error_msg);
         }
     };
