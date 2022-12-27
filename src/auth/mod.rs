@@ -73,9 +73,9 @@ pub async fn get_user_data_from_cookies(
                             serde_json::from_str(ud_decrypted.as_str())?;
                         return match requested_field {
                             "username" | "user_name" | "user-name" => {
-                                Ok(Some(github_ud.user_name.clone()))
+                                Ok(Some(github_ud.user_name))
                             }
-                            "token" => Ok(Some(github_ud.token.clone())),
+                            "token" => Ok(Some(github_ud.token)),
                             _ => Err(fpm::Error::GenericError(format!(
                                 "invalid field {} requested for platform {}",
                                 requested_field, platform
@@ -87,10 +87,10 @@ pub async fn get_user_data_from_cookies(
                             serde_json::from_str(ud_decrypted.as_str())?;
                         return match requested_field {
                             "username" | "user_name" | "user-name" => {
-                                Ok(Some(telegram_ud.user_name.clone()))
+                                Ok(Some(telegram_ud.user_name))
                             }
-                            "uid" | "userid" | "user-id" => Ok(Some(telegram_ud.user_id.clone())),
-                            "token" => Ok(Some(telegram_ud.token.clone())),
+                            "uid" | "userid" | "user-id" => Ok(Some(telegram_ud.user_id)),
+                            "token" => Ok(Some(telegram_ud.token)),
                             _ => Err(fpm::Error::GenericError(format!(
                                 "invalid field {} requested for platform {}",
                                 requested_field, platform
@@ -102,10 +102,10 @@ pub async fn get_user_data_from_cookies(
                             serde_json::from_str(ud_decrypted.as_str())?;
                         return match requested_field {
                             "username" | "user_name" | "user-name" => {
-                                Ok(Some(discord_ud.user_name.clone()))
+                                Ok(Some(discord_ud.user_name))
                             }
-                            "id" | "userid" | "user-id" => Ok(Some(discord_ud.user_id.clone())),
-                            "token" => Ok(Some(discord_ud.token.clone())),
+                            "id" | "userid" | "user-id" => Ok(Some(discord_ud.user_id)),
+                            "token" => Ok(Some(discord_ud.token)),
                             _ => Err(fpm::Error::GenericError(format!(
                                 "invalid field {} requested for platform {}",
                                 requested_field, platform

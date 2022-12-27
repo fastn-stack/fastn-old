@@ -268,7 +268,7 @@ pub async fn serve(
                         if let Some(user_data) = fpm::auth::get_user_data_from_cookies(
                             platform,
                             requested_field,
-                            &req.cookies(),
+                            req.cookies(),
                         )
                         .await?
                         {

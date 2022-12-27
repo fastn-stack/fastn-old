@@ -53,7 +53,7 @@ pub async fn processor<'a>(
                     )
                     .await
                     .map_err(|e| ftd::p1::Error::ForbiddenUsage {
-                        message: format!("fpm auth error: {}", e.to_string()),
+                        message: format!("fpm auth error: {}", e),
                         doc_id: doc.name.to_string(),
                         line_number: section.line_number,
                     })? {
