@@ -244,7 +244,6 @@ pub async fn serve(
             // TODO: Check if path exists in dynamic urls also, otherwise pass to endpoint
             // Already checked in the above method serve_file
             println!("executing proxy: {}", &path);
-            println!("proxy url: {}", path.as_str());
             let (package_name, url, mut conf) =
                 fpm::config::utils::get_clean_url(&config, path.as_str())?;
             let package_name = package_name.unwrap_or_else(|| config.package.name.to_string());

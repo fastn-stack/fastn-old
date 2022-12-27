@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 // TODO: This has be set while creating the GitHub OAuth Application
 pub const CALLBACK_URL: &str = "/auth/github/callback/";
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
@@ -13,7 +11,9 @@ pub async fn login(req: actix_web::HttpRequest) -> fpm::Result<fpm::http::Respon
 
     let mut next_url = "/".to_string();
     if let Ok(queries) =
-        actix_web::web::Query::<HashMap<String, String>>::from_query(req.query_string())
+        actix_web::web::Query::<std::collections::HashMap<String, String>>::from_query(
+            req.query_string(),
+        )
     {
         if queries.get("next").is_some() {
             next_url = queries.get("next").unwrap().to_string();
