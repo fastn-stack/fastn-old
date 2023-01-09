@@ -18,10 +18,15 @@ pub fn process<'a>(
             .replace(std::path::MAIN_SEPARATOR, "/");
 
         if let Some(sitemap) = sitemap.get_sitemap_by_id(doc_id.as_str()) {
+            dbg!(&sitemap);
             return doc.from_json(&sitemap, &kind, value.line_number());
         }
     }
-    doc.from_json(&SiteMapCompat::default(), &kind, value.line_number())
+    doc.from_json(
+        &fpm::sitemap::SiteMapCompat::default(),
+        &kind,
+        value.line_number(),
+    )
 }
 
 pub fn full_sitemap_process<'a>(
@@ -33,7 +38,11 @@ pub fn full_sitemap_process<'a>(
     if let Some(ref sitemap) = config.package.sitemap {
         return doc.from_json(&to_sitemap_compat(sitemap), &kind, value.line_number());
     }
-    doc.from_json(&SiteMapCompat::default(), &kind, value.line_number())
+    doc.from_json(
+        &fpm::sitemap::SiteMapCompat::default(),
+        &kind,
+        value.line_number(),
+    )
 }
 
 #[derive(Default, Debug, serde::Serialize)]
@@ -47,7 +56,7 @@ pub struct TocItemCompat {
     pub is_active: bool,
     #[serde(rename = "nav-title")]
     pub nav_title: Option<String>,
-    pub children: Vec<TocItemCompat>,
+    pub children: Vec<fpm::sitemap::toc::TocItemCompat>,
     pub skip: bool,
     pub readers: Vec<String>,
     pub writers: Vec<String>,
@@ -94,81 +103,93 @@ pub struct SiteMapCompat {
     writers: Vec<String>,
 }
 
-pub fn to_sitemap_compat(sitemap: &fpm::sitemap::Sitemap) -> SiteMapCompat {
+pub fn to_sitemap_compat(sitemap: &fpm::sitemap::Sitemap) -> fpm::sitemap::SiteMapCompat {
     use itertools::Itertools;
-
-    fn to_key_value_data(key: &str, value: &str) -> fpm::library2022::KeyValueData {
-        fpm::library2022::KeyValueData {
-            key: key.to_string(),
-            value: value.to_string(),
-        }
-    }
-
-    fn to_toc_compat(toc_item: &fpm::sitemap::toc::TocItem) -> TocItemCompat {
-        let toc_compat = TocItemCompat {
-            id: toc_item.id.clone(),
+    dbg!(&sitemap);
+    fn to_toc_compat(toc_item: &fpm::sitemap::toc::TocItem) -> fpm::sitemap::toc::TocItemCompat {
+        let toc_compat = fpm::sitemap::toc::TocItemCompat {
+            url: Some(toc_item.id.clone()),
+            number: None,
             title: toc_item.title.clone(),
+            path: None,
+            is_heading: false,
+            font_icon: None,
             bury: toc_item.bury,
-            extra_data: toc_item
-                .extra_data
-                .iter()
-                .map(|(k, v)| to_key_value_data(k, v))
-                .collect(),
+            extra_data: toc_item.extra_data.to_owned(),
             is_active: toc_item.is_active,
+            is_open: false,
             nav_title: toc_item.nav_title.clone(),
             children: toc_item.children.iter().map(to_toc_compat).collect_vec(),
-            skip: toc_item.skip,
             readers: toc_item.readers.clone(),
             writers: toc_item.writers.clone(),
+            is_disabled: false,
+            image_src: None,
+            document: None,
         };
         toc_compat
     }
 
-    fn to_subsection_compat(subsection: &fpm::sitemap::section::Subsection) -> SubSectionCompat {
-        SubSectionCompat {
-            id: subsection.id.clone(),
+    fn to_subsection_compat(
+        subsection: &fpm::sitemap::section::Subsection,
+    ) -> fpm::sitemap::toc::TocItemCompat {
+        fpm::sitemap::toc::TocItemCompat {
+            url: subsection.id.clone(),
             title: subsection.title.clone(),
+            path: None,
+            is_heading: false,
+            font_icon: None,
             bury: subsection.bury,
-            visible: subsection.visible,
-            extra_data: subsection
-                .extra_data
-                .iter()
-                .map(|(k, v)| to_key_value_data(k, v))
-                .collect(),
+            extra_data: subsection.extra_data.to_owned(),
             is_active: subsection.is_active,
+            is_open: false,
+            image_src: None,
             nav_title: subsection.nav_title.clone(),
-            toc: subsection.toc.iter().map(to_toc_compat).collect_vec(),
-            skip: subsection.skip,
+            children: subsection.toc.iter().map(to_toc_compat).collect_vec(),
             readers: subsection.readers.clone(),
             writers: subsection.writers.clone(),
+            number: None,
+            is_disabled: false,
+            document: None,
         }
     }
 
-    fn to_section_compat(section: &fpm::sitemap::section::Section) -> SectionCompat {
-        SectionCompat {
-            id: section.id.to_string(),
+    fn to_section_compat(
+        section: &fpm::sitemap::section::Section,
+    ) -> fpm::sitemap::toc::TocItemCompat {
+        fpm::sitemap::toc::TocItemCompat {
+            url: Some(section.id.to_string()),
+            number: None,
             title: section.title.clone(),
+            path: None,
+            is_heading: false,
+            font_icon: None,
             bury: section.bury,
-            extra_data: section
-                .extra_data
-                .iter()
-                .map(|(k, v)| to_key_value_data(k, v))
-                .collect(),
+            extra_data: section.extra_data.to_owned(),
             is_active: section.is_active,
+            is_open: false,
             nav_title: section.nav_title.clone(),
-            subsections: section
+            children: section
                 .subsections
                 .iter()
                 .map(to_subsection_compat)
                 .collect_vec(),
             readers: section.readers.clone(),
             writers: section.writers.clone(),
+            is_disabled: false,
+            image_src: None,
+            document: None,
         }
     }
 
-    SiteMapCompat {
+    let t = fpm::sitemap::SiteMapCompat {
         sections: sitemap.sections.iter().map(to_section_compat).collect_vec(),
+        subsections: vec![],
+        toc: vec![],
+        current_section: None,
+        current_subsection: None,
+        current_page: None,
         readers: sitemap.readers.clone(),
         writers: sitemap.writers.clone(),
-    }
+    };
+    dbg!(t)
 }
