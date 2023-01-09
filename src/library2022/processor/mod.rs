@@ -1,3 +1,5 @@
+pub(crate) mod sitemap;
+
 pub enum Processor {
     Toc,
     GetData,
