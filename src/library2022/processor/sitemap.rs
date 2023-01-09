@@ -18,7 +18,6 @@ pub fn process<'a>(
             .replace(std::path::MAIN_SEPARATOR, "/");
 
         if let Some(sitemap) = sitemap.get_sitemap_by_id(doc_id.as_str()) {
-            dbg!(&sitemap);
             return doc.from_json(&sitemap, &kind, value.line_number());
         }
     }
@@ -105,7 +104,6 @@ pub struct SiteMapCompat {
 
 pub fn to_sitemap_compat(sitemap: &fpm::sitemap::Sitemap) -> fpm::sitemap::SiteMapCompat {
     use itertools::Itertools;
-    dbg!(&sitemap);
     fn to_toc_compat(toc_item: &fpm::sitemap::toc::TocItem) -> fpm::sitemap::toc::TocItemCompat {
         let toc_compat = fpm::sitemap::toc::TocItemCompat {
             url: Some(toc_item.id.clone()),
@@ -181,7 +179,7 @@ pub fn to_sitemap_compat(sitemap: &fpm::sitemap::Sitemap) -> fpm::sitemap::SiteM
         }
     }
 
-    let t = fpm::sitemap::SiteMapCompat {
+    fpm::sitemap::SiteMapCompat {
         sections: sitemap.sections.iter().map(to_section_compat).collect_vec(),
         subsections: vec![],
         toc: vec![],
@@ -190,6 +188,5 @@ pub fn to_sitemap_compat(sitemap: &fpm::sitemap::Sitemap) -> fpm::sitemap::SiteM
         current_page: None,
         readers: sitemap.readers.clone(),
         writers: sitemap.writers.clone(),
-    };
-    dbg!(t)
+    }
 }
