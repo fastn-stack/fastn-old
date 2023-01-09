@@ -1,5 +1,7 @@
 pub(crate) mod get_data_processor;
 pub(crate) mod http_processor;
+pub(crate) mod processor;
+pub(crate) mod sitemap_processor;
 pub(crate) mod toc_processor;
 
 #[derive(Debug)]
@@ -195,6 +197,7 @@ impl Library2022 {
             "http" => http_processor::process(value, kind, doc, &self.config).await,
             "toc" => toc_processor::process(value, kind, doc, &self.config),
             "get-data" => get_data_processor::process(value, kind, doc, &self.config),
+            "sitemap" => sitemap_processor::process(value, kind, doc, &self.config),
             t => Err(ftd::interpreter2::Error::ParseError {
                 doc_id: self.document_id.to_string(),
                 line_number,
