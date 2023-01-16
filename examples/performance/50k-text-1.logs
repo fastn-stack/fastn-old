@@ -1,0 +1,5 @@
+### Server Started ###
+Go to: http://127.0.0.1:8000
+### Configured tracing ###
+[1;32mINFO    [0m ｉ [info]: Starting 8 workers
+[1;32mINFO    [0m ｉ [info]: Tokio runtime found; starting in existing Tokio runtime

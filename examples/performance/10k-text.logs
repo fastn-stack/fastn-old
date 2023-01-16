@@ -1,0 +1,41 @@
+### Server Started ###
+Go to: http://127.0.0.1:8000
+### Configured tracing ###
+[1;32mINFO    [0m ｉ [info]: Starting 8 workers
+[1;32mINFO    [0m ｉ [info]: Tokio runtime found; starting in existing Tokio runtime
+replace_markers in 5.469166ms
+[1;32mINFO    [0m route [ 13.0s | 0.01% / 100.00% ]
+[1;32mINFO    [0m ┝━ ｉ [info]:  | method: "GET" | uri: "/10k-text/"
+[1;32mINFO    [0m ┕━ serve [ 13.0s | 0.00% / 99.99% ]
+[1;32mINFO    [0m    ┝━ Config::read [ 18.3ms | 0.14% ]
+[1;32mINFO    [0m    ┝━ serve_file [ 13.0s | 0.00% / 99.85% ]
+[1;32mINFO    [0m    │  ┝━ get_file_and_package_by_id [ 368µs | 0.00% / 0.00% ]
+[1;32mINFO    [0m    │  │  ┝━ ｉ [info]:  | path: "10k-text/"
+[1;32mINFO    [0m    │  │  ┕━ resolve_by_id [ 275µs | 0.00% / 0.00% ]
+[1;32mINFO    [0m    │  │     ┝━ ｉ [info]:  | id: "10k-text/"
+[1;32mINFO    [0m    │  │     ┕━ fs_fetch_by_id [ 24.5µs | 0.00% / 0.00% ]
+[1;32mINFO    [0m    │  │        ┕━ fs_fetch_by_file_name [ 19.5µs | 0.00% ]
+[1;32mINFO    [0m    │  │           ┕━ ｉ [info]:  | document: "10k-text.ftd"
+[1;32mINFO    [0m    │  ┕━ read_ftd [ 13.0s | 0.00% / 99.84% ]
+[1;32mINFO    [0m    │     ┝━ ｉ [info]:  | document: "10k-text.ftd"
+[1;32mINFO    [0m    │     ┕━ read_ftd_2022 [ 13.0s | 0.08% / 99.84% ]
+[1;32mINFO    [0m    │        ┝━ interpret_helper [ 12.5s | 0.00% / 96.16% ]
+[1;32mINFO    [0m    │        │  ┝━ ｉ [info]:  | document: "performance/10k-text/"
+[1;32mINFO    [0m    │        │  ┕━ interpret_with_line_number [ 12.5s | 96.16% ]
+[1;32mINFO    [0m    │        │     ┕━ ｉ [info]:  | msg: "ftd: interpreting" | doc: "performance/10k-text/"
+[1;32mINFO    [0m    │        ┝━ from_interpreter [ 360ms | 0.07% / 2.76% ]
+[1;32mINFO    [0m    │        │  ┕━ execute [ 351ms | 0.00% / 2.70% ]
+[1;32mINFO    [0m    │        │     ┕━ execute_from_instructions_loop [ 351ms | 2.70% ]
+[1;32mINFO    [0m    │        ┝━ from_rt [ 34.2ms | 0.26% ]
+[1;32mINFO    [0m    │        ┕━ from_node_data [ 75.3ms | 0.58% ]
+[1;32mINFO    [0m    ┕━ ｉ [info]: before executing proxy: file-status: 200 OK, path: 10k-text/
+[1;32mINFO    [0m ｉ [info]: SIGINT received; starting forced shutdown
+[1;32mINFO    [0m ｉ [info]: Accept thread stopped
+[1;32mINFO    [0m ｉ [info]: Shutting down idle worker
+[1;32mINFO    [0m ｉ [info]: Shutting down idle worker
+[1;32mINFO    [0m ｉ [info]: Shutting down idle worker
+[1;32mINFO    [0m ｉ [info]: Shutting down idle worker
+[1;32mINFO    [0m ｉ [info]: Shutting down idle worker
+[1;32mINFO    [0m ｉ [info]: Shutting down idle worker
+[1;32mINFO    [0m ｉ [info]: Shutting down idle worker
+[1;32mINFO    [0m ｉ [info]: Shutting down idle worker
