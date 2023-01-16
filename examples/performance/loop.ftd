@@ -1,0 +1,13 @@
+-- component check-loop:
+string list cities:
+;; can use `package-query` processor to fetch the cities
+
+-- ftd.column:
+
+-- ftd.text: $obj
+$loop$: $check-loop.cities as $obj
+
+
+-- end: ftd.column
+
+-- end: check-loop
