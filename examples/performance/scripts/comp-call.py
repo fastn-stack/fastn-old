@@ -41,11 +41,15 @@ def generate_component_calling(number):
     return generated_ftd_template
 
 
-def create_component_calling_document(no_fun_call=10):
+def create_component_calling_document(no_fun_call):
     template_file = generate_component_calling(no_fun_call)
     with open("../component-calling.ftd", 'w') as f:
         f.write(template_file)
 
 
 if __name__ == "__main__":
-    create_component_calling_document(100)
+    import sys
+    number = 1000
+    if len(sys.argv) > 1:
+        number = int(sys.argv[1])
+    create_component_calling_document(number)
