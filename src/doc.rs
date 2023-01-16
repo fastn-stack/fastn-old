@@ -168,7 +168,6 @@ pub async fn interpret_helper<'a>(
                         message: "Cannot find the module".to_string(),
                     },
                 )?;
-                tracing::info!(doc);
                 let line_number = ast.line_number();
                 let value = lib
                     .process(ast, processor, &mut state.tdoc(doc.as_str(), line_number)?)
@@ -336,11 +335,14 @@ pub async fn resolve_import<'a>(
 }
 
 // source, foreign_variable, foreign_function
+#[tracing::instrument(name = "stuck-on-import", err, ret)]
 pub async fn resolve_import_2022<'a>(
     lib: &'a mut fpm::Library2022,
     state: &mut ftd::interpreter2::InterpreterState,
     module: &str,
 ) -> ftd::interpreter2::Result<(String, Vec<String>, Vec<String>, usize)> {
+    tracing::debug!(msg = "stuck-on-import", doc = state.id.as_str());
+
     let current_processing_module = state.get_current_processing_module().ok_or_else(|| {
         ftd::interpreter2::Error::ParseError {
             message: "The processing document stack is empty".to_string(),
@@ -448,6 +450,7 @@ pub async fn resolve_import_2022<'a>(
     Ok(source)
 }
 
+#[tracing::instrument(name = "stuck-on-foreign-variable", err, ret)]
 pub async fn resolve_foreign_variable2022(
     variable: &str,
     doc_name: &str,
@@ -456,6 +459,7 @@ pub async fn resolve_foreign_variable2022(
     base_url: &str,
     download_assets: bool,
 ) -> ftd::interpreter2::Result<ftd::interpreter2::Value> {
+    tracing::info!(doc = doc_name, var = variable);
     let current_processing_module = state.get_current_processing_module().ok_or_else(|| {
         ftd::interpreter2::Error::ParseError {
             message: "The processing document stack is empty".to_string(),
