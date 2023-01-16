@@ -335,7 +335,7 @@ pub async fn resolve_import<'a>(
 }
 
 // source, foreign_variable, foreign_function
-#[tracing::instrument(name = "stuck-on-import", err, ret)]
+#[tracing::instrument(name = "fpm::stuck-on-import", err)]
 pub async fn resolve_import_2022<'a>(
     lib: &'a mut fpm::Library2022,
     state: &mut ftd::interpreter2::InterpreterState,
@@ -450,7 +450,7 @@ pub async fn resolve_import_2022<'a>(
     Ok(source)
 }
 
-#[tracing::instrument(name = "stuck-on-foreign-variable", err, ret)]
+#[tracing::instrument(name = "fpm::stuck-on-foreign-variable", err)]
 pub async fn resolve_foreign_variable2022(
     variable: &str,
     doc_name: &str,
