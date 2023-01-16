@@ -1,6 +1,4 @@
-;; single component
-;; 100 component calling iteratively
-;; 1000 component calling
+
 
 -- component check-performance:
 integer break:
@@ -20,11 +18,13 @@ if: {check-performance.break != 0}
 -- end: check-performance
 
 
--- check-performance:
-break: 10
-
-
 -- integer decrement(a):
 integer a:
 
 a - 1
+
+
+
+-- check-performance:
+break: 100
+
