@@ -1,6 +1,9 @@
+;; can use `package-query` processor to fetch the cities
+-- import: fpm/processors
+
+
 -- component check-loop:
 string list cities:
-;; can use `package-query` processor to fetch the cities
 
 -- ftd.column:
 
@@ -11,3 +14,12 @@ $loop$: $check-loop.cities as $obj
 -- end: ftd.column
 
 -- end: check-loop
+
+-- string list cities:
+$processor$: processors.get-data
+
+{0}
+
+
+-- check-loop:
+cities: $cities
