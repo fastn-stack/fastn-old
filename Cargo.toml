@@ -122,8 +122,8 @@ features=["macos_kqueue"]
 # ready for 1.0 right now.
 #
 # Once we are closer to release we will stop using this and adopot semver.
-#git = "https://github.com/FifthTry/ftd"
-#rev = "3566c7592d92fc02218288e0b207b86db269f27f"
+git = "https://github.com/FifthTry/ftd"
+rev = "ef1ddae"
 #
 # If you are testing fpm against local ftd, you can keep ftd and fpm checked out in
 # same folder and uncomment the next `path` line to use local ftd.
@@ -131,7 +131,7 @@ features=["macos_kqueue"]
 # Note: you do not have to comment out the git/rev above, Cargo uses `path` with
 # higher priority over them if `path` is provided.
 #
-path = "../ftd"
+# path = "../ftd"
 
 [dependencies.reqwest]
 # We considered removing dependency from `reqwest`, and only use `hyper`. But `reqwest`

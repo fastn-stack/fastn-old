@@ -1077,7 +1077,7 @@ dependencies = [
  "edit",
  "fbt-lib",
  "fluent",
- "ftd 0.2.0",
+ "ftd 0.2.0 (git+https://github.com/FifthTry/ftd?rev=ef1ddae)",
  "futures",
  "hyper",
  "ignore",
@@ -1110,6 +1110,27 @@ dependencies = [
 [[package]]
 name = "ftd"
 version = "0.2.0"
+source = "git+https://github.com/FifthTry/ftd?rev=b698bd6#b698bd6acf4b6dfc1557976ef63f378c473e8432"
+dependencies = [
+ "comrak 0.14.0",
+ "css-color-parser",
+ "format_num",
+ "include_dir",
+ "indoc",
+ "itertools",
+ "once_cell",
+ "regex",
+ "serde",
+ "serde_json",
+ "slug",
+ "syntect",
+ "thiserror",
+]
+
+[[package]]
+name = "ftd"
+version = "0.2.0"
+source = "git+https://github.com/FifthTry/ftd?rev=ef1ddae#ef1ddae9f058462fe8922655bc34551115199e3a"
 dependencies = [
  "comrak 0.15.0",
  "css-color-parser",
@@ -1126,26 +1147,6 @@ dependencies = [
  "thiserror",
  "tracing",
  "tracing-subscriber",
-]
-
-[[package]]
-name = "ftd"
-version = "0.2.0"
-source = "git+https://github.com/FifthTry/ftd?rev=b698bd6#b698bd6acf4b6dfc1557976ef63f378c473e8432"
-dependencies = [
- "comrak 0.14.0",
- "css-color-parser",
- "format_num",
- "include_dir",
- "indoc",
- "itertools",
- "once_cell",
- "regex",
- "serde",
- "serde_json",
- "slug",
- "syntect",
- "thiserror",
 ]
 
 [[package]]
