@@ -213,7 +213,7 @@ impl SitemapElement {
     pub(crate) fn set_path_params(&mut self, url: &str) -> Result<(), ParseError> {
         let params = utils::parse_named_params(url)?;
 
-        if !params.is_empty() {
+        if params.is_empty() {
             self.set_skip(true);
         }
 
@@ -448,8 +448,12 @@ impl SitemapParser {
 
                 {
                     let mut toc_item = toc_item.clone();
+                    println!("Setting up toc item");
+                    dbg!(&title);
+                    dbg!(&url);
                     toc_item.set_id(url);
                     toc_item.set_title(title);
+                    dbg!(&toc_item);
                     toc_item
                 }
             } else {
@@ -474,11 +478,14 @@ impl SitemapParser {
             self.eval_temp_item(global_ids)?;
         } else {
             let doc_id = self.doc_name.to_string();
+            println!("Parsing attr: {}", line);
             match &mut self.temp_item {
                 Some((i, _)) => match line.split_once(':') {
                     Some((k, v)) => {
                         let v = v.trim();
                         let id = i.get_id();
+                        dbg!(&v);
+                        dbg!(&id);
                         // TODO: Later use match
                         if k.eq("url") {
                             i.set_id(Some(v.to_string()));
@@ -486,6 +493,7 @@ impl SitemapParser {
                                 i.set_title(id);
                             }
                             i.set_path_params(v)?;
+                            dbg!(&i);
                         } else if k.eq("id") {
                             // Fetch link corresponding to the id from global_ids map
                             let link = global_ids.get(v).ok_or_else(|| ParseError::InvalidID {
