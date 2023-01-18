@@ -375,6 +375,13 @@ pub(crate) async fn read_ftd_2022(
     doc_content = current_package.fix_imports_in_body(doc_content.as_str(), main.id.as_str())?;
 
     let line_number = doc_content.split('\n').count() - main.content.split('\n').count();
+    let cache = fpm::doc::ParsedDocCache {
+        root: config.packages_root.clone().join("parsed_documents"),
+    };
+    if !cache.root.exists() {
+        tokio::fs::create_dir_all(cache.root.as_path()).await?;
+    }
+
     let main_ftd_doc = match fpm::doc::interpret_helper(
         main.id_with_package().as_str(),
         doc_content.as_str(),
@@ -382,6 +389,7 @@ pub(crate) async fn read_ftd_2022(
         base_url,
         download_assets,
         line_number,
+        Some(&cache),
     )
     .await
     {

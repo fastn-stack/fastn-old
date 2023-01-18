@@ -127,9 +127,10 @@ pub async fn interpret_helper<'a>(
     base_url: &str,
     download_assets: bool,
     line_number: usize,
+    cache: Option<&dyn ftd::interpreter2::Cache>,
 ) -> ftd::interpreter2::Result<ftd::interpreter2::Document> {
     tracing::info!(document = name);
-    let mut s = ftd::interpreter2::interpret_with_line_number(name, source, line_number)?;
+    let mut s = ftd::interpreter2::interpret_with_line_number(name, source, line_number, cache)?;
     lib.module_package_map.insert(
         name.trim_matches('/').to_string(),
         lib.config.package.name.to_string(),
@@ -1111,5 +1112,50 @@ fn resolve_ftd_foreign_variable_2022(
             .to_string(),
         }),
         _ => ftd::p2::utils::e2(format!("{} not found 3", variable).as_str(), doc_name, 0),
+    }
+}
+
+pub struct ParsedDocCache {
+    pub root: camino::Utf8PathBuf,
+}
+
+impl ftd::interpreter2::Cache for ParsedDocCache {
+    fn get(
+        &self,
+        id: &str,
+    ) -> ftd::interpreter2::Result<Option<ftd::interpreter2::ParsedDocument>> {
+        println!("getting document from the cache{}", id);
+        // logic will be if file get modified in the system so return none
+        // else return the der version of the file
+        let path = self.root.join(id.trim_matches('/'));
+        if let Ok(data) = futures::executor::block_on(tokio::fs::read_to_string(path)) {
+            return Ok(Some(serde_json::from_str(data.as_str())?));
+        } else {
+            tracing::warn!(id = id, msg = "fpm-error: cache file not found");
+        }
+        Ok(None)
+    }
+
+    fn set(
+        &self,
+        id: &str,
+        document: &ftd::interpreter2::ParsedDocument,
+    ) -> ftd::interpreter2::Result<()> {
+        let path = self.root.join(id.trim_matches('/'));
+        println!(
+            "setting the document in the cache: {} {}, {}",
+            self.root, id, &path
+        );
+
+        let data = serde_json::to_vec(document)?;
+        if let Err(e) = futures::executor::block_on(tokio::fs::write(&path, data)) {
+            println!("Some error occurred while writing the data {}", path);
+            tracing::warn!(
+                id = id,
+                msg = "fpm-error: parsed document cache write error",
+                err = e.to_string()
+            );
+        }
+        Ok(())
     }
 }
