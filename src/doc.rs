@@ -156,6 +156,7 @@ pub async fn interpret_helper<'a>(
                     foreign_variable,
                     foreign_function,
                     ignore_line_numbers,
+                    cache,
                 )?;
             }
             ftd::interpreter2::Interpreter::StuckOnProcessor {
@@ -1124,11 +1125,13 @@ impl ftd::interpreter2::Cache for ParsedDocCache {
         &self,
         id: &str,
     ) -> ftd::interpreter2::Result<Option<ftd::interpreter2::ParsedDocument>> {
-        println!("getting document from the cache{}", id);
         // logic will be if file get modified in the system so return none
         // else return the der version of the file
-        let path = self.root.join(id.trim_matches('/'));
-        if let Ok(data) = futures::executor::block_on(tokio::fs::read_to_string(path)) {
+        let path = self
+            .root
+            .join(format!("{}.json", id.trim_matches('/').replace('/', "-")));
+
+        if let Ok(data) = std::fs::read_to_string(path) {
             return Ok(Some(serde_json::from_str(data.as_str())?));
         } else {
             tracing::warn!(id = id, msg = "fpm-error: cache file not found");
@@ -1141,15 +1144,11 @@ impl ftd::interpreter2::Cache for ParsedDocCache {
         id: &str,
         document: &ftd::interpreter2::ParsedDocument,
     ) -> ftd::interpreter2::Result<()> {
-        let path = self.root.join(id.trim_matches('/'));
-        println!(
-            "setting the document in the cache: {} {}, {}",
-            self.root, id, &path
-        );
-
+        let path = self
+            .root
+            .join(format!("{}.json", id.trim_matches('/').replace('/', "-")));
         let data = serde_json::to_vec(document)?;
-        if let Err(e) = futures::executor::block_on(tokio::fs::write(&path, data)) {
-            println!("Some error occurred while writing the data {}", path);
+        if let Err(e) = std::fs::write(&path, data) {
             tracing::warn!(
                 id = id,
                 msg = "fpm-error: parsed document cache write error",
