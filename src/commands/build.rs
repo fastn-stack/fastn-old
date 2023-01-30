@@ -28,7 +28,7 @@ pub async fn build(
         match main {
             fastn::File::Ftd(doc) => {
                 if !config.ftd_edition.eq(&fastn::config::FTDEdition::FTD2021)
-                    && doc.id.eq("fastn.ftd")
+                    && doc.id.eq("FASTN.ftd")
                 {
                     tokio::fs::copy(
                         config.root.join(doc.id.as_str()),

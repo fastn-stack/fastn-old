@@ -29,7 +29,7 @@ pub async fn create_package(
         }
     };
 
-    // Not using config for base path as it requires manifest or fastn.ftd file for building and will throw error
+    // Not using config for base path as it requires manifest or FASTN.ftd file for building and will throw error
     // and since this command should work from anywhere within the system
     // so we dont need to rely on config for using it
 
@@ -51,7 +51,7 @@ pub async fn create_package(
     let tmp_fastn = tmp_contents.0;
     let tmp_index = tmp_contents.1;
 
-    fastn::utils::update(&final_dir.join("fastn.ftd"), tmp_fastn.as_bytes()).await?;
+    fastn::utils::update(&final_dir.join("FASTN.ftd"), tmp_fastn.as_bytes()).await?;
     fastn::utils::update(&final_dir.join("index.ftd"), tmp_index.as_bytes()).await?;
 
     // Note: Not required for now
@@ -59,7 +59,7 @@ pub async fn create_package(
     // let file_list: std::collections::BTreeMap<String, fastn::history::FileEditTemp> =
     //     IntoIterator::into_iter([
     //         (
-    //             "fastn.ftd".to_string(),
+    //             "FASTN.ftd".to_string(),
     //             fastn::history::FileEditTemp {
     //                 message: Some(sync_message.to_string()),
     //                 author: None,

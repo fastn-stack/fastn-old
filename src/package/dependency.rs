@@ -71,8 +71,8 @@ impl fastn::Package {
     /// yet implemented), and if not downloads and unpacks the method.
     ///
     /// This is done in following way:
-    /// Download the fastn.ftd file first for the package to download.
-    /// From fastn.ftd file, there's zip parameter present which contains the url to download zip.
+    /// Download the FASTN.ftd file first for the package to download.
+    /// From FASTN.ftd file, there's zip parameter present which contains the url to download zip.
     /// Then, unzip it and place the content into .package folder
     ///
     /// It then calls `process_fastn()` which checks the dependencies of the downloaded packages and
@@ -98,7 +98,7 @@ impl fastn::Package {
 
         let root = base_dir.join(".packages").join(self.name.as_str());
 
-        // Just download fastn.ftd of the dependent package and continue
+        // Just download FASTN.ftd of the dependent package and continue
         if !download_translations && !download_dependencies {
             let (path, name) = if let Some((path, name)) = self.name.rsplit_once('/') {
                 (base_dir.join(".packages").join(path), name)
@@ -126,10 +126,10 @@ impl fastn::Package {
 
         // Download everything of dependent package
         if !root.exists() {
-            // Download the fastn.ftd file first for the package to download.
+            // Download the FASTN.ftd file first for the package to download.
             let fastn_string = get_fastn(self.name.as_str()).await?;
 
-            // Read fastn.ftd and get download zip url from `zip` argument
+            // Read FASTN.ftd and get download zip url from `zip` argument
             let download_url = {
                 let lib = fastn::FastnLibrary::default();
                 let ftd_document = match fastn::doc::parse_ftd("fastn", fastn_string.as_str(), &lib)
@@ -137,7 +137,7 @@ impl fastn::Package {
                     Ok(v) => v,
                     Err(e) => {
                         return Err(fastn::Error::PackageError {
-                            message: format!("failed to parse fastn.ftd: {:?}", &e),
+                            message: format!("failed to parse FASTN.ftd: {:?}", &e),
                         });
                     }
                 };
@@ -206,8 +206,8 @@ impl fastn::Package {
             }
             fastn::utils::print_end(format!("Downloaded {}", self.name.as_str()).as_str(), start);
         }
-        let fastn_ftd_path = if root.join("fastn.ftd").exists() {
-            root.join("fastn.ftd")
+        let fastn_ftd_path = if root.join("FASTN.ftd").exists() {
+            root.join("FASTN.ftd")
         } else {
             let doc = std::fs::read_to_string(&root.join("fastn.manifest.ftd"));
             let lib = fastn::FastnLibrary::default();
@@ -218,12 +218,12 @@ impl fastn::Package {
                         .as_str()
                         .split('/')
                         .fold(root.clone(), |accumulator, part| accumulator.join(part));
-                    if new_package_root.join("fastn.ftd").exists() {
-                        new_package_root.join("fastn.ftd")
+                    if new_package_root.join("FASTN.ftd").exists() {
+                        new_package_root.join("FASTN.ftd")
                     } else {
                         return Err(fastn::Error::PackageError {
                             message: format!(
-                                "Can't find fastn.ftd file for the dependency package {}",
+                                "Can't find FASTN.ftd file for the dependency package {}",
                                 self.name.as_str()
                             ),
                         });
@@ -249,17 +249,17 @@ impl fastn::Package {
 
         async fn get_fastn(name: &str) -> fastn::Result<String> {
             if let Ok(response_fastn) =
-                crate::http::http_get_str(format!("https://{}/fastn.ftd", name).as_str()).await
+                crate::http::http_get_str(format!("https://{}/FASTN.ftd", name).as_str()).await
             {
                 Ok(response_fastn)
             } else if let Ok(response_fastn) =
-                crate::http::http_get_str(format!("http://{}/fastn.ftd", name).as_str()).await
+                crate::http::http_get_str(format!("http://{}/FASTN.ftd", name).as_str()).await
             {
                 Ok(response_fastn)
             } else {
                 Err(fastn::Error::UsageError {
                     message: format!(
-                        "Unable to find the fastn.ftd for the dependency package: {}",
+                        "Unable to find the FASTN.ftd for the dependency package: {}",
                         name
                     ),
                 })
@@ -290,7 +290,7 @@ impl fastn::Package {
 
         let root = base_dir.join(".packages").join(self.name.as_str());
 
-        // Just download fastn.ftd of the dependent package and continue
+        // Just download FASTN.ftd of the dependent package and continue
         // github.abrarnitk.io/abrark
         if !download_translations && !download_dependencies {
             let (path, name) = if let Some((path, name)) = self.name.rsplit_once('/') {
@@ -319,15 +319,15 @@ impl fastn::Package {
 
         // Download everything of dependent package
         if !root.exists() {
-            // Download the fastn.ftd file first for the package to download.
+            // Download the FASTN.ftd file first for the package to download.
             let fastn_string = get_fastn(self.name.as_str()).await?;
             std::fs::create_dir_all(&root)?;
-            let mut file = tokio::fs::File::create(root.join("fastn.ftd")).await?;
+            let mut file = tokio::fs::File::create(root.join("FASTN.ftd")).await?;
             file.write_all(fastn_string.as_bytes()).await?;
         }
 
-        let fastn_ftd_path = if root.join("fastn.ftd").exists() {
-            root.join("fastn.ftd")
+        let fastn_ftd_path = if root.join("FASTN.ftd").exists() {
+            root.join("FASTN.ftd")
         } else {
             let doc = std::fs::read_to_string(&root.join("fastn.manifest.ftd"));
             let lib = fastn::FastnLibrary::default();
@@ -338,12 +338,12 @@ impl fastn::Package {
                         .as_str()
                         .split('/')
                         .fold(root.clone(), |accumulator, part| accumulator.join(part));
-                    if new_package_root.join("fastn.ftd").exists() {
-                        new_package_root.join("fastn.ftd")
+                    if new_package_root.join("FASTN.ftd").exists() {
+                        new_package_root.join("FASTN.ftd")
                     } else {
                         return Err(fastn::Error::PackageError {
                             message: format!(
-                                "Can't find fastn.ftd file for the dependency package {}",
+                                "Can't find FASTN.ftd file for the dependency package {}",
                                 self.name.as_str()
                             ),
                         });
@@ -370,17 +370,17 @@ impl fastn::Package {
 
         async fn get_fastn(name: &str) -> fastn::Result<String> {
             if let Ok(response_fastn) =
-                crate::http::http_get_str(format!("https://{}/fastn.ftd", name).as_str()).await
+                crate::http::http_get_str(format!("https://{}/FASTN.ftd", name).as_str()).await
             {
                 Ok(response_fastn)
             } else if let Ok(response_fastn) =
-                crate::http::http_get_str(format!("http://{}/fastn.ftd", name).as_str()).await
+                crate::http::http_get_str(format!("http://{}/FASTN.ftd", name).as_str()).await
             {
                 Ok(response_fastn)
             } else {
                 Err(fastn::Error::UsageError {
                     message: format!(
-                        "Unable to find the fastn.ftd for the dependency package: {}",
+                        "Unable to find the FASTN.ftd for the dependency package: {}",
                         name
                     ),
                 })
@@ -453,7 +453,7 @@ impl fastn::Package {
     }
 
     /// This function is called by `process()` or recursively called by itself.
-    /// It checks the `fastn.ftd` file of dependent package and find out all the dependency packages.
+    /// It checks the `FASTN.ftd` file of dependent package and find out all the dependency packages.
     /// If dependent package is not available, it calls `process()` to download it inside `.packages` directory
     /// and if dependent package is available, it copies it to `.packages` directory
     /// At the end of both cases, `process_fastn()` is called again
@@ -478,7 +478,7 @@ impl fastn::Package {
                 Ok(v) => v,
                 Err(e) => {
                     return Err(fastn::Error::PackageError {
-                        message: format!("failed to parse fastn.ftd 2: {:?}", &e),
+                        message: format!("failed to parse FASTN.ftd 2: {:?}", &e),
                     });
                 }
             }
@@ -529,7 +529,7 @@ impl fastn::Package {
                         &mut dep.package,
                         false,
                         true,
-                        &dst.join("fastn.ftd"),
+                        &dst.join("FASTN.ftd"),
                     )
                     .await?;
                 } else {
@@ -565,7 +565,7 @@ impl fastn::Package {
                         translation,
                         false,
                         false,
-                        &dst.join("fastn.ftd"),
+                        &dst.join("FASTN.ftd"),
                     )
                     .await?;
                 } else {
@@ -596,7 +596,7 @@ impl fastn::Package {
                 Ok(v) => v,
                 Err(e) => {
                     return Err(fastn::Error::PackageError {
-                        message: format!("failed to parse fastn.ftd 2: {:?}", &e),
+                        message: format!("failed to parse FASTN.ftd 2: {:?}", &e),
                     });
                 }
             }
@@ -647,7 +647,7 @@ impl fastn::Package {
                         &mut dep.package,
                         false,
                         true,
-                        &dst.join("fastn.ftd"),
+                        &dst.join("FASTN.ftd"),
                     )
                     .await?;
                 } else {
@@ -686,7 +686,7 @@ impl fastn::Package {
                         translation,
                         false,
                         false,
-                        &dst.join("fastn.ftd"),
+                        &dst.join("FASTN.ftd"),
                     )
                     .await?;
                 } else {

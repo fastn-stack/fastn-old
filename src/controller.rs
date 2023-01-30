@@ -15,7 +15,7 @@
 /// it will pass the instance id to the get-package API.
 /// The API returns the URL of the package to be downloaded, git repository URL and the package name.
 /// fastn will clone the git repository in the current directory. The current directory will contain
-/// fastn.ftd and other files of the package.
+/// FASTN.ftd and other files of the package.
 /// fastn will then calls fastn install on it.
 
 /// fastn-ready:
@@ -76,7 +76,7 @@ pub async fn resolve_dependencies(
             "Git cloning successful for the package {}",
             package_response.package
         );
-        // Resolve dependencies by reading the fastn.ftd using config.read()
+        // Resolve dependencies by reading the FASTN.ftd using config.read()
         // Assuming package_name and repo name are identical
         fastn::Config::read(None, false, None).await?;
     } else {

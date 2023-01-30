@@ -106,8 +106,8 @@ pub async fn clear_(query: &QueryParams, req: &fastn::http::Request) -> fastn::R
         tokio::fs::remove_dir_all(&config.packages_root).await?;
     }
 
-    // Download fastn.ftd again after removing all the content
-    if !config.root.join("fastn.ftd").exists() {
+    // Download FASTN.ftd again after removing all the content
+    if !config.root.join("FASTN.ftd").exists() {
         fastn::commands::serve::download_init_package(config.package.download_base_url).await?;
     }
 

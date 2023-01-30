@@ -497,7 +497,7 @@ pub(crate) async fn process_ftd(
     base_url: &str,
     no_static: bool,
 ) -> fastn::Result<Vec<u8>> {
-    if main.id.eq("fastn.ftd") {
+    if main.id.eq("FASTN.ftd") {
         tokio::fs::copy(
             config.root.join(main.id.as_str()),
             config.root.join(".build").join(main.id.as_str()),
@@ -507,7 +507,7 @@ pub(crate) async fn process_ftd(
 
     let main = {
         let mut main = main.to_owned();
-        if main.id.eq("fastn.ftd") {
+        if main.id.eq("FASTN.ftd") {
             main.id = "-.ftd".to_string();
             let path = config.root.join("fastn").join("info.ftd");
             main.content = if path.is_file() {

@@ -61,7 +61,7 @@ pub(crate) async fn get_out(
 
     // TODO: Some extra headers, possibly Authentication header
     // Authentication header can come from system environment variable
-    // env file path set in fastn.ftd file
+    // env file path set in FASTN.ftd file
     // We can get the data from request parameter
     // Flow will be
     // 1. Add Movie ftd page

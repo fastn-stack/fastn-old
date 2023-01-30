@@ -1,4 +1,4 @@
-/// `Sitemap` stores the sitemap for the fastn package defines in the fastn.ftd
+/// `Sitemap` stores the sitemap for the fastn package defines in the FASTN.ftd
 ///
 /// ```ftd
 /// -- fastn.sitemap:
@@ -648,7 +648,7 @@ impl Sitemap {
                                     .map_err(|e| {
                                         fastn::Error::UsageError {
                                             message: format!(
-                                                "`{}` not found, fix fastn.sitemap in fastn.ftd. Error: {:?}",
+                                                "`{}` not found, fix fastn.sitemap in FASTN.ftd. Error: {:?}",
                                                 section.get_file_id(), e
                                             ),
                                         }
@@ -701,7 +701,7 @@ impl Sitemap {
                                 fastn::Config::get_file_name(package_root, id.as_str()).map_err(
                                     |e| fastn::Error::UsageError {
                                         message: format!(
-                                            "`{}` not found, fix fastn.sitemap in fastn.ftd. Error: {:?}",
+                                            "`{}` not found, fix fastn.sitemap in FASTN.ftd. Error: {:?}",
                                             id, e
                                         ),
                                     },
@@ -763,7 +763,7 @@ impl Sitemap {
                                     .map_err(|e| {
                                         fastn::Error::UsageError {
                                             message: format!(
-                                                "`{}` not found, fix fastn.sitemap in fastn.ftd. Error: {:?}",
+                                                "`{}` not found, fix fastn.sitemap in FASTN.ftd. Error: {:?}",
                                                 toc.get_file_id(), e
                                             ),
                                         }

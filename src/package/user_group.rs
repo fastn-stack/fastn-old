@@ -274,7 +274,7 @@ impl UserGroupTemp {
     ) -> fastn::Result<std::collections::BTreeMap<String, UserGroup>> {
         Self::are_unique(&user_groups).map_err(|e| {
             crate::sitemap::ParseError::InvalidUserGroup {
-                doc_id: "fastn.ftd".to_string(),
+                doc_id: "FASTN.ftd".to_string(),
                 message: e,
                 row_content: "".to_string(),
             }
@@ -468,7 +468,7 @@ pub fn user_groups_by_package(
     config: &fastn::Config,
     package: &str,
 ) -> fastn::Result<Vec<UserGroup>> {
-    // TODO: Need to fix it, It should not read groups from individual fastn.ftd file
+    // TODO: Need to fix it, It should not read groups from individual FASTN.ftd file
     // IT should read groups from package.groups
 
     // let package = config.find_package_by_name(package).await?;

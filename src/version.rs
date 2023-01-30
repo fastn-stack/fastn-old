@@ -87,7 +87,7 @@ pub(crate) async fn build_version(
         for (version, doc) in documents.values() {
             let mut doc = doc.clone();
             let id = doc.get_id();
-            if id.eq("fastn.ftd") {
+            if id.eq("FASTN.ftd") {
                 continue;
             }
             let new_id = format!("{}/{}", key.original, id);

@@ -62,7 +62,7 @@ pub struct Section {
     ///
     /// Example:
     ///
-    /// In `fastn.ftd`
+    /// In `FASTN.ftd`
     ///
     /// ```fastn
     /// -- fastn.sitemap:
@@ -109,7 +109,7 @@ pub struct Section {
     pub confidential: bool,
     pub readers: Vec<String>,
     pub writers: Vec<String>,
-    /// In fastn.ftd sitemap, we can use `document` for section, subsection and toc.
+    /// In FASTN.ftd sitemap, we can use `document` for section, subsection and toc.
     /// # Section: /books/
     ///   document: /books/python/
     pub document: Option<String>,

@@ -1,5 +1,5 @@
 /// `find_root_for_file()` starts with the given path, which is the current directory where the
-/// application started in, and goes up till it finds a folder that contains `fastn.ftd` file.
+/// application started in, and goes up till it finds a folder that contains `FASTN.ftd` file.
 /// TODO: make async
 pub(crate) fn find_root_for_file(
     dir: &camino::Utf8Path,
@@ -22,7 +22,7 @@ pub async fn fastn_doc(path: &camino::Utf8Path) -> fastn::Result<ftd::p2::Docume
         match fastn::doc::parse_ftd("fastn", doc.await?.as_str(), &lib) {
             Ok(v) => Ok(v),
             Err(e) => Err(fastn::Error::PackageError {
-                message: format!("failed to parse fastn.ftd 3: {:?}", &e),
+                message: format!("failed to parse FASTN.ftd 3: {:?}", &e),
             }),
         }
     }
