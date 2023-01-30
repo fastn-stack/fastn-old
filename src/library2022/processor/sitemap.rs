@@ -139,6 +139,7 @@ pub fn to_sitemap_compat(
             children: toc_item
                 .children
                 .iter()
+                .filter(|t| !t.skip)
                 .map(|t| to_toc_compat(t, current_document))
                 .collect_vec(),
             readers: toc_item.readers.clone(),
