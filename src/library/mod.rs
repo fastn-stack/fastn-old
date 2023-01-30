@@ -510,8 +510,8 @@ impl FastnLibrary {
         } else if name == "env" {
             Some(fastn::get_env_ftd_file())
         } else {
-            // Note: currently we do not allow users to import other modules from fastn.ftd
-            eprintln!("fastn.ftd can only import `fastn` and `env` module");
+            // Note: currently we do not allow users to import other modules from FASTN.ftd
+            eprintln!("FASTN.ftd can only import `fastn` and `env` module");
             None
         }
     }

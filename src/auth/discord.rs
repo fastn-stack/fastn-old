@@ -45,10 +45,10 @@ pub async fn login(req: actix_web::HttpRequest) -> fastn::Result<fastn::http::Re
         Ok(id) => id,
         Err(_e) => {
             return Err(fastn::Error::APIResponseError(
-                "WARN: fastn_TEMP_DISCORD_CLIENT_ID not set.".to_string(),
+                "WARN: FASTN_TEMP_DISCORD_CLIENT_ID not set.".to_string(),
             ));
             // TODO: Need to change this approach later
-            //"fastn_TEMP_DISCORD_CLIENT_ID".to_string()
+            //"FASTN_TEMP_DISCORD_CLIENT_ID".to_string()
         }
     };
     let discord_auth_url = format!(

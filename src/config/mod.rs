@@ -199,7 +199,7 @@ impl Config {
     /// ```ftd
     /// -- import: fastn
     ///
-    /// -- fastn.snapshot: fastn.ftd
+    /// -- fastn.snapshot: FASTN.ftd
     /// timestamp: 1638706756293421000
     ///
     /// -- fastn.snapshot: blog.ftd
@@ -515,9 +515,9 @@ impl Config {
             fastn::paths_to_files(self.package.name.as_str(), all_files_path, &path).await?;
         for document in documents.iter() {
             if let fastn::File::Ftd(doc) = document {
-                // Ignore fetching id's from fastn.ftd since
+                // Ignore fetching id's from FASTN.ftd since
                 // id's would be used to link inside sitemap
-                if doc.id.eq("fastn.ftd") {
+                if doc.id.eq("FASTN.ftd") {
                     continue;
                 }
                 self.update_global_ids_from_file(&doc.id, &doc.content)
@@ -674,7 +674,7 @@ impl Config {
     }
 
     pub async fn update_sitemap(&self, package: &fastn::Package) -> fastn::Result<fastn::Package> {
-        let fastn_path = &self.packages_root.join(&package.name).join("fastn.ftd");
+        let fastn_path = &self.packages_root.join(&package.name).join("FASTN.ftd");
 
         if !fastn_path.exists() {
             let package = self.resolve_package(package).await?;
@@ -981,10 +981,10 @@ impl Config {
         }
 
         if let Some(package_root) =
-            utils::find_root_for_file(&self.packages_root.join(id), "fastn.ftd")
+            utils::find_root_for_file(&self.packages_root.join(id), "FASTN.ftd")
         {
             let mut package = fastn::Package::new("unknown-package");
-            package.resolve(&package_root.join("fastn.ftd")).await?;
+            package.resolve(&package_root.join("FASTN.ftd")).await?;
             self.add_package(&package);
             return Ok((package.name.to_string(), package));
         }
@@ -1194,14 +1194,14 @@ impl Config {
     }
 
     async fn get_root_path(directory: &camino::Utf8PathBuf) -> fastn::Result<camino::Utf8PathBuf> {
-        if let Some(fastn_ftd_root) = utils::find_root_for_file(directory, "fastn.ftd") {
+        if let Some(fastn_ftd_root) = utils::find_root_for_file(directory, "FASTN.ftd") {
             return Ok(fastn_ftd_root);
         }
         let fastn_manifest_path = match utils::find_root_for_file(directory, "fastn.manifest.ftd") {
             Some(fastn_manifest_path) => fastn_manifest_path,
             None => {
                 return Err(fastn::Error::UsageError {
-                    message: "fastn.ftd or fastn.manifest.ftd not found in any parent directory"
+                    message: "FASTN.ftd or fastn.manifest.ftd not found in any parent directory"
                         .to_string(),
                 });
             }
@@ -1227,11 +1227,11 @@ impl Config {
                 accumulator.join(part)
             });
 
-        if new_package_root.join("fastn.ftd").exists() {
+        if new_package_root.join("FASTN.ftd").exists() {
             Ok(new_package_root)
         } else {
             Err(fastn::Error::PackageError {
-                message: "Can't find fastn.ftd. The path specified in fastn.manifest.ftd doesn't contain the fastn.ftd file".to_string(),
+                message: "Can't find FASTN.ftd. The path specified in fastn.manifest.ftd doesn't contain the FASTN.ftd file".to_string(),
             })
         }
     }
@@ -1298,7 +1298,7 @@ impl Config {
                 )
             }
         };
-        let fastn_doc = utils::fastn_doc(&root.join("fastn.ftd")).await?;
+        let fastn_doc = utils::fastn_doc(&root.join("FASTN.ftd")).await?;
         let package = fastn::Package::from_fastn_doc(&root, &fastn_doc)?;
         let mut config = Config {
             package: package.clone(),
@@ -1413,7 +1413,7 @@ impl Config {
     ) -> fastn::Result<ftd::p2::Document> {
         let package = fastn::Package::new(package_name);
         let root = self.get_root_for_package(&package);
-        let package_fastn_path = root.join("fastn.ftd");
+        let package_fastn_path = root.join("FASTN.ftd");
         let doc = std::fs::read_to_string(package_fastn_path)?;
         let lib = fastn::FastnLibrary::default();
         Ok(fastn::doc::parse_ftd("fastn", doc.as_str(), &lib)?)

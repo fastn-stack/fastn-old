@@ -74,7 +74,7 @@ pub fn ftd_html() -> &'static str {
 }
 
 fn fastn_ftd() -> &'static str {
-    include_str!("../ftd/fastn.ftd")
+    include_str!("../ftd/FASTN.ftd")
 }
 
 fn processor_ftd() -> &'static str {

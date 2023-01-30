@@ -21,7 +21,7 @@ pub struct Package {
     pub dependencies: Vec<dependency::Dependency>,
     /// `auto_import` keeps track of the global auto imports in the package.
     pub auto_import: Vec<fastn::AutoImport>,
-    /// `fastn_path` contains the fastn package root. This value is found in `fastn.ftd` or
+    /// `fastn_path` contains the fastn package root. This value is found in `FASTN.ftd` or
     /// `fastn.manifest.ftd` file.
     pub fastn_path: Option<camino::Utf8PathBuf>,
     /// `ignored` keeps track of files that are to be ignored by `fastn build`, `fastn sync` etc.
@@ -46,7 +46,7 @@ pub struct Package {
     /// Optional path for favicon icon to be used.
     ///
     /// By default if any file favicon.* is present in package and favicon is not specified
-    /// in fastn.ftd, that file will be used.
+    /// in FASTN.ftd, that file will be used.
     ///
     /// If more than one favicon.* file is present, we will use them
     /// in following priority: .ico > .svg > .png > .jpg.
@@ -301,7 +301,7 @@ impl Package {
     /// will map aliased imports to full path in the actual body of the document
     /// and return the new document body as string
     ///
-    /// For ftd files apart from fastn.ftd
+    /// For ftd files apart from FASTN.ftd
     ///
     /// If aliased imports of Type-1 and Type-2 are used
     /// then those will be mapped to its corresponding full import paths
@@ -372,7 +372,7 @@ impl Package {
     }
 
     pub fn get_prefixed_body(&self, body: &str, id: &str, with_alias: bool) -> String {
-        if id.contains("fastn/") {
+        if id.contains("FPM/") {
             return body.to_string();
         };
         match self.generate_prefix_string(with_alias) {
@@ -460,7 +460,7 @@ impl Package {
     }
 
     pub(crate) async fn get_fastn(&self) -> fastn::Result<String> {
-        crate::http::construct_url_and_get_str(format!("{}/fastn.ftd", self.name).as_str()).await
+        crate::http::construct_url_and_get_str(format!("{}/FASTN.ftd", self.name).as_str()).await
     }
 
     #[tracing::instrument(skip_all)]
@@ -473,11 +473,11 @@ impl Package {
                 Ok(v) => v,
                 Err(e) => {
                     tracing::error!(
-                        msg = "failed to pare fastn.ftd file",
+                        msg = "failed to pare FASTN.ftd file",
                         path = fastn_path.as_str()
                     );
                     return Err(fastn::Error::PackageError {
-                        message: format!("failed to parse fastn.ftd: {:?}", &e),
+                        message: format!("failed to parse FASTN.ftd: {:?}", &e),
                     });
                 }
             }
@@ -518,7 +518,7 @@ impl Package {
     ) -> fastn::Result<fastn::Package> {
         use tokio::io::AsyncWriteExt;
 
-        let file_extract_path = package_root.join("fastn.ftd");
+        let file_extract_path = package_root.join("FASTN.ftd");
         if !file_extract_path.exists() {
             std::fs::create_dir_all(package_root)?;
             let fastn_string = self.get_fastn().await?;
@@ -543,7 +543,7 @@ impl Package {
             Some(v) => v.into_package(),
             None => {
                 return Err(fastn::Error::PackageError {
-                    message: "fastn.ftd does not contain package definition".to_string(),
+                    message: "FASTN.ftd does not contain package definition".to_string(),
                 })
             }
         };
@@ -578,7 +578,7 @@ impl Package {
         };
         // setting dependencies
         package.dependencies = deps;
-        package.fastn_path = Some(root.join("fastn.ftd"));
+        package.fastn_path = Some(root.join("FASTN.ftd"));
 
         package.auto_import = fastn_doc
             .get::<Vec<String>>("fastn#auto-import")?
@@ -606,7 +606,7 @@ impl Package {
             if let Some(ref original_package) = *package.translation_of {
                 if !package.auto_import.is_empty() {
                     return Err(fastn::Error::PackageError {
-                        message: format!("Can't use `inherit-auto-imports-from-original` along with auto-imports defined for the translation package. Either set `inherit-auto-imports-from-original` to false or remove `fastn.auto-import` from the {package_name}/fastn.ftd file", package_name=package.name.as_str()),
+                        message: format!("Can't use `inherit-auto-imports-from-original` along with auto-imports defined for the translation package. Either set `inherit-auto-imports-from-original` to false or remove `fastn.auto-import` from the {package_name}/FASTN.ftd file", package_name=package.name.as_str()),
                     });
                 } else {
                     package.auto_import = original_package.auto_import.clone()
@@ -658,7 +658,7 @@ impl Package {
     }
 }
 
-/// Backend Header is a struct that is used to read and store the backend-header from the fastn.ftd file
+/// Backend Header is a struct that is used to read and store the backend-header from the FASTN.ftd file
 #[derive(serde::Deserialize, Debug, Clone)]
 pub struct BackendHeader {
     #[serde(rename = "header-key")]
@@ -666,7 +666,7 @@ pub struct BackendHeader {
     #[serde(rename = "header-value")]
     pub header_value: String,
 }
-/// PackageTemp is a struct that is used for mapping the `fastn.package` data in fastn.ftd file. It is
+/// PackageTemp is a struct that is used for mapping the `fastn.package` data in FASTN.ftd file. It is
 /// not used elsewhere in program, it is immediately converted to `fastn::Package` struct during
 /// deserialization process
 #[derive(serde::Deserialize, Debug, Clone)]

@@ -146,13 +146,13 @@ async fn serve_fastn_file(config: &fastn::Config) -> fastn::http::Response {
     let response = match tokio::fs::read(
         config
             .get_root_for_package(&config.package)
-            .join("fastn.ftd"),
+            .join("FASTN.ftd"),
     )
     .await
     {
         Ok(res) => res,
         Err(e) => {
-            return fastn::not_found!("fastn-Error: path: fastn.ftd error: {:?}", e);
+            return fastn::not_found!("fastn-Error: path: FASTN.ftd error: {:?}", e);
         }
     };
     fastn::http::ok_with_content_type(response, mime_guess::mime::APPLICATION_OCTET_STREAM)
@@ -193,7 +193,7 @@ pub async fn serve(
     let favicon = camino::Utf8PathBuf::new().join("favicon.ico");
     let response = if path.eq(&favicon) {
         static_file(favicon).await
-    } else if path.eq(&camino::Utf8PathBuf::new().join("fastn.ftd")) {
+    } else if path.eq(&camino::Utf8PathBuf::new().join("FASTN.ftd")) {
         let config = fastn::Config::read(None, false, Some(&req))
             .await
             .unwrap()
@@ -332,7 +332,7 @@ pub async fn serve(
                         )
                         .await?
                         {
-                            conf.insert("X-fastn-USER-ID".to_string(), user_data);
+                            conf.insert("X-FASTN-USER-ID".to_string(), user_data);
                         }
                     }
                     _ => return Ok(fastn::unauthorised!("invalid user-id provided")),
@@ -378,14 +378,14 @@ pub(crate) async fn download_init_package(url: Option<String>) -> std::io::Resul
     package.download_base_url = url;
     package
         .http_download_by_id(
-            "fastn.ftd",
+            "FASTN.ftd",
             Some(
                 &camino::Utf8PathBuf::from_path_buf(std::env::current_dir()?)
                     .expect("fastn-Error: Unable to change path"),
             ),
         )
         .await
-        .expect("Unable to find fastn.ftd file");
+        .expect("Unable to find FASTN.ftd file");
     Ok(())
 }
 
@@ -555,10 +555,10 @@ pub async fn listen(
 
     if cfg!(feature = "controller") {
         // fastn-controller base path and ec2 instance id (hardcoded for now)
-        let fastn_controller: String = std::env::var("fastn_CONTROLLER")
+        let fastn_controller: String = std::env::var("FASTN_CONTROLLER")
             .unwrap_or_else(|_| "https://controller.fifthtry.com".to_string());
         let fastn_instance: String =
-            std::env::var("fastn_INSTANCE_ID").expect("fastn_INSTANCE_ID is required");
+            std::env::var("FASTN_INSTANCE_ID").expect("FASTN_INSTANCE_ID is required");
 
         println!("Resolving dependency");
         match crate::controller::resolve_dependencies(fastn_instance, fastn_controller).await {
@@ -621,5 +621,5 @@ You can try without providing port, it will automatically pick unused port."#,
 }
 
 // cargo install --features controller --path=.
-// fastn_CONTROLLER=http://127.0.0.1:8000 fastn_INSTANCE_ID=12345 fastn serve 8001
+// FASTN_CONTROLLER=http://127.0.0.1:8000 FASTN_INSTANCE_ID=12345 fastn serve 8001
 // TRACING=INFO fastn serve
