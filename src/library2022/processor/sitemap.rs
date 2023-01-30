@@ -35,7 +35,21 @@ pub fn full_sitemap_process<'a>(
     config: &fpm::Config,
 ) -> ftd::interpreter2::Result<ftd::interpreter2::Value> {
     if let Some(ref sitemap) = config.package.sitemap {
-        return doc.from_json(&to_sitemap_compat(sitemap), &kind, value.line_number());
+        let doc_id = config
+            .current_document
+            .clone()
+            .map(|v| fpm::utils::id_to_path(v.as_str()))
+            .unwrap_or_else(|| {
+                doc.name
+                    .to_string()
+                    .replace(config.package.name.as_str(), "")
+            })
+            .trim()
+            .replace(std::path::MAIN_SEPARATOR, "/");
+
+        let s = to_sitemap_compat(sitemap, doc_id.as_str());
+        dbg!(&s);
+        return doc.from_json(&s, &kind, value.line_number());
     }
     doc.from_json(
         &fpm::sitemap::SiteMapCompat::default(),
@@ -102,7 +116,10 @@ pub struct SiteMapCompat {
     writers: Vec<String>,
 }
 
-pub fn to_sitemap_compat(sitemap: &fpm::sitemap::Sitemap) -> fpm::sitemap::SiteMapCompat {
+pub fn to_sitemap_compat(
+    sitemap: &fpm::sitemap::Sitemap,
+    current_document: &str,
+) -> fpm::sitemap::SiteMapCompat {
     use itertools::Itertools;
     fn to_toc_compat(toc_item: &fpm::sitemap::toc::TocItem) -> fpm::sitemap::toc::TocItemCompat {
         let toc_compat = fpm::sitemap::toc::TocItemCompat {
@@ -153,6 +170,7 @@ pub fn to_sitemap_compat(sitemap: &fpm::sitemap::Sitemap) -> fpm::sitemap::SiteM
 
     fn to_section_compat(
         section: &fpm::sitemap::section::Section,
+        current_document: &str,
     ) -> fpm::sitemap::toc::TocItemCompat {
         fpm::sitemap::toc::TocItemCompat {
             url: Some(section.id.to_string()),
@@ -163,7 +181,11 @@ pub fn to_sitemap_compat(sitemap: &fpm::sitemap::Sitemap) -> fpm::sitemap::SiteM
             font_icon: None,
             bury: section.bury,
             extra_data: section.extra_data.to_owned(),
-            is_active: section.is_active,
+            is_active: if fpm::utils::ids_matches(section.id.as_str(), current_document) {
+                true
+            } else {
+                false
+            },
             is_open: false,
             nav_title: section.nav_title.clone(),
             children: section
@@ -180,7 +202,11 @@ pub fn to_sitemap_compat(sitemap: &fpm::sitemap::Sitemap) -> fpm::sitemap::SiteM
     }
 
     fpm::sitemap::SiteMapCompat {
-        sections: sitemap.sections.iter().map(to_section_compat).collect_vec(),
+        sections: sitemap
+            .sections
+            .iter()
+            .map(|s| to_section_compat(s, current_document))
+            .collect_vec(),
         subsections: vec![],
         toc: vec![],
         current_section: None,
