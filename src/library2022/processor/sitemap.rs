@@ -47,9 +47,8 @@ pub fn full_sitemap_process<'a>(
             .trim()
             .replace(std::path::MAIN_SEPARATOR, "/");
 
-        let s = to_sitemap_compat(sitemap, doc_id.as_str());
-        dbg!(&s);
-        return doc.from_json(&s, &kind, value.line_number());
+        let sitemap_compat = to_sitemap_compat(sitemap, doc_id.as_str());
+        return doc.from_json(&sitemap_compat, &kind, value.line_number());
     }
     doc.from_json(
         &fpm::sitemap::SiteMapCompat::default(),
@@ -134,11 +133,7 @@ pub fn to_sitemap_compat(
             font_icon: None,
             bury: toc_item.bury,
             extra_data: toc_item.extra_data.to_owned(),
-            is_active: if fpm::utils::ids_matches(toc_item.id.as_str(), current_document) {
-                true
-            } else {
-                false
-            },
+            is_active: fpm::utils::ids_matches(toc_item.id.as_str(), current_document),
             is_open: false,
             nav_title: toc_item.nav_title.clone(),
             children: toc_item
@@ -168,11 +163,7 @@ pub fn to_sitemap_compat(
             bury: subsection.bury,
             extra_data: subsection.extra_data.to_owned(),
             is_active: if let Some(ref subsection_id) = subsection.id {
-                if fpm::utils::ids_matches(subsection_id.as_str(), current_document) {
-                    true
-                } else {
-                    false
-                }
+                fpm::utils::ids_matches(subsection_id.as_str(), current_document)
             } else {
                 false
             },
@@ -205,16 +196,14 @@ pub fn to_sitemap_compat(
             font_icon: None,
             bury: section.bury,
             extra_data: section.extra_data.to_owned(),
-            is_active: if fpm::utils::ids_matches(section.id.as_str(), current_document) {
-                true
-            } else {
-                false
-            },
+            is_active: fpm::utils::ids_matches(section.id.as_str(), current_document),
             is_open: false,
             nav_title: section.nav_title.clone(),
             children: section
                 .subsections
                 .iter()
+                .filter(|s| !s.skip)
+                .filter(|s| s.visible)
                 .map(|s| to_subsection_compat(s, current_document))
                 .collect_vec(),
             readers: section.readers.clone(),
@@ -229,6 +218,7 @@ pub fn to_sitemap_compat(
         sections: sitemap
             .sections
             .iter()
+            .filter(|s| !s.skip)
             .map(|s| to_section_compat(s, current_document))
             .collect_vec(),
         subsections: vec![],
