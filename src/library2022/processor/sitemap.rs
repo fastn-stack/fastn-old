@@ -121,7 +121,10 @@ pub fn to_sitemap_compat(
     current_document: &str,
 ) -> fpm::sitemap::SiteMapCompat {
     use itertools::Itertools;
-    fn to_toc_compat(toc_item: &fpm::sitemap::toc::TocItem) -> fpm::sitemap::toc::TocItemCompat {
+    fn to_toc_compat(
+        toc_item: &fpm::sitemap::toc::TocItem,
+        current_document: &str,
+    ) -> fpm::sitemap::toc::TocItemCompat {
         let toc_compat = fpm::sitemap::toc::TocItemCompat {
             url: Some(toc_item.id.clone()),
             number: None,
@@ -131,10 +134,18 @@ pub fn to_sitemap_compat(
             font_icon: None,
             bury: toc_item.bury,
             extra_data: toc_item.extra_data.to_owned(),
-            is_active: toc_item.is_active,
+            is_active: if fpm::utils::ids_matches(toc_item.id.as_str(), current_document) {
+                true
+            } else {
+                false
+            },
             is_open: false,
             nav_title: toc_item.nav_title.clone(),
-            children: toc_item.children.iter().map(to_toc_compat).collect_vec(),
+            children: toc_item
+                .children
+                .iter()
+                .map(|t| to_toc_compat(t, current_document))
+                .collect_vec(),
             readers: toc_item.readers.clone(),
             writers: toc_item.writers.clone(),
             is_disabled: false,
@@ -146,6 +157,7 @@ pub fn to_sitemap_compat(
 
     fn to_subsection_compat(
         subsection: &fpm::sitemap::section::Subsection,
+        current_document: &str,
     ) -> fpm::sitemap::toc::TocItemCompat {
         fpm::sitemap::toc::TocItemCompat {
             url: subsection.id.clone(),
@@ -155,11 +167,23 @@ pub fn to_sitemap_compat(
             font_icon: None,
             bury: subsection.bury,
             extra_data: subsection.extra_data.to_owned(),
-            is_active: subsection.is_active,
+            is_active: if let Some(ref subsection_id) = subsection.id {
+                if fpm::utils::ids_matches(subsection_id.as_str(), current_document) {
+                    true
+                } else {
+                    false
+                }
+            } else {
+                false
+            },
             is_open: false,
             image_src: None,
             nav_title: subsection.nav_title.clone(),
-            children: subsection.toc.iter().map(to_toc_compat).collect_vec(),
+            children: subsection
+                .toc
+                .iter()
+                .map(|t| to_toc_compat(t, current_document))
+                .collect_vec(),
             readers: subsection.readers.clone(),
             writers: subsection.writers.clone(),
             number: None,
@@ -191,7 +215,7 @@ pub fn to_sitemap_compat(
             children: section
                 .subsections
                 .iter()
-                .map(to_subsection_compat)
+                .map(|s| to_subsection_compat(s, current_document))
                 .collect_vec(),
             readers: section.readers.clone(),
             writers: section.writers.clone(),

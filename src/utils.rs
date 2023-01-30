@@ -648,6 +648,7 @@ pub(crate) async fn update(root: impl AsRef<camino::Utf8Path>, data: &[u8]) -> f
 }
 
 pub(crate) fn ids_matches(id1: &str, id2: &str) -> bool {
+    dbg!(id1, id2);
     return strip_id(id1).eq(&strip_id(id2));
 
     fn strip_id(id: &str) -> String {
