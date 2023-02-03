@@ -1,3 +1,3 @@
 fn main() {
-    fastn_core::main::main();
+    fastn_core::build::main();
 }
