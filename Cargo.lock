@@ -964,6 +964,7 @@ dependencies = [
  "diffy",
  "edit",
  "env_logger",
+ "fastn_core",
  "fbt-lib",
  "fluent",
  "ftd 0.2.0 (git+https://github.com/ftd-lang/ftd?rev=12425b6)",
@@ -995,6 +996,10 @@ dependencies = [
  "url",
  "zip",
 ]
+
+[[package]]
+name = "fastn_core"
+version = "0.1.0"
 
 [[package]]
 name = "fastrand"

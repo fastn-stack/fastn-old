@@ -79,6 +79,7 @@ tracing-subscriber = "0.3"
 url = "2"
 zip = "0.6"
 env_logger = "0.10.0"
+fastn_core = { version = "0.1.0", path = "../fastn_core" }
 
 
 #wit-bindgen-host-wasmtime-rust = { git = "https://github.com/bytecodealliance/wit-bindgen.git", rev = "45604f58336afaa23a79ed619ef50b69de473688" }
