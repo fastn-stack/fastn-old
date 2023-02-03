@@ -954,6 +954,13 @@ dependencies = [
 name = "fastn"
 version = "0.2.0"
 dependencies = [
+ "fastn-core",
+]
+
+[[package]]
+name = "fastn-core"
+version = "0.1.0"
+dependencies = [
  "actix-web",
  "antidote",
  "async-lock",
@@ -964,7 +971,6 @@ dependencies = [
  "diffy",
  "edit",
  "env_logger",
- "fastn-core",
  "fbt-lib",
  "fluent",
  "ftd 0.2.0 (git+https://github.com/ftd-lang/ftd?rev=12425b6)",
@@ -996,10 +1002,6 @@ dependencies = [
  "url",
  "zip",
 ]
-
-[[package]]
-name = "fastn-core"
-version = "0.1.0"
 
 [[package]]
 name = "fastrand"
