@@ -1,5 +1,5 @@
 [workspace]
 members = [
     "fastn",
-    "fastn_core"
+    "fastn-core"
 ]
