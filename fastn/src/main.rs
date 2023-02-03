@@ -1,3 +1,3 @@
 fn main() {
-    println!("Hey, I am still up!, waiting for you to fix me");
+    fastn_core::main::main();
 }

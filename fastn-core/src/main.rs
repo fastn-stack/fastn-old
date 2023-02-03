@@ -1,4 +1,4 @@
-fn main() {
+pub fn main() {
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
