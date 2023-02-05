@@ -2,7 +2,6 @@ extern crate self as fastn_core;
 
 #[macro_use]
 pub mod utils;
-pub mod build;
 mod apis;
 mod auto_import;
 mod cache;
