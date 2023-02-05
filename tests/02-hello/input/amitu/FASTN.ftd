@@ -1,5 +1,5 @@
--- import: fpm
+-- import: fastn
 
--- fpm.package: www.amitu.com
+-- fastn.package: www.amitu.com
 download-base-url: amitu
 canonical-url: https://some-other-site.com/
