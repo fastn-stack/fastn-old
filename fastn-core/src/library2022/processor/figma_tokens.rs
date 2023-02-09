@@ -8,7 +8,6 @@ pub fn process_figma_tokens<'a>(
 ) -> ftd::interpreter2::Result<ftd::interpreter2::Value> {
     let line_number = value.line_number();
 
-    // let mut color_cs: ColorScheme = ColorScheme::default();
     let mut light_colors: ftd::Map<ftd::Map<VT>> = ftd::Map::new();
     let mut dark_colors: ftd::Map<ftd::Map<VT>> = ftd::Map::new();
 
@@ -70,7 +69,6 @@ pub fn process_figma_tokens<'a>(
                                     )?;
                                 }
                             }
-                            // dbg!(&k, &field_value);
                         }
                         light_colors
                             .insert("Standalone Colors".to_string(), standalone_light_colors);
@@ -80,16 +78,11 @@ pub fn process_figma_tokens<'a>(
             }
         }
     }
-    // dbg!(&light_colors);
-    // dbg!(&dark_colors);
-
-    let _data = "abc".to_string();
-
-    // let json_string = serde_json::to_string(&colors).expect("Not a serializable type");
     let json_formatted_light =
         serde_json::to_string_pretty(&light_colors).expect("Not a serializable type");
     let json_formatted_dark =
         serde_json::to_string_pretty(&dark_colors).expect("Not a serializable type");
+
     let full_cs = format!(
         "{{\n\"{}-light\": {},\n\"{}-dark\": {}\n}}",
         variable_name.as_str(),
@@ -97,14 +90,8 @@ pub fn process_figma_tokens<'a>(
         variable_name.as_str(),
         json_formatted_dark
     );
-    println!("LIGHT CS: {}", json_formatted_light.as_str());
-    println!("DARK CS: {}", json_formatted_dark.as_str());
-    println!("FULL CS: \n{}", full_cs.as_str());
 
     let response_json: serde_json::Value = serde_json::Value::String(full_cs);
-
-    // println!("{:?}", &response_json);
-
     doc.from_json(&response_json, &kind, line_number)
 }
 
@@ -116,7 +103,6 @@ pub fn process_figma_tokens_old<'a>(
 ) -> ftd::interpreter2::Result<ftd::interpreter2::Value> {
     let line_number = value.line_number();
 
-    // let mut color_cs: ColorScheme = ColorScheme::default();
     let mut light_colors: ftd::Map<ftd::Map<VT>> = ftd::Map::new();
     let mut dark_colors: ftd::Map<ftd::Map<VT>> = ftd::Map::new();
 
@@ -238,10 +224,6 @@ pub fn process_figma_tokens_old<'a>(
         );
     }
 
-    println!("LIGHT\n{:?}", &final_light);
-    println!("DARK\n{:?}", &final_dark);
-
-    // let json_string = serde_json::to_string(&colors).expect("Not a serializable type");
     let json_formatted_light = final_light;
     let json_formatted_dark = final_dark;
 
@@ -252,15 +234,8 @@ pub fn process_figma_tokens_old<'a>(
         variable_name.as_str(),
         json_formatted_dark
     );
-    // println!("LIGHT CS: {}", json_formatted_light.as_str());
-    // println!("DARK CS: {}", json_formatted_dark.as_str());
-    // println!("FULL CS: \n{}", full_cs.as_str());
-    println!("MERGED:\n{:?}", full_cs.as_str());
 
     let response_json: serde_json::Value = serde_json::Value::String(full_cs);
-
-    println!("{:?}", &response_json);
-
     doc.from_json(&response_json, &kind, line_number)
 }
 
