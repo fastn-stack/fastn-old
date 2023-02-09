@@ -1,0 +1,413 @@
+use serde::{Deserialize, Serialize};
+
+pub fn process_figma_tokens<'a>(
+    value: ftd::ast::VariableValue,
+    kind: ftd::interpreter2::Kind,
+    doc: &mut ftd::interpreter2::TDoc<'a>,
+    _config: &fastn_core::Config,
+) -> ftd::interpreter2::Result<ftd::interpreter2::Value> {
+    let line_number = value.line_number();
+
+    // let mut color_cs: ColorScheme = ColorScheme::default();
+    let mut light_colors: ftd::Map<ftd::Map<VT>> = ftd::Map::new();
+    let mut dark_colors: ftd::Map<ftd::Map<VT>> = ftd::Map::new();
+
+    // let property_value = ftd::interpreter2::PropertyValue::from_ast_value(value, doc, false, None)?;
+    // if let ftd::interpreter2::StateWithThing::Thing(v) = property_value {
+    //     dbg!(&v);
+    // }
+
+    let mut variable_name: String = "Unnamed-cs".to_string();
+
+    if let ftd::ast::VariableValue::Record { headers, .. } = &value {
+        let header = headers.get_by_key_optional("variable", doc.name, line_number)?;
+        if let Some(variable) = header {
+            if let ftd::ast::VariableValue::String { value: hval, .. } = &variable.value {
+                variable_name = hval.trim_start_matches("$").to_string();
+                let bag_entry = doc.resolve_name(hval);
+                let bag_thing = doc.bag().get(bag_entry.as_str());
+
+                if let Some(ftd::interpreter2::Thing::Variable(v)) = bag_thing {
+                    let property_value = &v.value;
+
+                    if let ftd::interpreter2::PropertyValue::Value { value, .. } = property_value {
+                        if let ftd::interpreter2::Value::Record { fields, .. } = value {
+                            let mut standalone_light_colors: ftd::Map<VT> = ftd::Map::new();
+                            let mut standalone_dark_colors: ftd::Map<VT> = ftd::Map::new();
+
+                            for (k, v) in fields.iter() {
+                                let field_value = v.clone().resolve(doc, v.line_number())?;
+                                let color_title = format!(
+                                    "{} Colors",
+                                    capitalize_word(k.replace("-", " ").as_str())
+                                );
+                                match k.as_str() {
+                                    "accent" | "background" | "custom" | "cta-danger"
+                                    | "cta-primary" | "cta-tertiary" | "cta-secondary"
+                                    | "error" | "info" | "success" | "warning" => {
+                                        let mut extracted_light_colors: ftd::Map<VT> =
+                                            ftd::Map::new();
+                                        let mut extracted_dark_colors: ftd::Map<VT> =
+                                            ftd::Map::new();
+                                        extract_colors(
+                                            k.to_string(),
+                                            &field_value,
+                                            &doc,
+                                            &mut extracted_light_colors,
+                                            &mut extracted_dark_colors,
+                                        )?;
+                                        light_colors
+                                            .insert(color_title.clone(), extracted_light_colors);
+                                        dark_colors.insert(color_title, extracted_dark_colors);
+                                    }
+                                    _ => {
+                                        // Standalone colors
+                                        extract_colors(
+                                            k.to_string(),
+                                            &field_value,
+                                            &doc,
+                                            &mut standalone_light_colors,
+                                            &mut standalone_dark_colors,
+                                        )?;
+                                    }
+                                }
+                                // dbg!(&k, &field_value);
+                            }
+                            light_colors
+                                .insert("Standalone Colors".to_string(), standalone_light_colors);
+                            dark_colors
+                                .insert("Standalone Colors".to_string(), standalone_dark_colors);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    // dbg!(&light_colors);
+    // dbg!(&dark_colors);
+
+    let _data = "abc".to_string();
+
+    // let json_string = serde_json::to_string(&colors).expect("Not a serializable type");
+    let json_formatted_light =
+        serde_json::to_string_pretty(&light_colors).expect("Not a serializable type");
+    let json_formatted_dark =
+        serde_json::to_string_pretty(&dark_colors).expect("Not a serializable type");
+    let full_cs = format!(
+        "{{\n\"{}-light\": {},\n\"{}-dark\": {}\n}}",
+        variable_name.as_str(),
+        json_formatted_light,
+        variable_name.as_str(),
+        json_formatted_dark
+    );
+    println!("LIGHT CS: {}", json_formatted_light.as_str());
+    println!("DARK CS: {}", json_formatted_dark.as_str());
+    println!("FULL CS: \n{}", full_cs.as_str());
+
+    let response_json: serde_json::Value = serde_json::Value::String(full_cs);
+
+    // println!("{:?}", &response_json);
+
+    doc.from_json(&response_json, &kind, line_number)
+}
+
+pub fn process_figma_tokens_old<'a>(
+    value: ftd::ast::VariableValue,
+    kind: ftd::interpreter2::Kind,
+    doc: &mut ftd::interpreter2::TDoc<'a>,
+    _config: &fastn_core::Config,
+) -> ftd::interpreter2::Result<ftd::interpreter2::Value> {
+    let line_number = value.line_number();
+
+    // let mut color_cs: ColorScheme = ColorScheme::default();
+    let mut light_colors: ftd::Map<ftd::Map<VT>> = ftd::Map::new();
+    let mut dark_colors: ftd::Map<ftd::Map<VT>> = ftd::Map::new();
+
+    let mut variable_name: String = "Unnamed-cs".to_string();
+
+    if let ftd::ast::VariableValue::Record { headers, .. } = &value {
+        let header = headers.get_by_key_optional("variable", doc.name, line_number)?;
+        if let Some(variable) = header {
+            if let ftd::ast::VariableValue::String { value: hval, .. } = &variable.value {
+                variable_name = hval.trim_start_matches("$").to_string();
+                let bag_entry = doc.resolve_name(hval);
+                let bag_thing = doc.bag().get(bag_entry.as_str());
+
+                if let Some(ftd::interpreter2::Thing::Variable(v)) = bag_thing {
+                    let property_value = &v.value;
+
+                    if let ftd::interpreter2::PropertyValue::Value { value, .. } = property_value {
+                        if let ftd::interpreter2::Value::Record { fields, .. } = value {
+                            let mut standalone_light_colors: ftd::Map<VT> = ftd::Map::new();
+                            let mut standalone_dark_colors: ftd::Map<VT> = ftd::Map::new();
+
+                            for (k, v) in fields.iter() {
+                                let field_value = v.clone().resolve(doc, v.line_number())?;
+                                let color_title = format!(
+                                    "{} Colors",
+                                    capitalize_word(k.replace("-", " ").as_str())
+                                );
+                                match k.as_str() {
+                                    "accent" | "background" | "custom" | "cta-danger"
+                                    | "cta-primary" | "cta-tertiary" | "cta-secondary"
+                                    | "error" | "info" | "success" | "warning" => {
+                                        let mut extracted_light_colors: ftd::Map<VT> =
+                                            ftd::Map::new();
+                                        let mut extracted_dark_colors: ftd::Map<VT> =
+                                            ftd::Map::new();
+                                        extract_colors(
+                                            k.to_string(),
+                                            &field_value,
+                                            &doc,
+                                            &mut extracted_light_colors,
+                                            &mut extracted_dark_colors,
+                                        )?;
+                                        light_colors
+                                            .insert(color_title.clone(), extracted_light_colors);
+                                        dark_colors.insert(color_title, extracted_dark_colors);
+                                    }
+                                    _ => {
+                                        // Standalone colors
+                                        extract_colors(
+                                            k.to_string(),
+                                            &field_value,
+                                            &doc,
+                                            &mut standalone_light_colors,
+                                            &mut standalone_dark_colors,
+                                        )?;
+                                    }
+                                }
+                            }
+                            light_colors
+                                .insert("Standalone Colors".to_string(), standalone_light_colors);
+                            dark_colors
+                                .insert("Standalone Colors".to_string(), standalone_dark_colors);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    let mut final_light: String = String::new();
+    let mut final_dark: String = String::new();
+
+    for (color_title, values) in light_colors.iter() {
+        let color_key = color_title
+            .trim_end_matches(" Colors")
+            .to_lowercase()
+            .replace(" ", "-");
+        let json_string_light_values =
+            serde_json::to_string(&values).expect("Not a serializable type");
+        final_light = format!(
+            indoc::indoc! {"
+                {previous}\n\"{color_title}\": {{
+                    \"$fpm\": {{
+                        \"colors\": {{
+                            \"main\": {{
+                                \"{color_key}\": {color_list}
+                            }}
+                        }}
+                    }}
+                }},
+            "},
+            previous = final_light,
+            color_key = color_key,
+            color_title = color_title,
+            color_list = json_string_light_values,
+        );
+    }
+
+    for (color_title, values) in dark_colors.iter() {
+        let color_key = color_title
+            .trim_end_matches(" Colors")
+            .to_lowercase()
+            .replace(" ", "-");
+        let json_string_dark_values =
+            serde_json::to_string(&values).expect("Not a serializable type");
+        final_dark = format!(
+            indoc::indoc! {"
+                {previous}\n\"{color_title}\": {{
+                    \"$fpm\": {{
+                        \"colors\": {{
+                            \"main\": {{
+                                \"{color_key}\": {color_list}
+                            }}
+                        }}
+                    }}
+                }},
+            "},
+            previous = final_dark,
+            color_key = color_key,
+            color_title = color_title,
+            color_list = json_string_dark_values,
+        );
+    }
+
+    println!("LIGHT\n{:?}", &final_light);
+    println!("DARK\n{:?}", &final_dark);
+
+    // let json_string = serde_json::to_string(&colors).expect("Not a serializable type");
+    let json_formatted_light = final_light;
+    let json_formatted_dark = final_dark;
+
+    let full_cs = format!(
+        "{{\n\"{}-light\": {{\n{}\n}},\n\"{}-dark\": {{\n{}\n}} \n}}",
+        variable_name.as_str(),
+        json_formatted_light,
+        variable_name.as_str(),
+        json_formatted_dark
+    );
+    // println!("LIGHT CS: {}", json_formatted_light.as_str());
+    // println!("DARK CS: {}", json_formatted_dark.as_str());
+    // println!("FULL CS: \n{}", full_cs.as_str());
+    println!("MERGED:\n{:?}", full_cs.as_str());
+
+    let response_json: serde_json::Value = serde_json::Value::String(full_cs_1);
+
+    println!("{:?}", &response_json);
+
+    doc.from_json(&response_json, &kind, line_number)
+}
+
+pub fn capitalize_word(s: &str) -> String {
+    let mut c = s.chars();
+    match c.next() {
+        None => String::new(),
+        Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
+    }
+}
+
+fn extract_colors<'a>(
+    color_name: String,
+    color_value: &ftd::interpreter2::Value,
+    doc: &ftd::interpreter2::TDoc<'a>,
+    extracted_light_colors: &mut ftd::Map<VT>,
+    extracted_dark_colors: &mut ftd::Map<VT>,
+) -> ftd::interpreter2::Result<()> {
+    if let ftd::interpreter2::Value::Record { fields, .. } = color_value {
+        if color_value.is_record("ftd#color") {
+            if let Some(ftd::interpreter2::PropertyValue::Value {
+                value: ftd::interpreter2::Value::String { text: light_value },
+                ..
+            }) = fields.get("light")
+            {
+                extracted_light_colors.insert(
+                    color_name.to_string(),
+                    VT {
+                        value: light_value.clone(),
+                        type_: "color".to_string(),
+                    },
+                );
+            }
+            if let Some(ftd::interpreter2::PropertyValue::Value {
+                value: ftd::interpreter2::Value::String { text: dark_value },
+                ..
+            }) = fields.get("dark")
+            {
+                extracted_dark_colors.insert(
+                    color_name,
+                    VT {
+                        value: dark_value.clone(),
+                        type_: "color".to_string(),
+                    },
+                );
+            }
+        } else {
+            for (k, v) in fields.iter() {
+                let inner_field_value = v.clone().resolve(doc, v.line_number())?;
+                extract_colors(
+                    k.to_string(),
+                    &inner_field_value,
+                    doc,
+                    extracted_light_colors,
+                    extracted_dark_colors,
+                )?;
+            }
+        }
+    }
+    Ok(())
+}
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+struct ColorScheme {
+    #[serde(rename = "Custom Colors")]
+    custom: CustomList,
+    #[serde(rename = "Background Colors")]
+    background: BackgroundList,
+    #[serde(rename = "Standalone Colors")]
+    standalone: ftd::Map<VT>,
+    #[serde(rename = "Warning Colors")]
+    warning: WarningList,
+    #[serde(rename = "Info Colors")]
+    info: InfoList,
+    #[serde(rename = "Success Colors")]
+    success: SuccessList,
+    #[serde(rename = "Error Colors")]
+    error: ErrorList,
+    #[serde(rename = "CTA Danger Colors")]
+    cta_danger: CDangerList,
+    #[serde(rename = "CTA Secondary Colors")]
+    cta_secondary: CSecondaryList,
+    #[serde(rename = "CTA Primary Colors")]
+    cta_primary: CPrimaryList,
+    #[serde(rename = "Accent Colors")]
+    accent: AccentList,
+}
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+struct CustomList {
+    custom: ftd::Map<VT>,
+}
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+struct BackgroundList {
+    background: ftd::Map<VT>,
+}
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+struct WarningList {
+    warning: ftd::Map<VT>,
+}
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+struct InfoList {
+    info: ftd::Map<VT>,
+}
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+struct SuccessList {
+    success: ftd::Map<VT>,
+}
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+struct ErrorList {
+    error: ftd::Map<VT>,
+}
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+struct CDangerList {
+    cta_danger: ftd::Map<VT>,
+}
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+struct CSecondaryList {
+    cta_secondary: ftd::Map<VT>,
+}
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+struct CPrimaryList {
+    cta_primary: ftd::Map<VT>,
+}
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+struct AccentList {
+    accent: ftd::Map<VT>,
+}
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+struct VT {
+    value: String,
+    #[serde(rename = "type")]
+    type_: String,
+}

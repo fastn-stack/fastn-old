@@ -31,7 +31,8 @@ boolean is-active: false
 boolean is-open: false
 toc-item list children:
 
-
+-- record figma-token:
+string data:
 
 -- record sitemap-data:
 toc-item list sections:

@@ -205,9 +205,13 @@ pub async fn interpret_helper<'a>(
                 )?;
                 let line_number = ast.line_number();
                 let value = lib
-                    .process(ast, processor, &mut state.tdoc(doc.as_str(), line_number)?)
+                    .process(
+                        ast.clone(),
+                        processor,
+                        &mut state.tdoc(doc.as_str(), line_number)?,
+                    )
                     .await?;
-                s = state.continue_after_processor(value)?;
+                s = state.continue_after_processor(value, ast)?;
             }
             ftd::interpreter2::Interpreter::StuckOnForeignVariable {
                 state,
@@ -386,6 +390,8 @@ pub async fn resolve_import_2022<'a>(
             fastn_core::processor_ftd().to_string(),
             vec![],
             vec![
+                "figma-cs-token".to_string(),
+                "figma-cs-token-old".to_string(),
                 "http".to_string(),
                 "get-data".to_string(),
                 "toc".to_string(),
@@ -445,6 +451,8 @@ pub async fn resolve_import_2022<'a>(
             content,
             vec![],
             vec![
+                "figma-cs-token".to_string(),
+                "figma-cs-token-old".to_string(),
                 "http".to_string(),
                 "package-query".to_string(),
                 "toc".to_string(),
