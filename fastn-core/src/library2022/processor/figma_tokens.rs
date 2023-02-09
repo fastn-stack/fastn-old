@@ -7,77 +7,20 @@ pub fn process_figma_tokens<'a>(
     _config: &fastn_core::Config,
 ) -> ftd::interpreter2::Result<ftd::interpreter2::Value> {
     let line_number = value.line_number();
+    let mut variable_name: String = "Unnamed-cs".to_string();
 
     let mut light_colors: ftd::Map<ftd::Map<VT>> = ftd::Map::new();
     let mut dark_colors: ftd::Map<ftd::Map<VT>> = ftd::Map::new();
 
-    // let property_value = ftd::interpreter2::PropertyValue::from_ast_value(value, doc, false, None)?;
-    // if let ftd::interpreter2::StateWithThing::Thing(v) = property_value {
-    //     dbg!(&v);
-    // }
+    extract_light_dark_colors(
+        value,
+        doc,
+        &mut variable_name,
+        &mut light_colors,
+        &mut dark_colors,
+        line_number,
+    )?;
 
-    let mut variable_name: String = "Unnamed-cs".to_string();
-
-    if let ftd::ast::VariableValue::Record { headers, .. } = &value {
-        let header = headers.get_by_key_optional("variable", doc.name, line_number)?;
-        if let Some(variable) = header {
-            if let ftd::ast::VariableValue::String { value: hval, .. } = &variable.value {
-                variable_name = hval.trim_start_matches('$').to_string();
-                let bag_entry = doc.resolve_name(hval);
-                let bag_thing = doc.bag().get(bag_entry.as_str());
-
-                if let Some(ftd::interpreter2::Thing::Variable(v)) = bag_thing {
-                    let property_value = &v.value;
-
-                    if let ftd::interpreter2::PropertyValue::Value {
-                        value: ftd::interpreter2::Value::Record { fields, .. },
-                        ..
-                    } = property_value
-                    {
-                        let mut standalone_light_colors: ftd::Map<VT> = ftd::Map::new();
-                        let mut standalone_dark_colors: ftd::Map<VT> = ftd::Map::new();
-
-                        for (k, v) in fields.iter() {
-                            let field_value = v.clone().resolve(doc, v.line_number())?;
-                            let color_title =
-                                format!("{} Colors", capitalize_word(k.replace('-', " ").as_str()));
-                            match k.as_str() {
-                                "accent" | "background" | "custom" | "cta-danger"
-                                | "cta-primary" | "cta-tertiary" | "cta-secondary" | "error"
-                                | "info" | "success" | "warning" => {
-                                    let mut extracted_light_colors: ftd::Map<VT> = ftd::Map::new();
-                                    let mut extracted_dark_colors: ftd::Map<VT> = ftd::Map::new();
-                                    extract_colors(
-                                        k.to_string(),
-                                        &field_value,
-                                        doc,
-                                        &mut extracted_light_colors,
-                                        &mut extracted_dark_colors,
-                                    )?;
-                                    light_colors
-                                        .insert(color_title.clone(), extracted_light_colors);
-                                    dark_colors.insert(color_title, extracted_dark_colors);
-                                }
-                                _ => {
-                                    // Standalone colors
-                                    extract_colors(
-                                        k.to_string(),
-                                        &field_value,
-                                        doc,
-                                        &mut standalone_light_colors,
-                                        &mut standalone_dark_colors,
-                                    )?;
-                                }
-                            }
-                        }
-                        light_colors
-                            .insert("Standalone Colors".to_string(), standalone_light_colors);
-                        dark_colors.insert("Standalone Colors".to_string(), standalone_dark_colors);
-                    }
-                }
-            }
-        }
-    }
     let json_formatted_light =
         serde_json::to_string_pretty(&light_colors).expect("Not a serializable type");
     let json_formatted_dark =
@@ -102,72 +45,19 @@ pub fn process_figma_tokens_old<'a>(
     _config: &fastn_core::Config,
 ) -> ftd::interpreter2::Result<ftd::interpreter2::Value> {
     let line_number = value.line_number();
+    let mut variable_name: String = "Unnamed-cs".to_string();
 
     let mut light_colors: ftd::Map<ftd::Map<VT>> = ftd::Map::new();
     let mut dark_colors: ftd::Map<ftd::Map<VT>> = ftd::Map::new();
 
-    let mut variable_name: String = "Unnamed-cs".to_string();
-
-    if let ftd::ast::VariableValue::Record { headers, .. } = &value {
-        let header = headers.get_by_key_optional("variable", doc.name, line_number)?;
-        if let Some(variable) = header {
-            if let ftd::ast::VariableValue::String { value: hval, .. } = &variable.value {
-                variable_name = hval.trim_start_matches('$').to_string();
-                let bag_entry = doc.resolve_name(hval);
-                let bag_thing = doc.bag().get(bag_entry.as_str());
-
-                if let Some(ftd::interpreter2::Thing::Variable(v)) = bag_thing {
-                    let property_value = &v.value;
-
-                    if let ftd::interpreter2::PropertyValue::Value {
-                        value: ftd::interpreter2::Value::Record { fields, .. },
-                        ..
-                    } = property_value
-                    {
-                        let mut standalone_light_colors: ftd::Map<VT> = ftd::Map::new();
-                        let mut standalone_dark_colors: ftd::Map<VT> = ftd::Map::new();
-
-                        for (k, v) in fields.iter() {
-                            let field_value = v.clone().resolve(doc, v.line_number())?;
-                            let color_title =
-                                format!("{} Colors", capitalize_word(k.replace('-', " ").as_str()));
-                            match k.as_str() {
-                                "accent" | "background" | "custom" | "cta-danger"
-                                | "cta-primary" | "cta-tertiary" | "cta-secondary" | "error"
-                                | "info" | "success" | "warning" => {
-                                    let mut extracted_light_colors: ftd::Map<VT> = ftd::Map::new();
-                                    let mut extracted_dark_colors: ftd::Map<VT> = ftd::Map::new();
-                                    extract_colors(
-                                        k.to_string(),
-                                        &field_value,
-                                        doc,
-                                        &mut extracted_light_colors,
-                                        &mut extracted_dark_colors,
-                                    )?;
-                                    light_colors
-                                        .insert(color_title.clone(), extracted_light_colors);
-                                    dark_colors.insert(color_title, extracted_dark_colors);
-                                }
-                                _ => {
-                                    // Standalone colors
-                                    extract_colors(
-                                        k.to_string(),
-                                        &field_value,
-                                        doc,
-                                        &mut standalone_light_colors,
-                                        &mut standalone_dark_colors,
-                                    )?;
-                                }
-                            }
-                        }
-                        light_colors
-                            .insert("Standalone Colors".to_string(), standalone_light_colors);
-                        dark_colors.insert("Standalone Colors".to_string(), standalone_dark_colors);
-                    }
-                }
-            }
-        }
-    }
+    extract_light_dark_colors(
+        value,
+        doc,
+        &mut variable_name,
+        &mut light_colors,
+        &mut dark_colors,
+        line_number,
+    )?;
 
     let mut final_light: String = String::new();
     let mut final_dark: String = String::new();
@@ -245,6 +135,77 @@ pub fn capitalize_word(s: &str) -> String {
         None => String::new(),
         Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
     }
+}
+
+fn extract_light_dark_colors<'a>(
+    value: ftd::ast::VariableValue,
+    doc: &mut ftd::interpreter2::TDoc<'a>,
+    variable_name: &mut String,
+    light_colors: &mut ftd::Map<ftd::Map<VT>>,
+    dark_colors: &mut ftd::Map<ftd::Map<VT>>,
+    line_number: usize,
+) -> ftd::interpreter2::Result<()> {
+    if let ftd::ast::VariableValue::Record { headers, .. } = &value {
+        let header = headers.get_by_key_optional("variable", doc.name, line_number)?;
+        if let Some(variable) = header {
+            if let ftd::ast::VariableValue::String { value: hval, .. } = &variable.value {
+                *variable_name = hval.trim_start_matches('$').to_string();
+                let bag_entry = doc.resolve_name(hval);
+                let bag_thing = doc.bag().get(bag_entry.as_str());
+
+                if let Some(ftd::interpreter2::Thing::Variable(v)) = bag_thing {
+                    let property_value = &v.value;
+
+                    if let ftd::interpreter2::PropertyValue::Value {
+                        value: ftd::interpreter2::Value::Record { fields, .. },
+                        ..
+                    } = property_value
+                    {
+                        let mut standalone_light_colors: ftd::Map<VT> = ftd::Map::new();
+                        let mut standalone_dark_colors: ftd::Map<VT> = ftd::Map::new();
+
+                        for (k, v) in fields.iter() {
+                            let field_value = v.clone().resolve(doc, v.line_number())?;
+                            let color_title =
+                                format!("{} Colors", capitalize_word(k.replace('-', " ").as_str()));
+                            match k.as_str() {
+                                "accent" | "background" | "custom" | "cta-danger"
+                                | "cta-primary" | "cta-tertiary" | "cta-secondary" | "error"
+                                | "info" | "success" | "warning" => {
+                                    let mut extracted_light_colors: ftd::Map<VT> = ftd::Map::new();
+                                    let mut extracted_dark_colors: ftd::Map<VT> = ftd::Map::new();
+                                    extract_colors(
+                                        k.to_string(),
+                                        &field_value,
+                                        doc,
+                                        &mut extracted_light_colors,
+                                        &mut extracted_dark_colors,
+                                    )?;
+                                    light_colors
+                                        .insert(color_title.clone(), extracted_light_colors);
+                                    dark_colors.insert(color_title, extracted_dark_colors);
+                                }
+                                _ => {
+                                    // Standalone colors
+                                    extract_colors(
+                                        k.to_string(),
+                                        &field_value,
+                                        doc,
+                                        &mut standalone_light_colors,
+                                        &mut standalone_dark_colors,
+                                    )?;
+                                }
+                            }
+                        }
+                        light_colors
+                            .insert("Standalone Colors".to_string(), standalone_light_colors);
+                        dark_colors.insert("Standalone Colors".to_string(), standalone_dark_colors);
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
 }
 
 fn extract_colors<'a>(
