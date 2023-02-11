@@ -69,20 +69,65 @@ pub fn process_figma_tokens_old<'a>(
             .replace(' ', "-");
         let json_string_light_values =
             serde_json::to_string_pretty(&values).expect("Not a serializable type");
-        println!("light values:\n{}",json_string_light_values.as_str());
-        final_light = format!(
-            indoc::indoc! {
+
+        match color_key.as_str() {
+            "accent" | "cta-primary" => {
+                final_light = format!(
+                    indoc::indoc! {
                 "{previous}\"{color_title}\": {{
                 \"$fpm\": {{
-                \"colors\": {{
+                \"color\": {{
+                \"{color_key}\": {color_list}
+                }}}}}},\n"},
+                    previous = final_light,
+                    color_key = color_key,
+                    color_title = color_title,
+                    color_list = json_string_light_values,
+                );
+            },
+            "cta-secondary" => {
+                final_light = format!(
+                    indoc::indoc! {
+                "{previous}\"{color_title}\": {{
+                \"$fpm\": {{
+                \"color\": {{
+                \"{color_key}\": {color_list}
+                }}}}}},\n"},
+                    previous = final_light,
+                    color_key = color_key,
+                    color_title = color_title.trim_end_matches("s"),
+                    color_list = json_string_light_values,
+                );
+            }
+            "standalone" => {
+                final_light = format!(
+                    indoc::indoc! {
+                "{previous}\"{color_title}\": {{
+                \"$fpm\": {{
+                \"color\": {{
+                \"main\": {color_list}
+                }}}}}},\n"},
+                    previous = final_light,
+                    color_title = color_title,
+                    color_list = json_string_light_values,
+                );
+            },
+            _ => {
+                final_light = format!(
+                    indoc::indoc! {
+                "{previous}\"{color_title}\": {{
+                \"$fpm\": {{
+                \"color\": {{
                 \"main\": {{
                 \"{color_key}\": {color_list}
                 }}}}}}}},\n"},
-            previous = final_light,
-            color_key = color_key,
-            color_title = color_title,
-            color_list = json_string_light_values,
-        );
+                    previous = final_light,
+                    color_key = color_key,
+                    color_title = color_title,
+                    color_list = json_string_light_values,
+                );
+            }
+        }
     }
 
     for (color_title, values) in dark_colors.iter() {
@@ -92,30 +137,73 @@ pub fn process_figma_tokens_old<'a>(
             .replace(' ', "-");
         let json_string_dark_values =
             serde_json::to_string_pretty(&values).expect("Not a serializable type");
-        final_dark = format!(
-            indoc::indoc! {
+
+        match color_key.as_str() {
+            "accent" | "cta-primary" => {
+                final_dark = format!(
+                    indoc::indoc! {
                 "{previous}\"{color_title}\": {{
-                    \"$fpm\": {{
-                        \"colors\": {{
-                            \"main\": {{
-                                \"{color_key}\":
-                                    {color_list}
-                            }}
-                        }}
-                    }}
-                }},\n"},
-            previous = final_dark,
-            color_key = color_key,
-            color_title = color_title,
-            color_list = json_string_dark_values,
-        );
+                \"$fpm\": {{
+                \"color\": {{
+                \"{color_key}\": {color_list}
+                }}}}}},\n"},
+                    previous = final_dark,
+                    color_key = color_key,
+                    color_title = color_title,
+                    color_list = json_string_dark_values,
+                );
+            },
+            "cta-secondary" => {
+                final_dark = format!(
+                    indoc::indoc! {
+                "{previous}\"{color_title}\": {{
+                \"$fpm\": {{
+                \"color\": {{
+                \"{color_key}\": {color_list}
+                }}}}}},\n"},
+                    previous = final_dark,
+                    color_key = color_key,
+                    color_title = color_title.trim_end_matches("s"),
+                    color_list = json_string_dark_values,
+                );
+            }
+            "standalone" => {
+                final_dark = format!(
+                    indoc::indoc! {
+                "{previous}\"{color_title}\": {{
+                \"$fpm\": {{
+                \"color\": {{
+                \"main\": {color_list}
+                }}}}}},\n"},
+                    previous = final_dark,
+                    color_title = color_title,
+                    color_list = json_string_dark_values,
+                );
+            },
+            _ => {
+                final_dark = format!(
+                    indoc::indoc! {
+                "{previous}\"{color_title}\": {{
+                \"$fpm\": {{
+                \"color\": {{
+                \"main\": {{
+                \"{color_key}\": {color_list}
+                }}}}}}}},\n"},
+                    previous = final_dark,
+                    color_key = color_key,
+                    color_title = color_title,
+                    color_list = json_string_dark_values,
+                );
+            }
+        }
     }
 
-    let json_formatted_light = final_light;
-    let json_formatted_dark = final_dark;
+    let json_formatted_light = final_light.trim_end_matches(",\n").to_string();
+    let json_formatted_dark = final_dark.trim_end_matches(",\n").to_string();
+
 
     let full_cs = format!(
-        "{{\n\"{}-light\": {{\n{}\n}},\n\"{}-dark\": {{\n{}\n}}\n}}",
+        "{{\n\"{} light\": {{\n{}\n}},\n\"{} dark\": {{\n{}\n}}\n}}",
         variable_name.clone().unwrap_or_else(|| "Unnamed-cs".to_string()).as_str(),
         json_formatted_light,
         variable_name.unwrap_or_else(|| "Unnamed-cs".to_string()).as_str(),
@@ -178,8 +266,7 @@ fn extract_light_dark_colors<'a>(
 
                             for (k, v) in fields.iter() {
                                 let field_value = v.clone().resolve(doc, v.line_number())?;
-                                let color_title =
-                                    format!("{} Colors", capitalize_word(k.replace('-', " ").as_str()));
+                                let color_title = format_color_title(k.as_str());
                                 match k.as_str() {
                                     "accent" | "background" | "custom" | "cta-danger"
                                     | "cta-primary" | "cta-tertiary" | "cta-secondary" | "error"
@@ -226,6 +313,21 @@ fn extract_light_dark_colors<'a>(
     Ok(())
 }
 
+fn format_color_title(title: &str) -> String {
+    let mut words = title.split("-");
+    let mut res = String::new();
+    while let Some(word) = words.next() {
+        let mut capitalized_word = capitalize_word(word);
+        if capitalized_word.eq("Cta") {
+            capitalized_word = capitalized_word.to_uppercase();
+        }
+        res.push_str(capitalized_word.as_str());
+        res.push(' ')
+    }
+    res.push_str("Colors");
+    res.trim().to_string()
+}
+
 fn extract_colors<'a>(
     color_name: String,
     color_value: &ftd::interpreter2::Value,
@@ -243,7 +345,7 @@ fn extract_colors<'a>(
                 extracted_light_colors.insert(
                     color_name.to_string(),
                     VT {
-                        value: light_value.clone(),
+                        value: light_value.to_lowercase().clone(),
                         type_: "color".to_string(),
                     },
                 );
@@ -256,7 +358,7 @@ fn extract_colors<'a>(
                 extracted_dark_colors.insert(
                     color_name,
                     VT {
-                        value: dark_value.clone(),
+                        value: dark_value.to_lowercase().clone(),
                         type_: "color".to_string(),
                     },
                 );
