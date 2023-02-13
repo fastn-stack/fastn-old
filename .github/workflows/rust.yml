@@ -44,3 +44,4 @@ jobs:
         continue-on-error: true
         run: |
           ls -al
+          ls /home/runner/work/fastn/fastn/fastn-core/ 
