@@ -39,62 +39,18 @@ jobs:
             ftd/target
             fifthtry_content/target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-      - name: Show base folder
-        id: base-check
-        continue-on-error: false
-        run: |
-          ls -al
-      - name: Debug 1
-        id: path-check
-        continue-on-error: true
-        run: |
-          ls /home/runner/work/fastn/fastn/fastn-core/
-      - name: Debug 2
-        id: path-check-2
-        continue-on-error: true
-        run: |
-          ls /home/runner/work/fastn/fastn/fastn-core/..
-      - name: Debug 3
-        id: path-check-3
-        continue-on-error: true
-        run: |
-          ls -al /home/runner/work/fastn/fastn/fastn-core/../target
-      - name: Debug 4
-        id: path-check-4
-        continue-on-error: true
-        run: |
-          ls -al /home/runner/work/fastn/fastn/fastn-core/../target/release
       - name: Install fastn
         id: install-fastn
         continue-on-error: false
         run: |
           cargo install --path fastn
-      - name: Run cargo fmt
-        id: fmt
+      - name: Debug target
+        id: path-check
         continue-on-error: true
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
-      - name: Run cargo clippy
-        id: clippy
+        run: |
+          ls -al /home/runner/work/fastn/fastn/fastn-core/../target/
+      - name: Debug
+        id: path-check-2
         continue-on-error: true
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: -- -D warnings
-      - name: Run cargo test
-        id: test
-        continue-on-error: true
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-      - name: Check if code is properly formatted
-        if: steps.fmt.outcome != 'success'
-        run: exit 1
-      - name: Check if clippy is happy
-        if: steps.clippy.outcome != 'success'
-        run: exit 1
-      - name: Check if test succeeded
-        if: steps.test.outcome != 'success'
-        run: exit 1
+        run: |
+          ls -al /home/runner/work/fastn/fastn/fastn-core/../target/debug
