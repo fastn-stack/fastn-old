@@ -44,8 +44,13 @@ jobs:
         continue-on-error: false
         run: |
           ls -al
-      - name: Run Debug
+      - name: Debug 1
         id: path-check
         continue-on-error: true
         run: |
-          ls /home/runner/work/fastn/fastn/fastn-core/ 
+          ls /home/runner/work/fastn/fastn/fastn-core/
+      - name: Debug 2
+        id: path-check-2
+        continue-on-error: true
+        run: |
+          ls /home/runner/work/fastn/fastn/fastn-core/..
