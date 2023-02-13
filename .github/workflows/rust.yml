@@ -39,9 +39,13 @@ jobs:
             ftd/target
             fifthtry_content/target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-      - name: Run Debug
-        id: debug
-        continue-on-error: true
+      - name: Show base folder
+        id: base-check
+        continue-on-error: false
         run: |
           ls -al
+      - name: Run Debug
+        id: path-check
+        continue-on-error: true
+        run: |
           ls /home/runner/work/fastn/fastn/fastn-core/ 
