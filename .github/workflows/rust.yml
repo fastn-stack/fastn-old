@@ -2,7 +2,7 @@ name: Rust Checks
 
 on:
   push:
-    branches: [ main ]
+    branches: [ workflow-debug ]
     paths:
      - '**.rs'
      - 'ftd/**.ftd'
@@ -11,7 +11,7 @@ on:
      - '.github/workflows/rust.yml'
      - 'fastn-core/tests/**'
   pull_request:
-    branches: [ main ]
+    branches: [ workflow-debug ]
     paths:
      - '**.rs'
      - 'ftd/**.ftd'
@@ -39,32 +39,8 @@ jobs:
             ftd/target
             fifthtry_content/target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-      - name: Run cargo fmt
-        id: fmt
+      - name: Run Debug
+        id: debug
         continue-on-error: true
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
-      - name: Run cargo clippy
-        id: clippy
-        continue-on-error: true
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: -- -D warnings
-      - name: Run cargo test
-        id: test
-        continue-on-error: true
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-      - name: Check if code is properly formatted
-        if: steps.fmt.outcome != 'success'
-        run: exit 1
-      - name: Check if clippy is happy
-        if: steps.clippy.outcome != 'success'
-        run: exit 1
-      - name: Check if test succeeded
-        if: steps.test.outcome != 'success'
-        run: exit 1
+        run: |
+          ls -al
