@@ -59,3 +59,8 @@ jobs:
         continue-on-error: true
         run: |
           ls -al /home/runner/work/fastn/fastn/fastn-core/../target
+      - name: Debug 4
+        id: path-check-4
+        continue-on-error: true
+        run: |
+          ls -al /home/runner/work/fastn/fastn/fastn-core/../target/release
