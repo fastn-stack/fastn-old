@@ -58,4 +58,4 @@ jobs:
         id: path-check-3
         continue-on-error: true
         run: |
-          ls /home/runner/work/fastn/fastn/fastn-core/../target
+          ls -al /home/runner/work/fastn/fastn/fastn-core/../target
