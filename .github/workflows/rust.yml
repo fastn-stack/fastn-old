@@ -39,18 +39,42 @@ jobs:
             ftd/target
             fifthtry_content/target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Show base folder
+        id: show-base
+        continue-on-error: true
+        run: | 
+          ls -al
       - name: Install fastn
         id: install-fastn
         continue-on-error: false
         run: |
-          cargo install --path fastn
-      - name: Debug target
-        id: path-check
+          cargo install --path fastn --target-dir target --profile dev
+      - name: Run cargo fmt
+        id: fmt
         continue-on-error: true
-        run: |
-          ls -al /home/runner/work/fastn/fastn/fastn-core/../target/
-      - name: Debug
-        id: path-check-2
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
+      - name: Run cargo clippy
+        id: clippy
         continue-on-error: true
-        run: |
-          ls -al /home/runner/work/fastn/fastn/fastn-core/../target/debug
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: -- -D warnings
+      - name: Run cargo test
+        id: test
+        continue-on-error: true
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+      - name: Check if code is properly formatted
+        if: steps.fmt.outcome != 'success'
+        run: exit 1
+      - name: Check if clippy is happy
+        if: steps.clippy.outcome != 'success'
+        run: exit 1
+      - name: Check if test succeeded
+        if: steps.test.outcome != 'success'
+        run: exit 1
