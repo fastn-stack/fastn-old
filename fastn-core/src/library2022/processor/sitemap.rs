@@ -48,6 +48,7 @@ pub fn full_sitemap_process<'a>(
             .replace(std::path::MAIN_SEPARATOR, "/");
 
         let sitemap_compat = to_sitemap_compat(sitemap, doc_id.as_str());
+        dbg!(&sitemap_compat);
         return doc.from_json(&sitemap_compat, &kind, value.line_number());
     }
     doc.from_json(
@@ -164,7 +165,7 @@ pub fn to_sitemap_compat(
 
         let mut is_child_active: bool = false;
         let mut children: Vec<fastn_core::sitemap::toc::TocItemCompat> = vec![];
-        for child in subsection.toc.iter().filter(|t| !t.skip) {
+        for child in subsection.toc.iter() {
             let child_to_toc_compat = to_toc_compat(child, current_document);
             if child_to_toc_compat.is_active {
                 is_child_active = true;
@@ -204,7 +205,7 @@ pub fn to_sitemap_compat(
 
         let mut is_child_active: bool = false;
         let mut children: Vec<fastn_core::sitemap::toc::TocItemCompat> = vec![];
-        for child in section.subsections.iter().filter(|t| !t.skip) {
+        for child in section.subsections.iter().filter(|t| !t.skip).filter(|s| s.visible) {
             let child_to_subsection_compat = to_subsection_compat(child, current_document);
             if child_to_subsection_compat.is_active {
                 is_child_active = true;
