@@ -48,7 +48,6 @@ pub fn full_sitemap_process<'a>(
             .replace(std::path::MAIN_SEPARATOR, "/");
 
         let sitemap_compat = to_sitemap_compat(sitemap, doc_id.as_str());
-        dbg!(&sitemap_compat);
         return doc.from_json(&sitemap_compat, &kind, value.line_number());
     }
     doc.from_json(
@@ -140,6 +139,7 @@ pub fn to_sitemap_compat(
             url: Some(toc_item.id.clone()),
             number: None,
             title: toc_item.title.clone(),
+            description: None,
             path: None,
             is_heading: false,
             font_icon: toc_item.icon.clone().map(|v| v.into()),
@@ -176,6 +176,7 @@ pub fn to_sitemap_compat(
         fastn_core::sitemap::toc::TocItemCompat {
             url: subsection.id.clone(),
             title: subsection.title.clone(),
+            description: None,
             path: None,
             is_heading: false,
             font_icon: subsection.icon.clone().map(|v| v.into()),
@@ -205,7 +206,7 @@ pub fn to_sitemap_compat(
 
         let mut is_child_active: bool = false;
         let mut children: Vec<fastn_core::sitemap::toc::TocItemCompat> = vec![];
-        for child in section.subsections.iter().filter(|t| !t.skip).filter(|s| s.visible) {
+        for child in section.subsections.iter().filter(|t| !t.skip && t.visible) {
             let child_to_subsection_compat = to_subsection_compat(child, current_document);
             if child_to_subsection_compat.is_active {
                 is_child_active = true;
@@ -216,6 +217,7 @@ pub fn to_sitemap_compat(
         fastn_core::sitemap::toc::TocItemCompat {
             url: Some(section.id.to_string()),
             number: None,
+            description: None,
             title: section.title.clone(),
             path: None,
             is_heading: false,
