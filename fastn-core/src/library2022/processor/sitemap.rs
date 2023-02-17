@@ -124,7 +124,6 @@ pub fn to_sitemap_compat(
         toc_item: &fastn_core::sitemap::toc::TocItem,
         current_document: &str,
     ) -> fastn_core::sitemap::toc::TocItemCompat {
-
         let mut is_child_active: bool = false;
         let mut children: Vec<fastn_core::sitemap::toc::TocItemCompat> = vec![];
         for child in toc_item.children.iter().filter(|t| !t.skip) {
@@ -145,7 +144,8 @@ pub fn to_sitemap_compat(
             font_icon: toc_item.icon.clone().map(|v| v.into()),
             bury: toc_item.bury,
             extra_data: toc_item.extra_data.to_owned(),
-            is_active: fastn_core::utils::ids_matches(toc_item.id.as_str(), current_document) || is_child_active,
+            is_active: fastn_core::utils::ids_matches(toc_item.id.as_str(), current_document)
+                || is_child_active,
             is_open: false,
             nav_title: toc_item.nav_title.clone(),
             children,
@@ -162,7 +162,6 @@ pub fn to_sitemap_compat(
         subsection: &fastn_core::sitemap::section::Subsection,
         current_document: &str,
     ) -> fastn_core::sitemap::toc::TocItemCompat {
-
         let mut is_child_active: bool = false;
         let mut children: Vec<fastn_core::sitemap::toc::TocItemCompat> = vec![];
         for child in subsection.toc.iter() {
@@ -183,7 +182,8 @@ pub fn to_sitemap_compat(
             bury: subsection.bury,
             extra_data: subsection.extra_data.to_owned(),
             is_active: if let Some(ref subsection_id) = subsection.id {
-                fastn_core::utils::ids_matches(subsection_id.as_str(), current_document) || is_child_active
+                fastn_core::utils::ids_matches(subsection_id.as_str(), current_document)
+                    || is_child_active
             } else {
                 is_child_active
             },
@@ -203,7 +203,6 @@ pub fn to_sitemap_compat(
         section: &fastn_core::sitemap::section::Section,
         current_document: &str,
     ) -> fastn_core::sitemap::toc::TocItemCompat {
-
         let mut is_child_active: bool = false;
         let mut children: Vec<fastn_core::sitemap::toc::TocItemCompat> = vec![];
         for child in section.subsections.iter().filter(|t| !t.skip && t.visible) {
@@ -224,7 +223,10 @@ pub fn to_sitemap_compat(
             font_icon: section.icon.clone().map(|v| v.into()),
             bury: section.bury,
             extra_data: section.extra_data.to_owned(),
-            is_active: { fastn_core::utils::ids_matches(section.id.as_str(), current_document) || is_child_active },
+            is_active: {
+                fastn_core::utils::ids_matches(section.id.as_str(), current_document)
+                    || is_child_active
+            },
             is_open: false,
             nav_title: section.nav_title.clone(),
             children,
