@@ -648,6 +648,7 @@ mod test {
                     title: Some("Home Page".to_string()),
                     id: None,
                     url: None,
+                    description: None,
                     number: vec![],
                     bury: false,
                     is_disabled: false,
@@ -675,6 +676,7 @@ mod test {
                 items: vec![
                     super::TocItem {
                         title: Some("Home Page".to_string()),
+                        description: None,
                         is_heading: false,
                         id: None,
                         url: Some("/home-page/".to_string()),
@@ -690,6 +692,7 @@ mod test {
                     super::TocItem {
                         title: Some("Hindi".to_string()),
                         is_heading: false,
+                        description: None,
                         id: None,
                         url: Some("https://test.website.com".to_string()),
                         number: vec![2],
